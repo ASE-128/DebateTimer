@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="Chen Yu" />
+    <title>辩论赛计时器 - 编辑页</title>
+    <link rel="stylesheet" href="styles/editor.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <h1>辩论赛计时器 · 编辑配置</h1>
+        <div class="actions">
+          <button id="saveBtn">保存配置</button>
+          <button id="resetBtn">重置默认</button>
+          <button id="exportConfigBtn">导出配置</button>
+          <button id="exportTimerBtn">导出独立计时器</button>
+          <button id="openTimerBtn">进入计时页</button>
+        </div>
+      </header>
+
+      <section class="grid">
+        <article class="card">
+          <h2>赛事信息</h2>
+          <label>赛事名称<input id="eventName" type="text" /></label>
+          <label>正方队伍<input id="affirmativeTeam" type="text" /></label>
+          <label>反方队伍<input id="negativeTeam" type="text" /></label>
+          <label>正方辩题<input id="affirmativeTopic" type="text" /></label>
+          <label>反方辩题<input id="negativeTopic" type="text" /></label>
+        </article>
+
+        <article class="card">
+          <h2>主题与样式</h2>
+          <label>背景类型<select id="backgroundType"><option value="color">纯色</option><option value="image">图片</option></select></label>
+          <label>背景色<input id="backgroundColor" type="color" /></label>
+          <label>背景图片<input id="backgroundImage" type="file" accept="image/*" /></label>
+          <label>正方色<input id="affirmativeColor" type="color" /></label>
+          <label>反方色<input id="negativeColor" type="color" /></label>
+          <label>标题色<input id="titleColor" type="color" /></label>
+          <label>字体<select id="fontFamily"></select></label>
+          <label>自定义 TTF 字体（仅用于文本）<input id="customFont" type="file" accept=".ttf,.otf" /></label>
+          <label>字号缩放<input id="fontSizeScale" type="range" min="0.8" max="1.4" step="0.05" /></label>
+        </article>
+
+        <article class="card segments-card">
+          <h2>环节列表</h2>
+          <div class="segment-action-bar">
+            <button id="addSpeechBtn" type="button">新增陈词</button>
+            <button id="addQuestionBtn" type="button">新增质询</button>
+            <button id="addDebateBtn" type="button">新增对辩</button>
+            <button id="addFreeDebateBtn" type="button">新增自由辩论</button>
+          </div>
+          <div id="segments"></div>
+        </article>
+      </section>
+      <div class="design-by">Design by Chen Yu</div>
+    </main>
+    <script src="js/editor-app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+build/
+
+# Electron cache
+.cache/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary test artifacts
+tmp-*.bat
+tmp-*.log
+test-standalone*.html
+test-standalone*.js
+*-verify*.png
+editor-verify*.png
+timer-verify*.png
+timer-none*.png
+timer-event.png
+editor-export.png
+standalone-verify*.png

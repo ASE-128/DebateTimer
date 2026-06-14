@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="Chen Yu" />
+    <title>辩论赛计时器 - 计时页</title>
+    <link rel="stylesheet" href="styles/timer.css" />
+  </head>
+  <body>
+    <main class="timer-shell">
+      <header class="top-band">
+        <div class="team affirmative">
+          <span class="team-label">正方</span>
+          <strong class="team-name" id="affirmativeTeamName">正方队</strong>
+          <span class="team-topic" id="affirmativeTopic">正方辩题</span>
+        </div>
+        <div class="title"></div>
+        <div class="team negative">
+          <span class="team-label">反方</span>
+          <strong class="team-name" id="negativeTeamName">反方队</strong>
+          <span class="team-topic" id="negativeTopic">反方辩题</span>
+        </div>
+      </header>
+
+      <section class="main-area">
+        <div class="event-name" id="eventName">赛事名称</div>
+        <div class="segment-name" id="segmentName">开场</div>
+        <div class="timer-display" id="timerDisplay">
+          <div class="single-timer" id="singleTimer">00:00</div>
+          <div class="dual-timer" id="dualTimer">
+            <div class="dual-side affirmative">
+              <span class="dual-label">正方</span>
+              <span class="dual-time" id="affirmativeTime">00:00</span>
+            </div>
+            <div class="dual-side negative">
+              <span class="dual-label">反方</span>
+              <span class="dual-time" id="negativeTime">00:00</span>
+            </div>
+          </div>
+        </div>
+        <div class="side-label" id="sideLabel">当前发言方</div>
+        <div class="status-pill" id="statusText">状态：已加载配置</div>
+      </section>
+
+      <aside class="control-panel">
+        <h3>控制面板</h3>
+        <button id="startBtn">启动 / 切换</button>
+        <button id="stopBtn">停止</button>
+        <button id="resetBtn">重置</button>
+        <button id="prevBtn">上一个环节</button>
+        <button id="nextBtn">下一个环节</button>
+        <button id="jumpBtn">环节跳转</button>
+        <button id="setTimeBtn">设置时间</button>
+        <button id="test30Btn">30秒试音(Q)</button>
+        <button id="test5Btn">5秒试音(W)</button>
+        <button id="testEndBtn">时间到(E)</button>
+        <button id="fullscreenBtn">全屏(F)</button>
+        <button id="backBtn">返回编辑页(B)</button>
+      </aside>
+
+      <footer class="watermark">辩论计时器</footer>
+      <div class="design-by">Design by Chen Yu</div>
+    </main>
+    <div id="jumpModal" class="timer-modal" style="display:none">
+      <div class="box">
+        <h2>环节跳转</h2>
+        <div id="jumpSegmentList" class="segment-list"></div>
+        <button id="jumpCancelBtn" class="secondary">取消</button>
+      </div>
+    </div>
+    <div id="setTimeModal" class="timer-modal" style="display:none">
+      <div class="box">
+        <h2>设置时间</h2>
+        <div class="time-inputs">
+          <label>分<input id="setTimeMin" type="number" min="0" value="0" /></label>
+          <label>秒<input id="setTimeSec" type="number" min="0" max="59" value="0" /></label>
+        </div>
+        <button id="setTimeConfirmBtn">确认</button>
+        <button id="setTimeCancelBtn" class="secondary">取消</button>
+      </div>
+    </div>
+    <script src="js/audio.js"></script>
+    <script src="js/timer-core.js"></script>
+    <script src="js/timer-app.js"></script>
+  </body>
+</html>

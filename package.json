@@ -1,0 +1,55 @@
+{
+  "name": "debate-timer-electron",
+  "version": "2.0.0",
+  "description": "Electron debate timer app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.ASE-128.debatetimer",
+    "productName": "DebateTimer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "timer.html",
+      "editor.html",
+      "js/**/*",
+      "styles/**/*",
+      "scripts/**/*",
+      "vendor/**/*",
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  },
+  "keywords": [
+    "electron",
+    "debate",
+    "timer"
+  ],
+  "author": "Chen Yu <tmlde@outlook.com>",
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3"
+  }
+}
