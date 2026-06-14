@@ -8,7 +8,7 @@
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "com.ASE-128.debatetimer",
+    "appId": "com.ase128.debatetimer",
     "productName": "DebateTimer",
     "directories": {
       "output": "dist"
@@ -21,7 +21,7 @@
       "js/**/*",
       "styles/**/*",
       "scripts/**/*",
-      "vendor/**/*",
+      "vendor/**/*"
     ],
     "win": {
       "target": [
@@ -33,7 +33,7 @@
           "target": "portable",
           "arch": ["x64"]
         }
-      ],
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -46,7 +46,7 @@
     "debate",
     "timer"
   ],
-  "author": "Chen Yu <tmlde@outlook.com>",
+  "author": "Chen Yu",
   "license": "GPL-3.0",
   "devDependencies": {
     "electron": "^42.4.0",

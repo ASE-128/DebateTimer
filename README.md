@@ -88,4 +88,4 @@ npm start
 
 ## 许可
 
-GNU
+GPL-3.0
