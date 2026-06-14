@@ -1,5 +1,5 @@
 # 辩论赛计时器（DebateTimer）
-
+**版本：2.0.0** | 作者：Chen Yu | 许可证：GPL-3.0
 一款基于 Electron 的桌面辩论赛计时器，支持配置赛事信息、环节、主题样式，并在计时页进行倒计时展示与提示音提醒。
 
 **作者：Chen Yu**
@@ -62,7 +62,13 @@ npm start
 
 ## 打包发布
 
-当前未配置自动化打包工具。如需发布，可安装 `electron-builder` 或 `electron-forge`，并补充图标、应用 ID、目标平台等配置。
+已配置 `electron-builder`，支持生成 Windows 安装包（NSIS）与便携版（Portable）。
+
+```bash
+npm run dist
+输出目录：dist/
+DebateTimer Setup 2.0.0.exe —— 安装包
+DebateTimer 2.0.0.exe —— 便携版
 
 ## 目录结构
 
