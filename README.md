@@ -71,29 +71,25 @@ npm run dist
 输出目录：dist/
 DebateTimer Setup 2.0.0.exe —— 安装包
 DebateTimer 2.0.0.exe —— 便携版
-
+```
 ## 目录结构
-
+```text
+. ├── main.js # Electron 主进程
+  ├── preload.js # 渲染进程 IPC 桥接
+  ├── editor.html # 编辑页
+  ├── timer.html # 计时页
+  ├── js/
+  │ ├── audio.js # Web Audio 提示音
+  │ ├── timer-core.js # 计时引擎
+  │ ├── timer-app.js # 计时页 UI 控制
+  │ └── editor-app.js # 编辑页逻辑
+  ├── styles/
+  │ ├── editor.css
+  │ └── timer.css
+  ├── vendor/
+  │ └── embedded-binaries.js # 嵌入的 WinRAR 组件与 Electron 默认图标
+  ├── package.json
+  └── README.md
 ```
-.
-├── main.js              # Electron 主进程
-├── preload.js           # 渲染进程 IPC 桥接
-├── editor.html          # 编辑页
-├── timer.html           # 计时页
-├── js/
-│   ├── audio.js         # Web Audio 提示音
-│   ├── timer-core.js    # 计时引擎
-│   ├── timer-app.js     # 计时页 UI 控制
-│   └── editor-app.js    # 编辑页逻辑
-├── styles/
-│   ├── editor.css
-│   └── timer.css
-├── vendor/
-│   └── embedded-binaries.js  # 嵌入的 WinRAR 组件与 Electron 默认图标
-├── package.json
-└── README.md
-```
-
 ## 许可
-
 GPL-3.0
