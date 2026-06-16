@@ -24,7 +24,7 @@ function copyDir(src, dest) {
     } else if (entry.name.endsWith('.asar')) {
       continue;
     } else {
-      fs.writeFileSync(destPath, fs.readFileSync(srcPath));
+      fs.copyFileSync(srcPath, destPath);
     }
   }
 }
@@ -138,7 +138,7 @@ function buildStandalone(config, savePath) {
     const commentFile = path.join(tempBase, 'sfx-comment.txt');
     fs.writeFileSync(commentFile, 'Setup=electron.exe\nTempMode\nSilent=1\nOverwrite=1');
     const tmpExe = path.join(tempBase, 'debate-timer.exe');
-    childProcess.spawnSync(rarExe, [
+    const result = childProcess.spawnSync(rarExe, [
       'a',
       '-sfxDefault.SFX',
       '-iiconelectron-icon.ico',
@@ -152,7 +152,10 @@ function buildStandalone(config, savePath) {
       '-xdebate-timer.exe',
       'debate-timer.exe',
       '*'
-    ], { cwd: tempBase, windowsHide: true });
+    ], { cwd: tempBase, windowsHide: true, encoding: 'utf8' });
+    if (result.status !== 0) {
+      throw new Error(`rar.exe 执行失败（退出码 ${result.status}）${result.stderr ? ': ' + result.stderr : ''}`);
+    }
     if (!fs.existsSync(tmpExe)) {
       throw new Error('自解压程序生成失败');
     }

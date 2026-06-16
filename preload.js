@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
   exportConfig: (config) => ipcRenderer.invoke('export-config', config),
   exportStandalone: (config) => ipcRenderer.invoke('export-standalone', config),
+  importConfig: () => ipcRenderer.invoke('import-config'),
   onConfigUpdated: (callback) => {
     const listener = (_event, config) => callback(config);
     ipcRenderer.on('config-updated', listener);

@@ -54,6 +54,44 @@ function defaultConfig() {
   };
 }
 
+function validateConfig(input) {
+  const def = defaultConfig();
+  if (!input || typeof input !== 'object') return def;
+  return {
+    eventName: String(input.eventName || def.eventName),
+    teams: {
+      affirmative: String(input.teams?.affirmative || def.teams.affirmative),
+      negative: String(input.teams?.negative || def.teams.negative)
+    },
+    topics: {
+      affirmative: String(input.topics?.affirmative || def.topics.affirmative),
+      negative: String(input.topics?.negative || def.topics.negative)
+    },
+    theme: {
+      backgroundType: ['color', 'image'].includes(input.theme?.backgroundType) ? input.theme.backgroundType : def.theme.backgroundType,
+      backgroundImage: String(input.theme?.backgroundImage || def.theme.backgroundImage),
+      backgroundColor: String(input.theme?.backgroundColor || def.theme.backgroundColor),
+      fontFamily: String(input.theme?.fontFamily || def.theme.fontFamily),
+      fontSizeScale: Number(input.theme?.fontSizeScale || def.theme.fontSizeScale),
+      customFont: String(input.theme?.customFont || def.theme.customFont),
+      customFontName: String(input.theme?.customFontName || def.theme.customFontName),
+      colors: {
+        affirmative: String(input.theme?.colors?.affirmative || def.theme.colors.affirmative),
+        negative: String(input.theme?.colors?.negative || def.theme.colors.negative),
+        title: String(input.theme?.colors?.title || def.theme.colors.title),
+        text: String(input.theme?.colors?.text || def.theme.colors.text)
+      }
+    },
+    segments: Array.isArray(input.segments) ? input.segments.map((seg, i) => ({
+      id: i + 1,
+      name: String(seg.name || '未命名环节'),
+      type: ['none', 'single_speech', 'single_question', 'dual_debate'].includes(seg.type) ? seg.type : 'none',
+      duration: Math.max(0, Number(seg.duration || 0)),
+      side: ['affirmative', 'negative'].includes(seg.side) ? seg.side : undefined
+    })) : def.segments
+  };
+}
+
 function readConfig() {
   ensureUserDataDir();
   if (!fs.existsSync(configPath)) {
@@ -89,7 +127,7 @@ function copyDir(src, dest) {
     } else if (entry.name.endsWith('.asar')) {
       continue;
     } else {
-      fs.writeFileSync(destPath, fs.readFileSync(srcPath));
+      fs.copyFileSync(srcPath, destPath);
     }
   }
 }
@@ -149,57 +187,96 @@ function generateStandaloneAppFiles(config, appDir) {
   fs.writeFileSync(path.join(appDir, 'js', 'timer-app.js'), readAsset('js', 'timer-app.js'));
 }
 
+function cleanupTemp(dir) {
+  if (!dir) return;
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (e) {
+    console.error('清理临时目录失败:', e.message);
+  }
+}
+
 function generateStandaloneExe(config, savePath) {
-  const tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${Date.now()}`);
-  fs.mkdirSync(tempBase, { recursive: true });
+  return new Promise((resolve, reject) => {
+    let tempBase = null;
+    try {
+      tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${Date.now()}`);
+      fs.mkdirSync(tempBase, { recursive: true });
 
-  // 1. Copy Electron runtime
-  const electronDist = path.join(__dirname, 'node_modules', 'electron', 'dist');
-  if (!fs.existsSync(electronDist)) {
-    throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
-  }
-  copyDir(electronDist, tempBase);
+      // 1. Copy Electron runtime
+      const electronDist = path.join(__dirname, 'node_modules', 'electron', 'dist');
+      if (!fs.existsSync(electronDist)) {
+        throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
+      }
+      copyDir(electronDist, tempBase);
 
-  // 2. Create app folder
-  const appDir = path.join(tempBase, 'resources', 'app');
-  generateStandaloneAppFiles(config, appDir);
+      // 2. Create app folder
+      const appDir = path.join(tempBase, 'resources', 'app');
+      generateStandaloneAppFiles(config, appDir);
 
-  // 3. Write embedded WinRAR tools and icon into temp dir
-  const rarExe = path.join(tempBase, 'rar.exe');
-  const sfxModule = path.join(tempBase, 'Default.SFX');
-  const sfxIcon = path.join(tempBase, 'electron-icon.ico');
-  fs.writeFileSync(rarExe, Buffer.from(embeddedBinaries.rarExeBase64, 'base64'));
-  fs.writeFileSync(sfxModule, Buffer.from(embeddedBinaries.sfxModuleBase64, 'base64'));
-  fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
+      // 3. Write embedded WinRAR tools and icon into temp dir
+      const rarExe = path.join(tempBase, 'rar.exe');
+      const sfxModule = path.join(tempBase, 'Default.SFX');
+      const sfxIcon = path.join(tempBase, 'electron-icon.ico');
+      fs.writeFileSync(rarExe, Buffer.from(embeddedBinaries.rarExeBase64, 'base64'));
+      fs.writeFileSync(sfxModule, Buffer.from(embeddedBinaries.sfxModuleBase64, 'base64'));
+      fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
 
-  // 4. Create WinRAR SFX
-  const commentFile = path.join(tempBase, 'sfx-comment.txt');
-  fs.writeFileSync(commentFile, 'Setup=electron.exe\nTempMode\nSilent=1\nOverwrite=1');
-  const tmpExe = path.join(tempBase, 'debate-timer.exe');
-  childProcess.spawnSync(rarExe, [
-    'a',
-    '-sfxDefault.SFX',
-    '-iiconelectron-icon.ico',
-    '-zsfx-comment.txt',
-    '-r',
-    '-ep1',
-    '-xrar.exe',
-    '-xDefault.SFX',
-    '-xelectron-icon.ico',
-    '-xsfx-comment.txt',
-    '-xdebate-timer.exe',
-    'debate-timer.exe',
-    '*'
-  ], { cwd: tempBase, windowsHide: true });
-  if (!fs.existsSync(tmpExe)) {
-    throw new Error('自解压程序生成失败，请检查 WinRAR 嵌入模块是否完整');
-  }
+      // 4. Create WinRAR SFX
+      const commentFile = path.join(tempBase, 'sfx-comment.txt');
+      fs.writeFileSync(commentFile, 'Setup=electron.exe\nTempMode\nSilent=1\nOverwrite=1');
+      const tmpExe = path.join(tempBase, 'debate-timer.exe');
 
-  // 5. Move result to save path
-  fs.copyFileSync(tmpExe, savePath);
+      const child = childProcess.spawn(rarExe, [
+        'a',
+        '-sfxDefault.SFX',
+        '-iiconelectron-icon.ico',
+        '-zsfx-comment.txt',
+        '-r',
+        '-ep1',
+        '-xrar.exe',
+        '-xDefault.SFX',
+        '-xelectron-icon.ico',
+        '-xsfx-comment.txt',
+        '-xdebate-timer.exe',
+        'debate-timer.exe',
+        '*'
+      ], { cwd: tempBase, windowsHide: true });
 
-  // 6. Cleanup
-  fs.rmSync(tempBase, { recursive: true, force: true });
+      let stderr = '';
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', (data) => { stderr += data; });
+
+      child.on('error', (err) => {
+        cleanupTemp(tempBase);
+        reject(new Error(`rar.exe 启动失败: ${err.message}`));
+      });
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          cleanupTemp(tempBase);
+          reject(new Error(`rar.exe 执行失败（退出码 ${code}）${stderr ? ': ' + stderr : ''}`));
+          return;
+        }
+        if (!fs.existsSync(tmpExe)) {
+          cleanupTemp(tempBase);
+          reject(new Error('自解压程序生成失败，输出文件不存在'));
+          return;
+        }
+        try {
+          fs.copyFileSync(tmpExe, savePath);
+          cleanupTemp(tempBase);
+          resolve({ ok: true, path: savePath });
+        } catch (err) {
+          cleanupTemp(tempBase);
+          reject(new Error(`复制 EXE 到目标路径失败: ${err.message}`));
+        }
+      });
+    } catch (err) {
+      cleanupTemp(tempBase);
+      reject(err);
+    }
+  });
 }
 
 function refreshTimerWindow() {
@@ -290,6 +367,28 @@ if (isElectron) {
       }
       return { ok: true };
     });
+    ipcMain.handle('import-config', async () => {
+      try {
+        const { filePaths } = await dialog.showOpenDialog(editorWindow, {
+          title: '导入比赛配置',
+          properties: ['openFile'],
+          filters: [{ name: 'JSON 配置', extensions: ['json'] }]
+        });
+        if (!filePaths || filePaths.length === 0) {
+          return { ok: false, config: null, error: '用户取消选择' };
+        }
+        const content = fs.readFileSync(filePaths[0], 'utf8');
+        const imported = JSON.parse(content);
+        const validated = validateConfig(imported);
+        if (timerWindow && !timerWindow.isDestroyed()) {
+          timerWindow.webContents.send('config-updated', validated);
+        }
+        return { ok: true, config: validated, path: filePaths[0] };
+      } catch (err) {
+        console.error('导入配置失败:', err);
+        return { ok: false, config: null, error: err.message };
+      }
+    });
     ipcMain.handle('export-config', async (_event, config) => {
       const { filePath } = await dialog.showSaveDialog(editorWindow, {
         title: '导出比赛配置',
@@ -303,16 +402,21 @@ if (isElectron) {
       return { ok: false, path: null };
     });
     ipcMain.handle('export-standalone', async (_event, config) => {
-      const { filePath } = await dialog.showSaveDialog(editorWindow, {
-        title: '导出独立计时器',
-        defaultPath: 'debate-timer.exe',
-        filters: [{ name: '可执行文件', extensions: ['exe'] }]
-      });
-      if (filePath) {
-        generateStandaloneExe(config, filePath);
-        return { ok: true, path: filePath };
+      try {
+        const { filePath } = await dialog.showSaveDialog(editorWindow, {
+          title: '导出独立计时器',
+          defaultPath: 'debate-timer.exe',
+          filters: [{ name: '可执行文件', extensions: ['exe'] }]
+        });
+        if (!filePath) {
+          return { ok: false, path: null, error: '用户取消保存' };
+        }
+        const result = await generateStandaloneExe(config, filePath);
+        return result;
+      } catch (err) {
+        console.error('导出独立计时器失败:', err);
+        return { ok: false, path: null, error: err.message };
       }
-      return { ok: false, path: null };
     });
     ipcMain.handle('toggle-fullscreen', () => {
       const target = timerWindow && !timerWindow.isDestroyed() ? timerWindow : editorWindow;
@@ -334,4 +438,4 @@ if (isElectron) {
   });
 }
 
-module.exports = { defaultConfig, readConfig, writeConfig, generateStandaloneExe, generateStandaloneAppFiles, readAsset, extractBody, copyDir };
+module.exports = { defaultConfig, readConfig, writeConfig, validateConfig, generateStandaloneExe, generateStandaloneAppFiles, readAsset, extractBody, copyDir };

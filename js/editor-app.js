@@ -10,6 +10,26 @@ function renderFonts() {
   });
 }
 
+async function loadConfigFromImport(config) {
+  if (!config) return;
+  document.getElementById('eventName').value = config.eventName || '';
+  document.getElementById('affirmativeTeam').value = config.teams?.affirmative || '';
+  document.getElementById('negativeTeam').value = config.teams?.negative || '';
+  document.getElementById('affirmativeTopic').value = config.topics?.affirmative || '';
+  document.getElementById('negativeTopic').value = config.topics?.negative || '';
+  document.getElementById('backgroundType').value = config.theme?.backgroundType || 'color';
+  document.getElementById('backgroundColor').value = config.theme?.backgroundColor || '#1a1a1a';
+  document.getElementById('affirmativeColor').value = config.theme?.colors?.affirmative || '#c0392b';
+  document.getElementById('negativeColor').value = config.theme?.colors?.negative || '#2980b9';
+  document.getElementById('titleColor').value = config.theme?.colors?.title || '#3498db';
+  document.getElementById('fontFamily').value = config.theme?.fontFamily || 'system-ui';
+  document.getElementById('fontSizeScale').value = config.theme?.fontSizeScale || 1;
+  const customFontInput = document.getElementById('customFont');
+  customFontInput.dataset.dataUrl = config.theme?.customFont || '';
+  customFontInput.dataset.fileName = config.theme?.customFontName || '';
+  renderSegments(config.segments || []);
+}
+
 async function loadConfig() {
   const config = await window.electronAPI.loadConfig();
   document.getElementById('eventName').value = config.eventName || '';
@@ -279,14 +299,29 @@ document.getElementById('backgroundImage').addEventListener('change', (event) =>
 
 document.getElementById('saveBtn').addEventListener('click', saveConfig);
 document.getElementById('resetBtn').addEventListener('click', resetConfig);
+document.getElementById('importConfigBtn').addEventListener('click', async () => {
+  const result = await window.electronAPI.importConfig();
+  if (result?.ok) {
+    alert(`配置已导入：${result.path}`);
+    await loadConfigFromImport(result.config);
+  } else {
+    alert(`导入失败：${result?.error || '未知错误'}`);
+  }
+});
+
 document.getElementById('exportConfigBtn').addEventListener('click', async () => {
   const result = await window.electronAPI.exportConfig(gatherConfig());
   if (result?.ok) alert(`配置已导出到：${result.path}`);
 });
 document.getElementById('exportTimerBtn').addEventListener('click', async () => {
   const result = await window.electronAPI.exportStandalone(gatherConfig());
-  if (result?.ok) alert(`独立计时器已导出到：${result.path}\n说明：该 exe 会自解压到临时目录并启动 Electron 计时器。`);
+  if (result?.ok) {
+    alert(`独立计时器已导出到：${result.path}\n说明：该 exe 会自解压到临时目录并启动 Electron 计时器。`);
+  } else {
+    alert(`导出失败：${result?.error || '未知错误'}`);
+  }
 });
+document.getElementById('addNoneBtn').addEventListener('click', () => addSegmentPreset('none', '无计时', 0, undefined));
 document.getElementById('addSpeechBtn').addEventListener('click', () => addSegmentPreset('single_speech', '陈词', 180, 'affirmative'));
 document.getElementById('addQuestionBtn').addEventListener('click', () => addSegmentPreset('single_question', '质询', 60, 'affirmative'));
 document.getElementById('addDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '对辩', 120, 'affirmative'));
