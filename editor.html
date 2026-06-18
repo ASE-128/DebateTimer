@@ -5,59 +5,104 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="author" content="Chen Yu" />
     <title>辩论赛计时器 - 编辑页</title>
+    <link rel="stylesheet" href="styles/variables.css" />
     <link rel="stylesheet" href="styles/editor.css" />
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
         <h1>辩论赛计时器 · 编辑配置</h1>
-        <div class="actions">
-          <button id="saveBtn">保存配置</button>
-          <button id="resetBtn">重置默认</button>
-          <button id="importConfigBtn">导入配置</button>
-          <button id="exportConfigBtn">导出配置</button>
-          <button id="exportTimerBtn">导出独立计时器</button>
-          <button id="openTimerBtn">进入计时页</button>
+        <div class="actions topbar-actions">
+          <button id="saveBtn" class="btn btn-accent">保存配置</button>
+          <button id="resetBtn" class="btn">重置默认</button>
+          <button id="importConfigBtn" class="btn">导入配置</button>
+          <button id="exportConfigBtn" class="btn">导出配置</button>
+          <button id="exportTimerBtn" class="btn">导出独立计时器</button>
+          <button id="openTimerBtn" class="btn btn-accent">进入计时页</button>
         </div>
       </header>
 
-      <section class="grid">
-        <article class="card">
-          <h2>赛事信息</h2>
-          <label>赛事名称<input id="eventName" type="text" /></label>
-          <label>正方队伍<input id="affirmativeTeam" type="text" /></label>
-          <label>反方队伍<input id="negativeTeam" type="text" /></label>
-          <label>正方辩题<input id="affirmativeTopic" type="text" /></label>
-          <label>反方辩题<input id="negativeTopic" type="text" /></label>
-        </article>
+      <div class="editor-tabs">
+        <button class="editor-tab active" data-panel="event">赛事信息</button>
+        <button class="editor-tab" data-panel="theme">主题样式</button>
+        <button class="editor-tab" data-panel="segments">环节管理</button>
+      </div>
 
-        <article class="card">
-          <h2>主题与样式</h2>
-          <label>背景类型<select id="backgroundType"><option value="color">纯色</option><option value="image">图片</option></select></label>
-          <label>背景色<input id="backgroundColor" type="color" /></label>
-          <label>背景图片<input id="backgroundImage" type="file" accept="image/*" /></label>
-          <label>正方色<input id="affirmativeColor" type="color" /></label>
-          <label>反方色<input id="negativeColor" type="color" /></label>
-          <label>标题色<input id="titleColor" type="color" /></label>
-          <label>字体<select id="fontFamily"></select></label>
-          <label>自定义 TTF 字体（仅用于文本）<input id="customFont" type="file" accept=".ttf,.otf" /></label>
-          <label>字号缩放<input id="fontSizeScale" type="range" min="0.8" max="1.4" step="0.05" /></label>
-        </article>
-
-        <article class="card segments-card">
-          <h2>环节列表</h2>
-          <div class="segment-action-bar">
-            <button id="addNoneBtn" type="button">新增无计时</button>
-            <button id="addSpeechBtn" type="button">新增陈词</button>
-            <button id="addQuestionBtn" type="button">新增质询</button>
-            <button id="addDebateBtn" type="button">新增对辩</button>
-            <button id="addFreeDebateBtn" type="button">新增自由辩论</button>
+      <div class="editor-body">
+        <nav class="editor-sidebar">
+          <div class="editor-nav-item active" data-panel="event">
+            <span class="editor-nav-icon">[</span>
+            <span>赛事信息</span>
           </div>
-          <div id="segments"></div>
-        </article>
-      </section>
+          <div class="editor-nav-item" data-panel="theme">
+            <span class="editor-nav-icon">[</span>
+            <span>主题样式</span>
+          </div>
+          <div class="editor-nav-item" data-panel="segments">
+            <span class="editor-nav-icon">[</span>
+            <span>环节管理</span>
+          </div>
+        </nav>
+
+        <div class="editor-content">
+          <!-- 赛事信息面板 -->
+          <div class="editor-panel active" id="panel-event">
+            <div class="card">
+              <h2>赛事信息</h2>
+              <label>赛事名称<input id="eventName" type="text" placeholder="输入赛事名称" /></label>
+              <label>正方队伍<input id="affirmativeTeam" type="text" placeholder="正方队伍名称" /></label>
+              <label>反方队伍<input id="negativeTeam" type="text" placeholder="反方队伍名称" /></label>
+              <label>正方辩题<input id="affirmativeTopic" type="text" placeholder="正方辩题" /></label>
+              <label>反方辩题<input id="negativeTopic" type="text" placeholder="反方辩题" /></label>
+            </div>
+          </div>
+
+          <!-- 主题样式面板 -->
+          <div class="editor-panel" id="panel-theme">
+            <div class="card">
+              <h2>主题样式</h2>
+              <label>主题预设<select id="themePreset"><option value="classic">经典红蓝</option><option value="modern">现代紫橙</option><option value="monochrome">极简单色</option></select></label>
+          <label>背景类型<select id="backgroundType"><option value="color">纯色</option><option value="image">图片</option></select></label>
+              <label>背景色<input id="backgroundColor" type="color" /></label>
+              <label>背景图片<input id="backgroundImage" type="file" accept="image/*" /></label>
+              <label>正方色<input id="affirmativeColor" type="color" /></label>
+              <label>反方色<input id="negativeColor" type="color" /></label>
+              <label>标题色<input id="titleColor" type="color" /></label>
+              <label>字体<select id="fontFamily"></select></label>
+              <label>自定义 TTF 字体（仅用于文本）<input id="customFont" type="file" accept=".ttf,.otf" /></label>
+              <label>字号缩放<input id="fontSizeScale" type="range" min="0.8" max="1.4" step="0.05" /></label>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+              <h2>实时预览</h2>
+              <div id="themePreview" style="background: var(--bg-secondary); border-radius: var(--radius-md); padding: 20px; text-align: center; border: 1px solid var(--border-subtle);">
+                <div style="font-size: 18px; color: var(--accent-title); font-weight: 700; margin-bottom: 8px;" id="previewEventName">赛事名称</div>
+                <div style="font-size: 24px; color: var(--text-primary); font-weight: 800; margin-bottom: 12px;" id="previewSegmentName">正方一辩·陈词</div>
+                <div style="font-size: 48px; font-family: var(--font-mono); font-weight: 700; color: var(--accent-affirmative); letter-spacing: 4px;" id="previewTimer">03:00</div>
+                <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary);" id="previewSideLabel">正方发言中</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 环节管理面板 -->
+          <div class="editor-panel" id="panel-segments">
+            <div class="card segments-card">
+              <h2>环节列表</h2>
+              <div class="segment-action-bar">
+                <button id="addNoneBtn" type="button">+ 新增无计时</button>
+                <button id="addSpeechBtn" type="button">+ 新增陈词</button>
+                <button id="addQuestionBtn" type="button">+ 新增质询</button>
+                <button id="addDebateBtn" type="button">+ 新增对辩</button>
+                <button id="addFreeDebateBtn" type="button">+ 新增自由辩论</button>
+              </div>
+              <div id="segments"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="design-by">Design by Chen Yu</div>
     </main>
+    <script src="js/toast.js"></script>
     <script src="js/editor-app.js"></script>
   </body>
 </html>

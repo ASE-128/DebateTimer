@@ -11,11 +11,14 @@ const affirmativeTeamNameEl = document.getElementById('affirmativeTeamName');
 const negativeTeamNameEl = document.getElementById('negativeTeamName');
 const affirmativeTopicEl = document.getElementById('affirmativeTopic');
 const negativeTopicEl = document.getElementById('negativeTopic');
+const eventTitleEl = document.getElementById('eventTitle');
 
 const singleTimerEl = document.getElementById('singleTimer');
 const dualTimerEl = document.getElementById('dualTimer');
 const affirmativeTimeEl = document.getElementById('affirmativeTime');
 const negativeTimeEl = document.getElementById('negativeTime');
+const timerProgressEl = document.getElementById('timerProgress');
+const timerProgressBarEl = document.getElementById('timerProgressBar');
 
 function formatTime(seconds) {
   const total = Math.max(0, Math.floor(seconds));
@@ -25,11 +28,11 @@ function formatTime(seconds) {
 }
 
 function applyTheme(theme = config.theme || {}) {
-  document.documentElement.style.setProperty('--accent-affirmative', theme.colors?.affirmative || '#c0392b');
-  document.documentElement.style.setProperty('--accent-negative', theme.colors?.negative || '#2980b9');
-  document.documentElement.style.setProperty('--accent-title', theme.colors?.title || '#3498db');
-  document.documentElement.style.setProperty('--text-color', theme.colors?.text || '#ffffff');
-  document.documentElement.style.setProperty('--bg-color', theme.backgroundColor || '#1a1a1a');
+  document.documentElement.style.setProperty('--accent-affirmative', theme.colors?.affirmative || '#e74c3c');
+  document.documentElement.style.setProperty('--accent-negative', theme.colors?.negative || '#3498db');
+  document.documentElement.style.setProperty('--accent-title', theme.colors?.title || '#5dade2');
+  document.documentElement.style.setProperty('--text-color', theme.colors?.text || '#f0f2f5');
+  document.documentElement.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
   document.body.style.backgroundImage = theme.backgroundType === 'image' && theme.backgroundImage ? `url(${theme.backgroundImage})` : 'none';
   document.body.style.backgroundSize = 'cover';
   document.body.style.backgroundPosition = 'center';
@@ -64,10 +67,15 @@ function setStatus(text) {
 }
 
 function updateControlLabel(state) {
-  if (config?.segments?.[engine?.currentIndex]?.type === 'dual_debate') {
-    startBtnEl.textContent = state.isRunning ? '切换发言方' : '开始';
-  } else {
+  const btnLabel = startBtnEl.querySelector('.btn-label');
+  if (!btnLabel) {
     startBtnEl.textContent = state.isRunning ? '暂停' : '启动';
+    return;
+  }
+  if (config?.segments?.[engine?.currentIndex]?.type === 'dual_debate') {
+    btnLabel.textContent = state.isRunning ? '切换' : '开始';
+  } else {
+    btnLabel.textContent = state.isRunning ? '暂停' : '启动';
   }
 }
 
@@ -76,6 +84,34 @@ function updateTeamDisplay(state) {
   negativeTeamNameEl.textContent = config?.teams?.negative || '反方队';
   affirmativeTopicEl.textContent = config?.topics?.affirmative || '正方辩题';
   negativeTopicEl.textContent = config?.topics?.negative || '反方辩题';
+  if (eventTitleEl) eventTitleEl.textContent = config.eventName || '赛事名称';
+}
+
+function updateProgress(state) {
+  if (!timerProgressBarEl || !timerProgressEl) return;
+  const segment = state.currentSegment || {};
+  const isNoTimer = segment.type === 'none';
+  if (isNoTimer) {
+    timerProgressEl.style.display = 'none';
+    return;
+  }
+  timerProgressEl.style.display = '';
+  const totalDuration = Number(segment.duration || 0);
+  if (totalDuration <= 0) return;
+  let remaining = 0;
+  if (segment.type === 'dual_debate') {
+    remaining = state.activeSide === 'affirmative' ? state.remaining : state.remainingOpposite;
+  } else {
+    remaining = state.remaining;
+  }
+  const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
+  timerProgressBarEl.style.width = `${pct}%`;
+  timerProgressBarEl.classList.remove('urgent', 'critical');
+  if (remaining <= 5) {
+    timerProgressBarEl.classList.add('critical');
+  } else if (remaining <= 30) {
+    timerProgressBarEl.classList.add('urgent');
+  }
 }
 
 function syncUi(actionLabel) {
@@ -98,6 +134,7 @@ function render(state) {
   document.documentElement.style.setProperty('--font-scale', String(config.theme?.fontSizeScale || 1));
   updateControlLabel(state);
   updateTeamDisplay(state);
+  updateProgress(state);
 
   if (isNoTimer) {
     singleTimerEl.style.display = 'none';
@@ -147,7 +184,7 @@ function openStandaloneSetup() {
   document.getElementById('ssAffirmativeTopic').value = config.topics?.affirmative || '';
   document.getElementById('ssNegativeTeam').value = config.teams?.negative || '';
   document.getElementById('ssNegativeTopic').value = config.topics?.negative || '';
-  modal.style.display = 'flex';
+  modal.classList.add('active');
   const startBtn = document.getElementById('ssStartBtn');
   const newStartBtn = startBtn.cloneNode(true);
   startBtn.parentNode.replaceChild(newStartBtn, startBtn);
@@ -156,7 +193,7 @@ function openStandaloneSetup() {
     config.teams.negative = document.getElementById('ssNegativeTeam').value || config.teams.negative;
     config.topics.affirmative = document.getElementById('ssAffirmativeTopic').value || config.topics.affirmative;
     config.topics.negative = document.getElementById('ssNegativeTopic').value || config.topics.negative;
-    modal.style.display = 'none';
+    modal.classList.remove('active');
     render(engine.getState());
     setStatus('队伍信息已更新');
   });
@@ -181,6 +218,8 @@ async function refreshFromConfig(nextConfig) {
 
 function bindShortcuts() {
   document.addEventListener('keydown', (event) => {
+    const isTyping = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
+    if (isTyping) return;
     if (event.code === 'Space') {
       event.preventDefault();
       engine.toggle();
@@ -201,7 +240,9 @@ function bindShortcuts() {
 }
 
 function bindControlButtons() {
-  document.getElementById('backBtn').textContent = isStandalone ? '队伍设置(B)' : '返回编辑页(B)';
+  const backBtnLabel = document.querySelector('#backBtn .btn-label');
+  if (backBtnLabel) backBtnLabel.textContent = isStandalone ? '队伍设置' : '返回编辑页';
+  else document.getElementById('backBtn').textContent = isStandalone ? '队伍设置(B)' : '返回编辑页(B)';
   document.getElementById('startBtn').addEventListener('click', () => {
     if (!engine) return;
     const wasRunning = engine.isRunning;
@@ -292,11 +333,11 @@ function openJumpModal() {
     });
     list.appendChild(btn);
   });
-  modal.style.display = 'flex';
+  modal.classList.add('active');
 }
 
 function closeJumpModal() {
-  document.getElementById('jumpModal').style.display = 'none';
+  document.getElementById('jumpModal').classList.remove('active');
 }
 
 function openSetTimeModal() {
@@ -306,11 +347,11 @@ function openSetTimeModal() {
   const total = Math.max(0, Math.floor(state.remaining));
   document.getElementById('setTimeMin').value = Math.floor(total / 60);
   document.getElementById('setTimeSec').value = total % 60;
-  modal.style.display = 'flex';
+  modal.classList.add('active');
 }
 
 function closeSetTimeModal() {
-  document.getElementById('setTimeModal').style.display = 'none';
+  document.getElementById('setTimeModal').classList.remove('active');
 }
 
 if (!window.__STANDALONE_CONFIG__) {

@@ -1,6 +1,6 @@
 {
   "name": "debate-timer-electron",
-  "version": "2.1.0",
+  "version": "2.5.0",
   "description": "Electron debate timer app",
   "main": "main.js",
   "scripts": {
@@ -30,11 +30,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -52,7 +56,10 @@
   "author": "Chen Yu",
   "license": "GPL-3.0",
   "devDependencies": {
-    "electron": "^42.4.0",
+    "electron": "^42.4.1",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "nrm": "^2.1.0"
   }
 }

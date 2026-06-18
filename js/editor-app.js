@@ -1,7 +1,23 @@
-const fonts = ['system-ui', 'SimSun', 'Microsoft YaHei', 'KaiTi', 'Segoe UI'];
+const themePresets = {
+  classic: {
+    backgroundColor: '#0b0e14',
+    colors: { affirmative: '#e74c3c', negative: '#3498db', title: '#5dade2', text: '#f0f2f5' }
+  },
+  modern: {
+    backgroundColor: '#0d0f15',
+    colors: { affirmative: '#ff6b6b', negative: '#4ecdc4', title: '#ffe66d', text: '#f0f2f5' }
+  },
+  monochrome: {
+    backgroundColor: '#000000',
+    colors: { affirmative: '#e0e0e0', negative: '#a0a0a0', title: '#ffffff', text: '#f0f2f5' }
+  }
+};
+
+const fonts = ['system-ui', 'SimSun', 'Microsoft YaHei', 'KaiTi', 'Segoe UI', 'Inter', 'Noto Sans SC'];
 
 function renderFonts() {
   const select = document.getElementById('fontFamily');
+  select.innerHTML = '';
   fonts.forEach((font) => {
     const option = document.createElement('option');
     option.value = font;
@@ -10,7 +26,7 @@ function renderFonts() {
   });
 }
 
-async function loadConfigFromImport(config) {
+function fillEditorUI(config) {
   if (!config) return;
   document.getElementById('eventName').value = config.eventName || '';
   document.getElementById('affirmativeTeam').value = config.teams?.affirmative || '';
@@ -24,30 +40,63 @@ async function loadConfigFromImport(config) {
   document.getElementById('titleColor').value = config.theme?.colors?.title || '#3498db';
   document.getElementById('fontFamily').value = config.theme?.fontFamily || 'system-ui';
   document.getElementById('fontSizeScale').value = config.theme?.fontSizeScale || 1;
+  document.getElementById('themePreset').value = config.theme?.preset || 'classic';
   const customFontInput = document.getElementById('customFont');
   customFontInput.dataset.dataUrl = config.theme?.customFont || '';
   customFontInput.dataset.fileName = config.theme?.customFontName || '';
   renderSegments(config.segments || []);
+  updatePreview();
 }
 
 async function loadConfig() {
   const config = await window.electronAPI.loadConfig();
-  document.getElementById('eventName').value = config.eventName || '';
-  document.getElementById('affirmativeTeam').value = config.teams?.affirmative || '';
-  document.getElementById('negativeTeam').value = config.teams?.negative || '';
-  document.getElementById('affirmativeTopic').value = config.topics?.affirmative || '';
-  document.getElementById('negativeTopic').value = config.topics?.negative || '';
-  document.getElementById('backgroundType').value = config.theme?.backgroundType || 'color';
-  document.getElementById('backgroundColor').value = config.theme?.backgroundColor || '#1a1a1a';
-  document.getElementById('affirmativeColor').value = config.theme?.colors?.affirmative || '#c0392b';
-  document.getElementById('negativeColor').value = config.theme?.colors?.negative || '#2980b9';
-  document.getElementById('titleColor').value = config.theme?.colors?.title || '#3498db';
-  document.getElementById('fontFamily').value = config.theme?.fontFamily || 'system-ui';
-  document.getElementById('fontSizeScale').value = config.theme?.fontSizeScale || 1;
-  const customFontInput = document.getElementById('customFont');
-  customFontInput.dataset.dataUrl = config.theme?.customFont || '';
-  customFontInput.dataset.fileName = config.theme?.customFontName || '';
-  renderSegments(config.segments || []);
+  fillEditorUI(config);
+}
+
+async function loadConfigFromImport(config) {
+  fillEditorUI(config);
+}
+
+function updatePreview() {
+  const preview = document.getElementById('themePreview');
+  if (!preview) return;
+  const affirmativeColor = document.getElementById('affirmativeColor').value;
+  const negativeColor = document.getElementById('negativeColor').value;
+  const titleColor = document.getElementById('titleColor').value;
+  const fontFamily = document.getElementById('fontFamily').value;
+  const fontSizeScale = document.getElementById('fontSizeScale').value;
+  const eventName = document.getElementById('eventName').value || '赛事名称';
+  const bgColor = document.getElementById('backgroundColor').value;
+
+  preview.style.background = bgColor;
+  preview.style.fontFamily = fontFamily;
+  preview.style.fontSize = `${parseFloat(fontSizeScale)}em`;
+
+  const pEventName = document.getElementById('previewEventName');
+  const pSegmentName = document.getElementById('previewSegmentName');
+  const pTimer = document.getElementById('previewTimer');
+  const pSideLabel = document.getElementById('previewSideLabel');
+
+  if (pEventName) pEventName.style.color = titleColor;
+  if (pEventName) pEventName.textContent = eventName;
+  if (pTimer) pTimer.style.color = affirmativeColor;
+  if (pTimer) pTimer.style.textShadow = `0 0 30px ${affirmativeColor}40`;
+  if (pSideLabel) pSideLabel.style.color = affirmativeColor;
+}
+
+function switchPanel(panelId) {
+  document.querySelectorAll('.editor-panel').forEach((p) => p.classList.remove('active'));
+  document.querySelectorAll('.editor-nav-item').forEach((n) => n.classList.remove('active'));
+  document.querySelectorAll('.editor-tab').forEach((t) => t.classList.remove('active'));
+
+  const panel = document.getElementById('panel-' + panelId);
+  if (panel) panel.classList.add('active');
+
+  const nav = document.querySelector(`.editor-nav-item[data-panel="${panelId}"]`);
+  if (nav) nav.classList.add('active');
+
+  const tab = document.querySelector(`.editor-tab[data-panel="${panelId}"]`);
+  if (tab) tab.classList.add('active');
 }
 
 function renderSegments(segments) {
@@ -155,6 +204,7 @@ function gatherConfig() {
       negative: document.getElementById('negativeTopic').value
     },
     theme: {
+      preset: document.getElementById('themePreset').value || 'classic',
       backgroundType: document.getElementById('backgroundType').value || 'color',
       backgroundImage: document.getElementById('backgroundImage').dataset.dataUrl || '',
       backgroundColor: document.getElementById('backgroundColor').value,
@@ -191,7 +241,7 @@ async function saveConfig() {
 async function resetConfig() {
   await window.electronAPI.resetConfig();
   await loadConfig();
-  alert('已重置为默认配置');
+  showToast('已重置为默认配置', 'info');
 }
 
 function bindSegmentActions() {
@@ -337,4 +387,29 @@ document.getElementById('customFont').addEventListener('change', (event) => {
     event.target.dataset.fileName = file.name;
   };
   reader.readAsDataURL(file);
+});
+
+// 导航切换
+document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
+  el.addEventListener('click', () => {
+    const panel = el.getAttribute('data-panel');
+    if (panel) switchPanel(panel);
+  });
+});
+
+// 实时预览事件绑定
+['eventName', 'affirmativeColor', 'negativeColor', 'titleColor', 'fontFamily', 'fontSizeScale', 'backgroundColor'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', updatePreview);
+});
+
+// 主题预设切换
+document.getElementById('themePreset').addEventListener('change', (e) => {
+  const preset = themePresets[e.target.value];
+  if (!preset) return;
+  document.getElementById('backgroundColor').value = preset.backgroundColor;
+  document.getElementById('affirmativeColor').value = preset.colors.affirmative;
+  document.getElementById('negativeColor').value = preset.colors.negative;
+  document.getElementById('titleColor').value = preset.colors.title;
+  updatePreview();
 });

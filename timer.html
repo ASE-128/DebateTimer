@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="author" content="Chen Yu" />
     <title>辩论赛计时器 - 计时页</title>
+    <link rel="stylesheet" href="styles/variables.css" />
     <link rel="stylesheet" href="styles/timer.css" />
   </head>
   <body>
@@ -15,7 +16,7 @@
           <strong class="team-name" id="affirmativeTeamName">正方队</strong>
           <span class="team-topic" id="affirmativeTopic">正方辩题</span>
         </div>
-        <div class="title"></div>
+        <div class="event-title" id="eventTitle">赛事名称</div>
         <div class="team negative">
           <span class="team-label">反方</span>
           <strong class="team-name" id="negativeTeamName">反方队</strong>
@@ -38,38 +39,82 @@
               <span class="dual-time" id="negativeTime">00:00</span>
             </div>
           </div>
+          <div class="timer-progress" id="timerProgress">
+            <div class="timer-progress-bar" id="timerProgressBar" style="width: 100%;"></div>
+          </div>
         </div>
         <div class="side-label" id="sideLabel">当前发言方</div>
         <div class="status-pill" id="statusText">状态：已加载配置</div>
       </section>
 
       <aside class="control-panel">
-        <h3>控制面板</h3>
-        <button id="startBtn">启动 / 切换</button>
-        <button id="stopBtn">停止</button>
-        <button id="resetBtn">重置</button>
-        <button id="prevBtn">上一个环节</button>
-        <button id="nextBtn">下一个环节</button>
-        <button id="jumpBtn">环节跳转</button>
-        <button id="setTimeBtn">设置时间</button>
-        <button id="test30Btn">30秒试音(Q)</button>
-        <button id="test5Btn">5秒试音(W)</button>
-        <button id="testEndBtn">时间到(E)</button>
-        <button id="fullscreenBtn">全屏(F)</button>
-        <button id="backBtn">返回编辑页(B)</button>
+        <div class="control-group">
+          <button id="startBtn">
+            <span class="btn-label">启动</span>
+            <span class="btn-key">Space</span>
+          </button>
+        </div>
+        <div class="control-group">
+          <button id="stopBtn">
+            <span class="btn-label">停止</span>
+          </button>
+          <button id="resetBtn">
+            <span class="btn-label">重置</span>
+          </button>
+        </div>
+        <div class="control-group">
+          <button id="prevBtn">
+            <span class="btn-label">◀</span>
+          </button>
+          <button id="nextBtn">
+            <span class="btn-label">▶</span>
+          </button>
+        </div>
+        <div class="control-group">
+          <button id="jumpBtn">
+            <span class="btn-label">跳转</span>
+          </button>
+          <button id="setTimeBtn">
+            <span class="btn-label">设时</span>
+          </button>
+        </div>
+        <div class="control-group">
+          <button id="test30Btn">
+            <span class="btn-label">30s</span>
+            <span class="btn-key">Q</span>
+          </button>
+          <button id="test5Btn">
+            <span class="btn-label">5s</span>
+            <span class="btn-key">W</span>
+          </button>
+          <button id="testEndBtn">
+            <span class="btn-label">结束</span>
+            <span class="btn-key">E</span>
+          </button>
+        </div>
+        <div class="control-group">
+          <button id="fullscreenBtn">
+            <span class="btn-label">全屏</span>
+            <span class="btn-key">F</span>
+          </button>
+          <button id="backBtn">
+            <span class="btn-label">返回</span>
+            <span class="btn-key">B</span>
+          </button>
+        </div>
       </aside>
 
       <footer class="watermark">辩论计时器</footer>
       <div class="design-by">Design by Chen Yu</div>
     </main>
-    <div id="jumpModal" class="timer-modal" style="display:none">
+    <div id="jumpModal" class="timer-modal">
       <div class="box">
         <h2>环节跳转</h2>
         <div id="jumpSegmentList" class="segment-list"></div>
         <button id="jumpCancelBtn" class="secondary">取消</button>
       </div>
     </div>
-    <div id="setTimeModal" class="timer-modal" style="display:none">
+    <div id="setTimeModal" class="timer-modal">
       <div class="box">
         <h2>设置时间</h2>
         <div class="time-inputs">
@@ -80,6 +125,17 @@
         <button id="setTimeCancelBtn" class="secondary">取消</button>
       </div>
     </div>
+    <div id="standaloneSetup" class="standalone-setup">
+      <div class="box">
+        <h2>赛前设置</h2>
+        <label>正方队伍<input id="ssAffirmativeTeam" type="text" /></label>
+        <label>正方辩题<input id="ssAffirmativeTopic" type="text" /></label>
+        <label>反方队伍<input id="ssNegativeTeam" type="text" /></label>
+        <label>反方辩题<input id="ssNegativeTopic" type="text" /></label>
+        <button id="ssStartBtn">开始计时</button>
+      </div>
+    </div>
+    <script src="js/toast.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/timer-core.js"></script>
     <script src="js/timer-app.js"></script>

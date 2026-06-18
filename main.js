@@ -34,6 +34,7 @@ function defaultConfig() {
     teams: { affirmative: '正方', negative: '反方' },
     topics: { affirmative: '正方辩题', negative: '反方辩题' },
     theme: {
+      preset: 'classic',
       backgroundType: 'color',
       backgroundImage: '',
       backgroundColor: '#1a1a1a',
@@ -68,6 +69,7 @@ function validateConfig(input) {
       negative: String(input.topics?.negative || def.topics.negative)
     },
     theme: {
+      preset: String(input.theme?.preset || def.theme.preset),
       backgroundType: ['color', 'image'].includes(input.theme?.backgroundType) ? input.theme.backgroundType : def.theme.backgroundType,
       backgroundImage: String(input.theme?.backgroundImage || def.theme.backgroundImage),
       backgroundColor: String(input.theme?.backgroundColor || def.theme.backgroundColor),
@@ -196,18 +198,27 @@ function cleanupTemp(dir) {
   }
 }
 
+function getElectronDist() {
+  if (app.isPackaged) {
+    const packedDir = path.dirname(process.execPath);
+    if (fs.existsSync(packedDir)) return packedDir;
+  }
+  const devPath = path.join(__dirname, 'node_modules', 'electron', 'dist');
+  if (!fs.existsSync(devPath)) {
+    throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
+  }
+  return devPath;
+}
+
 function generateStandaloneExe(config, savePath) {
   return new Promise((resolve, reject) => {
     let tempBase = null;
     try {
-      tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${Date.now()}`);
+      tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
       fs.mkdirSync(tempBase, { recursive: true });
 
       // 1. Copy Electron runtime
-      const electronDist = path.join(__dirname, 'node_modules', 'electron', 'dist');
-      if (!fs.existsSync(electronDist)) {
-        throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
-      }
+      const electronDist = getElectronDist();
       copyDir(electronDist, tempBase);
 
       // 2. Create app folder
