@@ -1,17 +1,8 @@
-const themePresets = {
-  classic: {
-    backgroundColor: '#0b0e14',
-    colors: { affirmative: '#e74c3c', negative: '#3498db', title: '#5dade2', text: '#f0f2f5' }
-  },
-  modern: {
-    backgroundColor: '#0d0f15',
-    colors: { affirmative: '#ff6b6b', negative: '#4ecdc4', title: '#ffe66d', text: '#f0f2f5' }
-  },
-  monochrome: {
-    backgroundColor: '#000000',
-    colors: { affirmative: '#e0e0e0', negative: '#a0a0a0', title: '#ffffff', text: '#f0f2f5' }
+function log(level, message) {
+  if (window.electronAPI?.log) {
+    window.electronAPI.log(level, message);
   }
-};
+}
 
 const fonts = ['system-ui', 'SimSun', 'Microsoft YaHei', 'KaiTi', 'Segoe UI', 'Inter', 'Noto Sans SC'];
 
@@ -40,11 +31,11 @@ function fillEditorUI(config) {
   document.getElementById('titleColor').value = config.theme?.colors?.title || '#3498db';
   document.getElementById('fontFamily').value = config.theme?.fontFamily || 'system-ui';
   document.getElementById('fontSizeScale').value = config.theme?.fontSizeScale || 1;
-  document.getElementById('themePreset').value = config.theme?.preset || 'classic';
   const customFontInput = document.getElementById('customFont');
   customFontInput.dataset.dataUrl = config.theme?.customFont || '';
   customFontInput.dataset.fileName = config.theme?.customFontName || '';
   renderSegments(config.segments || []);
+  renderSegmentNav();
   updatePreview();
 }
 
@@ -101,12 +92,43 @@ function switchPanel(panelId) {
 
 function renderSegments(segments) {
   const root = document.getElementById('segments');
-  root.innerHTML = '';
-  segments.forEach((segment, index) => {
+  const existingCards = Array.from(root.children);
+  const targetCount = segments.length;
+  const existingCount = existingCards.length;
+
+  for (let i = 0; i < Math.min(existingCount, targetCount); i++) {
+    const card = existingCards[i];
+    const segment = segments[i];
+    const nameInput = card.querySelector('[data-field="name"]');
+    const typeSelect = card.querySelector('[data-field="type"]');
+    const durationInput = card.querySelector('[data-field="duration"]');
+    const sideSelect = card.querySelector('[data-field="side"]');
+    const indexLabel = card.querySelector('.segment-name-row strong');
+
+    if (indexLabel) indexLabel.textContent = i + 1;
+    if (nameInput && nameInput.value !== (segment.name || '')) nameInput.value = segment.name || '';
+    if (typeSelect && typeSelect.value !== segment.type) {
+      typeSelect.value = segment.type;
+      updateNameTemplateSelect(card, segment.type || 'single_speech');
+    }
+    if (durationInput) {
+      durationInput.value = segment.duration || 0;
+      const durationRow = card.querySelector('.duration-row');
+      if (durationRow) durationRow.style.display = segment.type === 'none' ? 'none' : '';
+    }
+    if (sideSelect) {
+      sideSelect.value = segment.side || '';
+      const sideRow = card.querySelector('.side-row');
+      if (sideRow) sideRow.style.display = segment.type === 'none' ? 'none' : '';
+    }
+  }
+
+  for (let i = existingCount; i < targetCount; i++) {
+    const segment = segments[i];
     const card = document.createElement('article');
     card.className = 'segment-card';
     card.innerHTML = `
-      <div class="row segment-name-row"><strong>${index + 1}</strong><input data-field="name" value="${segment.name || ''}" /></div>
+      <div class="row segment-name-row"><strong>${i + 1}</strong><input data-field="name" value="${segment.name || ''}" /></div>
       <div class="row"><select data-field="type"><option value="none" ${segment.type === 'none' ? 'selected' : ''}>无计时</option><option value="single_speech" ${segment.type === 'single_speech' ? 'selected' : ''}>单边计时</option><option value="single_question" ${segment.type === 'single_question' ? 'selected' : ''}>单边发问</option><option value="dual_debate" ${segment.type === 'dual_debate' ? 'selected' : ''}>双边对辩</option></select></div>
       <div class="row name-template-row">
         <select data-name-side class="name-template"></select>
@@ -116,10 +138,298 @@ function renderSegments(segments) {
         <button type="button" data-action="apply-name">确认名称</button>
       </div>
       <div class="row duration-row" ${segment.type === 'none' ? 'style="display:none"' : ''}><input data-field="duration" type="number" value="${segment.duration || 0}" min="0" step="5" /></div>
-      <div class="row side-row" ${segment.type === 'none' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!segment.side ? 'selected' : ''}>默认</option><option value="affirmative" ${segment.side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${segment.side === 'negative' ? 'selected' : ''}>反方</option></select><button data-action="up">上移</button><button data-action="down">下移</button><button data-action="del">删除</button></div>
+      <div class="row action-row"><button data-action="up">上移</button><button data-action="down">下移</button><button data-action="del">删除</button></div>
+      <div class="row side-row" ${segment.type === 'none' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!segment.side ? 'selected' : ''}>默认</option><option value="affirmative" ${segment.side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${segment.side === 'negative' ? 'selected' : ''}>反方</option></select></div>
     `;
     root.appendChild(card);
     updateNameTemplateSelect(card, segment.type || 'single_speech');
+  }
+
+  for (let i = existingCount - 1; i >= targetCount; i--) {
+    existingCards[i].remove();
+  }
+}
+
+function moveSegmentCard(index, direction) {
+  const root = document.getElementById('segments');
+  const cards = Array.from(root.children);
+  if (direction === 'up' && index > 0) {
+    root.insertBefore(cards[index], cards[index - 1]);
+  } else if (direction === 'down' && index < cards.length - 1) {
+    root.insertBefore(cards[index + 1], cards[index]);
+  }
+  updateCardIndices();
+  renderSegmentNav();
+}
+
+function updateCardIndices() {
+  document.querySelectorAll('.segment-card').forEach((card, i) => {
+    const strong = card.querySelector('.segment-name-row strong');
+    if (strong) strong.textContent = i + 1;
+  });
+}
+
+function renderSegmentNav() {
+  const navContainer = document.getElementById('segmentNav');
+  if (!navContainer) return;
+  const cards = document.querySelectorAll('.segment-card');
+  const existingItems = navContainer.querySelectorAll('.segment-nav-item');
+  const targetCount = cards.length;
+  const existingCount = existingItems.length;
+
+  for (let i = 0; i < Math.min(existingCount, targetCount); i++) {
+    const item = existingItems[i];
+    const name = cards[i].querySelector('[data-field="name"]').value || `环节 ${i + 1}`;
+    const indexSpan = item.querySelector('.nav-index');
+    const nameSpan = item.querySelector('.nav-name');
+    if (indexSpan) indexSpan.textContent = `${i + 1}.`;
+    if (nameSpan) nameSpan.textContent = name;
+    item.setAttribute('data-index', i);
+  }
+
+  for (let i = existingCount; i < targetCount; i++) {
+    const name = cards[i].querySelector('[data-field="name"]').value || `环节 ${i + 1}`;
+    const item = document.createElement('div');
+    item.className = 'segment-nav-item';
+    item.setAttribute('data-index', i);
+    item.innerHTML = `<span class="drag-handle">⋮⋮</span><span class="nav-index">${i + 1}.</span><span class="nav-name">${name}</span>`;
+    navContainer.appendChild(item);
+  }
+
+  for (let i = existingCount - 1; i >= targetCount; i--) {
+    existingItems[i].remove();
+  }
+}
+
+function bindSegmentNavDragDrop() {
+  const navContainer = document.getElementById('segmentNav');
+  if (!navContainer) return;
+
+  let draggedItem = null;
+  let draggedIndex = null;
+  let placeholder = null;
+  let isDragging = false;
+  let dragPreview = null;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+
+  function createPlaceholder() {
+    const ph = document.createElement('div');
+    ph.className = 'segment-nav-placeholder';
+    return ph;
+  }
+
+  function createDragPreview(item) {
+    const preview = item.cloneNode(true);
+    preview.classList.remove('dragging');
+    preview.classList.add('drag-preview');
+    const rect = item.getBoundingClientRect();
+    preview.style.left = `${rect.left}px`;
+    preview.style.top = `${rect.top}px`;
+    preview.style.width = `${rect.width}px`;
+    dragOffsetX = 0;
+    dragOffsetY = 0;
+    document.body.appendChild(preview);
+    return preview;
+  }
+
+  function getInsertionIndex(clientY) {
+    const items = Array.from(navContainer.querySelectorAll('.segment-nav-item'));
+    for (let i = 0; i < items.length; i++) {
+      if (items[i] === draggedItem) continue;
+      const rect = items[i].getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if (clientY < midpoint) return i;
+    }
+    return items.length;
+  }
+
+  function updatePlaceholder(clientY) {
+    const items = Array.from(navContainer.querySelectorAll('.segment-nav-item'));
+    const insertIndex = getInsertionIndex(clientY);
+
+    let beforeNode = null;
+    let itemCount = 0;
+    for (const child of navContainer.children) {
+      if (child === placeholder) continue;
+      if (child.classList.contains('segment-nav-item')) {
+        if (itemCount === insertIndex) {
+          beforeNode = child;
+          break;
+        }
+        itemCount++;
+      }
+    }
+
+    if (beforeNode) {
+      if (placeholder.nextSibling !== beforeNode) {
+        navContainer.insertBefore(placeholder, beforeNode);
+      }
+    } else {
+      if (navContainer.lastChild !== placeholder) {
+        navContainer.appendChild(placeholder);
+      }
+    }
+  }
+
+  navContainer.addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.segment-nav-item');
+    if (!item) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+
+    draggedItem = item;
+    draggedIndex = parseInt(item.getAttribute('data-index'), 10);
+    isDragging = true;
+
+    item.classList.add('dragging');
+
+    placeholder = createPlaceholder();
+    navContainer.insertBefore(placeholder, item.nextSibling);
+
+    dragPreview = createDragPreview(item);
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+
+  function onMouseMove(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+
+    if (dragPreview) {
+      dragPreview.style.left = `${e.clientX - dragOffsetX}px`;
+      dragPreview.style.top = `${e.clientY - dragOffsetY}px`;
+    }
+
+    updatePlaceholder(e.clientY);
+  }
+
+  function onMouseUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+
+    if (dragPreview) {
+      dragPreview.remove();
+      dragPreview = null;
+    }
+
+    if (draggedItem) {
+      draggedItem.classList.remove('dragging');
+    }
+
+    let insertIndex = 0;
+    if (placeholder) {
+      const children = Array.from(navContainer.children);
+      let count = 0;
+      for (const child of children) {
+        if (child === placeholder) break;
+        if (child === draggedItem) continue;
+        if (child.classList.contains('segment-nav-item')) count++;
+      }
+      insertIndex = count;
+      placeholder.remove();
+      placeholder = null;
+    }
+
+    if (draggedIndex !== null && insertIndex !== draggedIndex) {
+      const root = document.getElementById('segments');
+      const cards = Array.from(root.children);
+      const draggedCard = cards[draggedIndex];
+      draggedCard.remove();
+
+      const remainingCards = Array.from(root.children);
+      if (insertIndex >= remainingCards.length) {
+        root.appendChild(draggedCard);
+      } else {
+        root.insertBefore(draggedCard, remainingCards[insertIndex]);
+      }
+
+      updateCardIndices();
+      renderSegmentNav();
+    }
+
+    draggedItem = null;
+    draggedIndex = null;
+  }
+
+  // 右键菜单
+  let contextMenu = document.getElementById('segmentNavContextMenu');
+  if (!contextMenu) {
+    contextMenu = document.createElement('div');
+    contextMenu.id = 'segmentNavContextMenu';
+    contextMenu.style.cssText = 'position:fixed;display:none;z-index:1000;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:4px 0;min-width:140px;overflow:hidden;';
+    contextMenu.innerHTML = `
+      <div class="ctx-item" data-ctx="scroll" style="padding:6px 14px;font-size:13px;cursor:pointer;transition:background var(--duration-fast);color:var(--text-primary);">定位到该环节</div>
+      <div class="ctx-item" data-ctx="up" style="padding:6px 14px;font-size:13px;cursor:pointer;transition:background var(--duration-fast);color:var(--text-primary);">上移</div>
+      <div class="ctx-item" data-ctx="down" style="padding:6px 14px;font-size:13px;cursor:pointer;transition:background var(--duration-fast);color:var(--text-primary);">下移</div>
+      <div class="ctx-divider" style="height:1px;background:var(--border-subtle);margin:4px 0;"></div>
+      <div class="ctx-item" data-ctx="del" style="padding:6px 14px;font-size:13px;cursor:pointer;transition:background var(--duration-fast);color:var(--danger);">删除</div>
+    `;
+    document.body.appendChild(contextMenu);
+
+    contextMenu.addEventListener('mouseover', (e) => {
+      if (e.target.classList.contains('ctx-item')) {
+        e.target.style.background = 'var(--bg-card-hover)';
+      }
+    });
+    contextMenu.addEventListener('mouseout', (e) => {
+      if (e.target.classList.contains('ctx-item')) {
+        e.target.style.background = '';
+      }
+    });
+  }
+
+  function hideContextMenu() {
+    contextMenu.style.display = 'none';
+  }
+
+  navContainer.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const item = e.target.closest('.segment-nav-item');
+    if (!item) return;
+    const index = parseInt(item.getAttribute('data-index'), 10);
+    const cards = Array.from(document.querySelectorAll('.segment-card'));
+
+    const rect = document.body.getBoundingClientRect();
+    let x = e.clientX;
+    let y = e.clientY;
+    const menuWidth = 160;
+    const menuHeight = 160;
+    if (x + menuWidth > rect.width) x = rect.width - menuWidth - 8;
+    if (y + menuHeight > rect.height) y = rect.height - menuHeight - 8;
+
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+    contextMenu.style.display = 'block';
+
+    contextMenu.querySelectorAll('.ctx-item').forEach((el) => {
+      el.onclick = () => {
+        hideContextMenu();
+        const action = el.getAttribute('data-ctx');
+        if (action === 'scroll' && cards[index]) {
+          cards[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (action === 'up' && index > 0) {
+          moveSegmentCard(index, 'up');
+        }
+        if (action === 'down' && index < cards.length - 1) {
+          moveSegmentCard(index, 'down');
+        }
+        if (action === 'del') {
+          cards[index]?.remove();
+          updateCardIndices();
+          renderSegmentNav();
+        }
+      };
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target)) hideContextMenu();
   });
 }
 
@@ -204,7 +514,6 @@ function gatherConfig() {
       negative: document.getElementById('negativeTopic').value
     },
     theme: {
-      preset: document.getElementById('themePreset').value || 'classic',
       backgroundType: document.getElementById('backgroundType').value || 'color',
       backgroundImage: document.getElementById('backgroundImage').dataset.dataUrl || '',
       backgroundColor: document.getElementById('backgroundColor').value,
@@ -232,6 +541,7 @@ function gatherConfig() {
 async function saveConfig() {
   const saveBtn = document.getElementById('saveBtn');
   saveBtn.textContent = '保存中...';
+  log('info', '保存配置');
   await window.electronAPI.saveConfig(gatherConfig());
   saveBtn.textContent = '已保存';
   await window.electronAPI.openTimer();
@@ -239,6 +549,7 @@ async function saveConfig() {
 }
 
 async function resetConfig() {
+  log('info', '重置配置');
   await window.electronAPI.resetConfig();
   await loadConfig();
   showToast('已重置为默认配置', 'info');
@@ -252,34 +563,15 @@ function bindSegmentActions() {
     const index = cards.indexOf(event.target.closest('.segment-card'));
     if (index < 0) return;
     if (action === 'up' && index > 0) {
-      [cards[index - 1], cards[index]] = [cards[index], cards[index - 1]];
-      renderSegments(cards.map((card) => ({
-        id: cards.indexOf(card) + 1,
-        name: card.querySelector('[data-field="name"]').value,
-        type: card.querySelector('[data-field="type"]').value,
-        duration: Number(card.querySelector('[data-field="duration"]').value || 0),
-        side: card.querySelector('[data-field="side"]').value || undefined
-      })));
+      moveSegmentCard(index, 'up');
     }
     if (action === 'down' && index < cards.length - 1) {
-      [cards[index], cards[index + 1]] = [cards[index + 1], cards[index]];
-      renderSegments(cards.map((card) => ({
-        id: cards.indexOf(card) + 1,
-        name: card.querySelector('[data-field="name"]').value,
-        type: card.querySelector('[data-field="type"]').value,
-        duration: Number(card.querySelector('[data-field="duration"]').value || 0),
-        side: card.querySelector('[data-field="side"]').value || undefined
-      })));
+      moveSegmentCard(index, 'down');
     }
     if (action === 'del') {
-      cards.splice(index, 1);
-      renderSegments(cards.map((card) => ({
-        id: cards.indexOf(card) + 1,
-        name: card.querySelector('[data-field="name"]').value,
-        type: card.querySelector('[data-field="type"]').value,
-        duration: Number(card.querySelector('[data-field="duration"]').value || 0),
-        side: card.querySelector('[data-field="side"]').value || undefined
-      })));
+      cards[index].remove();
+      updateCardIndices();
+      renderSegmentNav();
     }
     if (action === 'apply-name') {
       const card = event.target.closest('.segment-card');
@@ -299,6 +591,7 @@ function bindSegmentActions() {
         }
       }
       nameInput.value = name || nameInput.value || '新环节';
+      renderSegmentNav();
     }
   });
 
@@ -307,6 +600,9 @@ function bindSegmentActions() {
     if (!card) return;
     if (event.target.matches('[data-field="type"]')) {
       updateNameTemplateSelect(card, event.target.value);
+    }
+    if (event.target.matches('[data-field="name"]')) {
+      renderSegmentNav();
     }
   });
 }
@@ -326,15 +622,18 @@ function addSegmentPreset(type, name, duration, side) {
       <button type="button" data-action="apply-name">确认名称</button>
     </div>
     <div class="row duration-row" ${type === 'none' ? 'style="display:none"' : ''}><input data-field="duration" type="number" value="${duration}" min="0" step="5" /></div>
-    <div class="row side-row" ${type === 'none' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!side ? 'selected' : ''}>默认</option><option value="affirmative" ${side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${side === 'negative' ? 'selected' : ''}>反方</option></select><button data-action="up">上移</button><button data-action="down">下移</button><button data-action="del">删除</button></div>
+    <div class="row action-row"><button data-action="up">上移</button><button data-action="down">下移</button><button data-action="del">删除</button></div>
+    <div class="row side-row" ${type === 'none' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!side ? 'selected' : ''}>默认</option><option value="affirmative" ${side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${side === 'negative' ? 'selected' : ''}>反方</option></select></div>
   `;
   root.appendChild(card);
   updateNameTemplateSelect(card, type);
+  renderSegmentNav();
 }
 
 renderFonts();
 loadConfig();
 bindSegmentActions();
+bindSegmentNavDragDrop();
 
 document.getElementById('backgroundImage').addEventListener('change', (event) => {
   const file = event.target.files && event.target.files[0];
@@ -350,24 +649,34 @@ document.getElementById('backgroundImage').addEventListener('change', (event) =>
 document.getElementById('saveBtn').addEventListener('click', saveConfig);
 document.getElementById('resetBtn').addEventListener('click', resetConfig);
 document.getElementById('importConfigBtn').addEventListener('click', async () => {
+  log('info', '导入配置');
   const result = await window.electronAPI.importConfig();
   if (result?.ok) {
+    log('info', `配置已导入: ${result.path}`);
     alert(`配置已导入：${result.path}`);
     await loadConfigFromImport(result.config);
   } else {
+    log('warn', `导入配置失败: ${result?.error || '未知错误'}`);
     alert(`导入失败：${result?.error || '未知错误'}`);
   }
 });
 
 document.getElementById('exportConfigBtn').addEventListener('click', async () => {
+  log('info', '导出配置');
   const result = await window.electronAPI.exportConfig(gatherConfig());
-  if (result?.ok) alert(`配置已导出到：${result.path}`);
+  if (result?.ok) {
+    log('info', `配置已导出: ${result.path}`);
+    alert(`配置已导出到：${result.path}`);
+  }
 });
 document.getElementById('exportTimerBtn').addEventListener('click', async () => {
+  log('info', '导出独立计时器');
   const result = await window.electronAPI.exportStandalone(gatherConfig());
   if (result?.ok) {
+    log('info', `独立计时器已导出: ${result.path}`);
     alert(`独立计时器已导出到：${result.path}\n说明：该 exe 会自解压到临时目录并启动 Electron 计时器。`);
   } else {
+    log('error', `导出独立计时器失败: ${result?.error || '未知错误'}`);
     alert(`导出失败：${result?.error || '未知错误'}`);
   }
 });
@@ -390,26 +699,15 @@ document.getElementById('customFont').addEventListener('change', (event) => {
 });
 
 // 导航切换
-document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
-  el.addEventListener('click', () => {
-    const panel = el.getAttribute('data-panel');
-    if (panel) switchPanel(panel);
+  document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
+    el.addEventListener('click', () => {
+      const panel = el.getAttribute('data-panel');
+      if (panel) switchPanel(panel);
+    });
   });
-});
 
-// 实时预览事件绑定
-['eventName', 'affirmativeColor', 'negativeColor', 'titleColor', 'fontFamily', 'fontSizeScale', 'backgroundColor'].forEach((id) => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('input', updatePreview);
-});
-
-// 主题预设切换
-document.getElementById('themePreset').addEventListener('change', (e) => {
-  const preset = themePresets[e.target.value];
-  if (!preset) return;
-  document.getElementById('backgroundColor').value = preset.backgroundColor;
-  document.getElementById('affirmativeColor').value = preset.colors.affirmative;
-  document.getElementById('negativeColor').value = preset.colors.negative;
-  document.getElementById('titleColor').value = preset.colors.title;
-  updatePreview();
-});
+  // 实时预览事件绑定
+  ['eventName', 'affirmativeColor', 'negativeColor', 'titleColor', 'fontFamily', 'fontSizeScale', 'backgroundColor'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updatePreview);
+  });

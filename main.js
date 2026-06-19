@@ -4,10 +4,34 @@ const path = require('path');
 const childProcess = require('child_process');
 const embeddedBinaries = require('./vendor/embedded-binaries');
 
-const isElectron = !!(process.versions && process.versions.electron);
-if (isElectron) {
-  app.disableHardwareAcceleration();
+const logPath = path.join(__dirname, 'debate-timer.log');
+const maxLogSize = 1024 * 1024; // 1MB
+
+function rotateLog() {
+  try {
+    if (fs.existsSync(logPath)) {
+      const stat = fs.statSync(logPath);
+      if (stat.size >= maxLogSize) {
+        const backupPath = logPath + '.1';
+        if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+        fs.renameSync(logPath, backupPath);
+      }
+    }
+  } catch (e) { /* ignore */ }
 }
+
+function log(level, message) {
+  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const line = `[${timestamp}] [${level.toUpperCase()}] ${message}\n`;
+  try {
+    rotateLog();
+    fs.appendFileSync(logPath, line, 'utf8');
+  } catch (e) {
+    console.error('日志写入失败:', e.message);
+  }
+}
+
+const isElectron = !!(process.versions && process.versions.electron);
 
 const appDataRoot = isElectron ? path.join(app.getPath('appData'), 'DebateTimer') : path.join(require('os').homedir(), 'AppData', 'Roaming', 'DebateTimer');
 if (isElectron) {
@@ -98,13 +122,17 @@ function readConfig() {
   ensureUserDataDir();
   if (!fs.existsSync(configPath)) {
     fs.writeFileSync(configPath, JSON.stringify(defaultConfig(), null, 2));
+    log('info', '创建默认配置文件');
   }
-  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  log('info', '配置已加载');
+  return config;
 }
 
 function writeConfig(data) {
   ensureUserDataDir();
   fs.writeFileSync(configPath, JSON.stringify(data, null, 2));
+  log('info', '配置已保存');
   return readConfig();
 }
 
@@ -216,14 +244,17 @@ function generateStandaloneExe(config, savePath) {
     try {
       tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
       fs.mkdirSync(tempBase, { recursive: true });
+      log('info', `创建临时目录: ${tempBase}`);
 
       // 1. Copy Electron runtime
       const electronDist = getElectronDist();
       copyDir(electronDist, tempBase);
+      log('info', 'Electron 运行时复制完成');
 
       // 2. Create app folder
       const appDir = path.join(tempBase, 'resources', 'app');
       generateStandaloneAppFiles(config, appDir);
+      log('info', '应用文件生成完成');
 
       // 3. Write embedded WinRAR tools and icon into temp dir
       const rarExe = path.join(tempBase, 'rar.exe');
@@ -232,6 +263,7 @@ function generateStandaloneExe(config, savePath) {
       fs.writeFileSync(rarExe, Buffer.from(embeddedBinaries.rarExeBase64, 'base64'));
       fs.writeFileSync(sfxModule, Buffer.from(embeddedBinaries.sfxModuleBase64, 'base64'));
       fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
+      log('info', 'WinRAR 工具写入完成');
 
       // 4. Create WinRAR SFX
       const commentFile = path.join(tempBase, 'sfx-comment.txt');
@@ -260,31 +292,37 @@ function generateStandaloneExe(config, savePath) {
 
       child.on('error', (err) => {
         cleanupTemp(tempBase);
+        log('error', `rar.exe 启动失败: ${err.message}`);
         reject(new Error(`rar.exe 启动失败: ${err.message}`));
       });
 
       child.on('close', (code) => {
         if (code !== 0) {
           cleanupTemp(tempBase);
+          log('error', `rar.exe 执行失败（退出码 ${code}）${stderr ? ': ' + stderr : ''}`);
           reject(new Error(`rar.exe 执行失败（退出码 ${code}）${stderr ? ': ' + stderr : ''}`));
           return;
         }
         if (!fs.existsSync(tmpExe)) {
           cleanupTemp(tempBase);
+          log('error', '自解压程序生成失败，输出文件不存在');
           reject(new Error('自解压程序生成失败，输出文件不存在'));
           return;
         }
         try {
           fs.copyFileSync(tmpExe, savePath);
           cleanupTemp(tempBase);
+          log('info', `EXE 复制到目标路径: ${savePath}`);
           resolve({ ok: true, path: savePath });
         } catch (err) {
           cleanupTemp(tempBase);
+          log('error', `复制 EXE 到目标路径失败: ${err.message}`);
           reject(new Error(`复制 EXE 到目标路径失败: ${err.message}`));
         }
       });
     } catch (err) {
       cleanupTemp(tempBase);
+      log('error', `生成独立 EXE 失败: ${err.message}`);
       reject(err);
     }
   });
@@ -305,6 +343,7 @@ let editorWindow;
 let timerWindow;
 
 function createEditorWindow() {
+  log('info', '创建编辑窗口');
   editorWindow = new BrowserWindow({
     width: 1400,
     height: 980,
@@ -318,6 +357,7 @@ function createEditorWindow() {
 }
 
 function createTimerWindow() {
+  log('info', '创建计时窗口');
   timerWindow = new BrowserWindow({
     width: 1500,
     height: 950,
@@ -334,10 +374,14 @@ function createTimerWindow() {
 
 if (isElectron) {
   app.whenReady().then(() => {
+    log('info', '应用启动');
     ensureUserDataDir();
     createEditorWindow();
 
     ipcMain.handle('load-config', () => readConfig());
+    ipcMain.handle('log', (_event, level, message) => {
+      log(level, message);
+    });
     ipcMain.handle('save-config', (_event, data) => {
       const saved = writeConfig(data);
       if (timerWindow && !timerWindow.isDestroyed()) {
@@ -386,6 +430,7 @@ if (isElectron) {
           filters: [{ name: 'JSON 配置', extensions: ['json'] }]
         });
         if (!filePaths || filePaths.length === 0) {
+          log('warn', '用户取消导入配置');
           return { ok: false, config: null, error: '用户取消选择' };
         }
         const content = fs.readFileSync(filePaths[0], 'utf8');
@@ -394,23 +439,33 @@ if (isElectron) {
         if (timerWindow && !timerWindow.isDestroyed()) {
           timerWindow.webContents.send('config-updated', validated);
         }
+        log('info', `配置已导入: ${filePaths[0]}`);
         return { ok: true, config: validated, path: filePaths[0] };
       } catch (err) {
+        log('error', `导入配置失败: ${err.message}`);
         console.error('导入配置失败:', err);
         return { ok: false, config: null, error: err.message };
       }
     });
     ipcMain.handle('export-config', async (_event, config) => {
-      const { filePath } = await dialog.showSaveDialog(editorWindow, {
-        title: '导出比赛配置',
-        defaultPath: 'debate-config.json',
-        filters: [{ name: 'JSON 配置', extensions: ['json'] }]
-      });
-      if (filePath) {
-        fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf8');
-        return { ok: true, path: filePath };
+      try {
+        const { filePath } = await dialog.showSaveDialog(editorWindow, {
+          title: '导出比赛配置',
+          defaultPath: 'debate-config.json',
+          filters: [{ name: 'JSON 配置', extensions: ['json'] }]
+        });
+        if (filePath) {
+          fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf8');
+          log('info', `配置已导出: ${filePath}`);
+          return { ok: true, path: filePath };
+        }
+        log('warn', '用户取消导出配置');
+        return { ok: false, path: null };
+      } catch (err) {
+        log('error', `导出配置失败: ${err.message}`);
+        console.error('导出配置失败:', err);
+        return { ok: false, path: null, error: err.message };
       }
-      return { ok: false, path: null };
     });
     ipcMain.handle('export-standalone', async (_event, config) => {
       try {
@@ -420,11 +475,15 @@ if (isElectron) {
           filters: [{ name: '可执行文件', extensions: ['exe'] }]
         });
         if (!filePath) {
+          log('warn', '用户取消导出独立计时器');
           return { ok: false, path: null, error: '用户取消保存' };
         }
+        log('info', '开始生成独立计时器...');
         const result = await generateStandaloneExe(config, filePath);
+        log('info', `独立计时器已生成: ${filePath}`);
         return result;
       } catch (err) {
+        log('error', `导出独立计时器失败: ${err.message}`);
         console.error('导出独立计时器失败:', err);
         return { ok: false, path: null, error: err.message };
       }

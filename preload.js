@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportConfig: (config) => ipcRenderer.invoke('export-config', config),
   exportStandalone: (config) => ipcRenderer.invoke('export-standalone', config),
   importConfig: () => ipcRenderer.invoke('import-config'),
+  log: (level, message) => ipcRenderer.invoke('log', level, message),
   onConfigUpdated: (callback) => {
     const listener = (_event, config) => callback(config);
     ipcRenderer.on('config-updated', listener);

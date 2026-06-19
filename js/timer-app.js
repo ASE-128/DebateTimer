@@ -43,6 +43,19 @@ function applyTheme(theme = config.theme || {}) {
   applyCustomFont(theme);
 }
 
+let lastRenderCache = {
+  eventName: null,
+  segmentName: null,
+  isNoTimer: null,
+  activeSide: null,
+  segmentType: null,
+  singleTimerText: null,
+  affirmativeTimeText: null,
+  negativeTimeText: null,
+  progressPct: null,
+  progressClass: null
+};
+
 function applyCustomFont(theme) {
   const customFontUrl = theme?.customFont;
   const customFontName = theme?.customFontName || 'CustomFont';
@@ -123,39 +136,87 @@ function syncUi(actionLabel) {
 function render(state) {
   const segment = state.currentSegment || {};
   const isNoTimer = segment.type === 'none';
-  eventNameEl.textContent = config.eventName || '赛事名称';
-  segmentNameEl.textContent = segment.name || '开场';
-  segmentNameEl.classList.toggle('segment-name-large', isNoTimer);
-  sideLabelEl.textContent = isNoTimer ? '' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中');
-  sideLabelEl.classList.toggle('affirmative', !isNoTimer && state.activeSide === 'affirmative');
-  sideLabelEl.classList.toggle('negative', !isNoTimer && state.activeSide === 'negative');
-  sideLabelEl.style.display = isNoTimer ? 'none' : '';
-  document.documentElement.style.setProperty('--font-family', config.theme?.fontFamily || 'system-ui');
-  document.documentElement.style.setProperty('--font-scale', String(config.theme?.fontSizeScale || 1));
+  const eventName = config.eventName || '赛事名称';
+  if (lastRenderCache.eventName !== eventName) {
+    eventNameEl.textContent = eventName;
+    lastRenderCache.eventName = eventName;
+  }
+  const segmentName = segment.name || '开场';
+  if (lastRenderCache.segmentName !== segmentName) {
+    segmentNameEl.textContent = segmentName;
+    lastRenderCache.segmentName = segmentName;
+  }
+  if (lastRenderCache.isNoTimer !== isNoTimer) {
+    segmentNameEl.classList.toggle('segment-name-large', isNoTimer);
+    lastRenderCache.isNoTimer = isNoTimer;
+  }
+  const sideLabelText = isNoTimer ? '' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中');
+  if (sideLabelEl.textContent !== sideLabelText) {
+    sideLabelEl.textContent = sideLabelText;
+  }
+  const sideLabelAffirmative = !isNoTimer && state.activeSide === 'affirmative';
+  const sideLabelNegative = !isNoTimer && state.activeSide === 'negative';
+  if (sideLabelEl.classList.contains('affirmative') !== sideLabelAffirmative) {
+    sideLabelEl.classList.toggle('affirmative', sideLabelAffirmative);
+  }
+  if (sideLabelEl.classList.contains('negative') !== sideLabelNegative) {
+    sideLabelEl.classList.toggle('negative', sideLabelNegative);
+  }
+  const sideLabelDisplay = isNoTimer ? 'none' : '';
+  if (sideLabelEl.style.display !== sideLabelDisplay) {
+    sideLabelEl.style.display = sideLabelDisplay;
+  }
   updateControlLabel(state);
   updateTeamDisplay(state);
   updateProgress(state);
 
   if (isNoTimer) {
-    singleTimerEl.style.display = 'none';
-    dualTimerEl.style.display = 'none';
-    timerDisplayEl.style.display = 'none';
+    if (lastRenderCache.segmentType !== 'none') {
+      singleTimerEl.style.display = 'none';
+      dualTimerEl.style.display = 'none';
+      timerDisplayEl.style.display = 'none';
+      lastRenderCache.segmentType = 'none';
+    }
     return;
   }
 
   timerDisplayEl.style.display = '';
   if (segment.type === 'dual_debate') {
-    singleTimerEl.style.display = 'none';
-    dualTimerEl.style.display = 'flex';
-    affirmativeTimeEl.textContent = formatTime(state.remaining);
-    negativeTimeEl.textContent = formatTime(state.remainingOpposite);
-    singleTimerEl.classList.remove('affirmative', 'negative');
+    if (lastRenderCache.segmentType !== 'dual_debate') {
+      singleTimerEl.style.display = 'none';
+      dualTimerEl.style.display = 'flex';
+      singleTimerEl.classList.remove('affirmative', 'negative');
+      lastRenderCache.segmentType = 'dual_debate';
+    }
+    const affTime = formatTime(state.remaining);
+    const negTime = formatTime(state.remainingOpposite);
+    if (lastRenderCache.affirmativeTimeText !== affTime) {
+      affirmativeTimeEl.textContent = affTime;
+      lastRenderCache.affirmativeTimeText = affTime;
+    }
+    if (lastRenderCache.negativeTimeText !== negTime) {
+      negativeTimeEl.textContent = negTime;
+      lastRenderCache.negativeTimeText = negTime;
+    }
   } else {
-    singleTimerEl.style.display = '';
-    dualTimerEl.style.display = 'none';
-    singleTimerEl.textContent = formatTime(state.remaining);
-    singleTimerEl.classList.toggle('affirmative', state.activeSide === 'affirmative');
-    singleTimerEl.classList.toggle('negative', state.activeSide === 'negative');
+    if (lastRenderCache.segmentType !== 'single') {
+      singleTimerEl.style.display = '';
+      dualTimerEl.style.display = 'none';
+      lastRenderCache.segmentType = 'single';
+    }
+    const timerText = formatTime(state.remaining);
+    if (lastRenderCache.singleTimerText !== timerText) {
+      singleTimerEl.textContent = timerText;
+      lastRenderCache.singleTimerText = timerText;
+    }
+    const singleAffirmative = state.activeSide === 'affirmative';
+    const singleNegative = state.activeSide === 'negative';
+    if (singleTimerEl.classList.contains('affirmative') !== singleAffirmative) {
+      singleTimerEl.classList.toggle('affirmative', singleAffirmative);
+    }
+    if (singleTimerEl.classList.contains('negative') !== singleNegative) {
+      singleTimerEl.classList.toggle('negative', singleNegative);
+    }
   }
 }
 

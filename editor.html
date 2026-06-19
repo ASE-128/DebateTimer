@@ -29,17 +29,14 @@
       </div>
 
       <div class="editor-body">
-        <nav class="editor-sidebar">
+        <nav class="editor-sidebar" id="editorSidebar">
           <div class="editor-nav-item active" data-panel="event">
-            <span class="editor-nav-icon">[</span>
             <span>赛事信息</span>
           </div>
           <div class="editor-nav-item" data-panel="theme">
-            <span class="editor-nav-icon">[</span>
             <span>主题样式</span>
           </div>
           <div class="editor-nav-item" data-panel="segments">
-            <span class="editor-nav-icon">[</span>
             <span>环节管理</span>
           </div>
         </nav>
@@ -61,8 +58,7 @@
           <div class="editor-panel" id="panel-theme">
             <div class="card">
               <h2>主题样式</h2>
-              <label>主题预设<select id="themePreset"><option value="classic">经典红蓝</option><option value="modern">现代紫橙</option><option value="monochrome">极简单色</option></select></label>
-          <label>背景类型<select id="backgroundType"><option value="color">纯色</option><option value="image">图片</option></select></label>
+              <label>背景类型<select id="backgroundType"><option value="color">纯色</option><option value="image">图片</option></select></label>
               <label>背景色<input id="backgroundColor" type="color" /></label>
               <label>背景图片<input id="backgroundImage" type="file" accept="image/*" /></label>
               <label>正方色<input id="affirmativeColor" type="color" /></label>
@@ -72,7 +68,7 @@
               <label>自定义 TTF 字体（仅用于文本）<input id="customFont" type="file" accept=".ttf,.otf" /></label>
               <label>字号缩放<input id="fontSizeScale" type="range" min="0.8" max="1.4" step="0.05" /></label>
             </div>
-            <div class="card" style="margin-top: 20px;">
+            <div class="card theme-preview-card">
               <h2>实时预览</h2>
               <div id="themePreview" style="background: var(--bg-secondary); border-radius: var(--radius-md); padding: 20px; text-align: center; border: 1px solid var(--border-subtle);">
                 <div style="font-size: 18px; color: var(--accent-title); font-weight: 700; margin-bottom: 8px;" id="previewEventName">赛事名称</div>
@@ -85,22 +81,30 @@
 
           <!-- 环节管理面板 -->
           <div class="editor-panel" id="panel-segments">
-            <div class="card segments-card">
-              <h2>环节列表</h2>
-              <div class="segment-action-bar">
-                <button id="addNoneBtn" type="button">+ 新增无计时</button>
-                <button id="addSpeechBtn" type="button">+ 新增陈词</button>
-                <button id="addQuestionBtn" type="button">+ 新增质询</button>
-                <button id="addDebateBtn" type="button">+ 新增对辩</button>
-                <button id="addFreeDebateBtn" type="button">+ 新增自由辩论</button>
+            <div class="segments-layout">
+              <div class="segments-sidebar">
+                <h2>环节管理</h2>
+                <div class="segment-nav-section">
+                  <span class="segment-nav-label">导航（拖拽排序）</span>
+                  <div class="segment-nav" id="segmentNav"></div>
+                </div>
+                <div class="segment-action-bar">
+                  <button id="addNoneBtn" type="button">+ 无计时</button>
+                  <button id="addSpeechBtn" type="button">+ 陈词</button>
+                  <button id="addQuestionBtn" type="button">+ 质询</button>
+                  <button id="addDebateBtn" type="button">+ 对辩</button>
+                  <button id="addFreeDebateBtn" type="button">+ 自由辩论</button>
+                </div>
               </div>
-              <div id="segments"></div>
+              <div class="segments-content">
+                <div id="segments"></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="design-by">Design by Chen Yu</div>
+      <div class="design-by">© Chen Yu 2026<br>All rights reserved.</div>
     </main>
     <script src="js/toast.js"></script>
     <script src="js/editor-app.js"></script>

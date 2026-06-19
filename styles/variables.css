@@ -100,7 +100,6 @@ body {
   color: #fff;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  backdrop-filter: blur(16px);
   box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
@@ -152,7 +151,6 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(4px);
   display: none;
   align-items: center;
   justify-content: center;
@@ -281,23 +279,9 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 20px;
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
-}
-
-.glass-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 40%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
 }
 
 /* === 响应式断点 === */

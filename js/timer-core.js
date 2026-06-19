@@ -12,6 +12,7 @@ class TimerEngine {
     this.lastTimestamp = null;
     this.animationFrame = null;
     this.alertState = { last30: false, last5: false, lastEnd: false };
+    this.lastRenderedSecond = -1;
   }
 
   findFirstTimedSegment() {
@@ -34,6 +35,7 @@ class TimerEngine {
     this.lastTimestamp = null;
     this.cancelAnimationFrame();
     this.alertState = { last30: false, last5: false, lastEnd: false };
+    this.lastRenderedSecond = -1;
     this.render();
   }
 
@@ -154,7 +156,13 @@ class TimerEngine {
       }
     }
 
-    this.render();
+    const displayRemaining = this.segments[this.currentIndex]?.type === 'dual_debate'
+      ? (this.activeSide === 'affirmative' ? this.remaining : this.remainingOpposite)
+      : this.remaining;
+    const currentSecond = Math.floor(displayRemaining);
+    if (currentSecond !== this.lastRenderedSecond) {
+      this.render();
+    }
     if (this.isRunning) this.scheduleTick();
   };
 
@@ -182,6 +190,7 @@ class TimerEngine {
       this.lastTimestamp = performance.now();
       this.isRunning = true;
       this.isPaused = false;
+      this.lastRenderedSecond = -1;
       this.render();
       this.scheduleTick();
     }
@@ -211,6 +220,7 @@ class TimerEngine {
     this.remaining = value;
     this.remainingOpposite = value;
     this.alertState = { last30: false, last5: false, lastEnd: false };
+    this.lastRenderedSecond = -1;
     this.render();
   }
 
