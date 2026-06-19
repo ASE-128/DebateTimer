@@ -1,6 +1,13 @@
 let config = null;
 let engine = null;
 const isStandalone = !!window.__STANDALONE_CONFIG__;
+
+function log(level, message) {
+  if (window.electronAPI?.log) {
+    window.electronAPI.log(level, message);
+  }
+}
+
 const eventNameEl = document.getElementById('eventName');
 const segmentNameEl = document.getElementById('segmentName');
 const timerDisplayEl = document.getElementById('timerDisplay');
@@ -41,6 +48,7 @@ function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--font-family', baseFont);
   document.documentElement.style.setProperty('--font-scale', theme.fontSizeScale || 1);
   applyCustomFont(theme);
+  log('debug', `应用主题: 背景=${theme.backgroundType}, 字体=${baseFont}, 缩放=${theme.fontSizeScale || 1}`);
 }
 
 let lastRenderCache = {
@@ -222,6 +230,7 @@ function render(state) {
 
 async function initTimerApp() {
   config = window.__STANDALONE_CONFIG__ || (await window.electronAPI.loadConfig());
+  log('info', `计时页初始化，${isStandalone ? '独立模式' : '编辑页模式'}`);
   engine = new TimerEngine(config, render);
   applyTheme(config.theme || {});
   finishInit();
@@ -232,6 +241,7 @@ async function initTimerApp() {
 
 function finishInit() {
   setStatus('已加载配置');
+  log('info', `计时页初始化完成，共 ${config?.segments?.length || 0} 个环节`);
   engine.render();
   bindShortcuts();
   bindControlButtons();
@@ -263,6 +273,7 @@ function openStandaloneSetup() {
 
 async function refreshFromConfig(nextConfig) {
   config = nextConfig || (await window.electronAPI.loadConfig());
+  log('info', '配置已同步，刷新计时页');
   applyTheme(config.theme || {});
   engine.segments = config.segments || [];
   engine.currentIndex = 0;
@@ -281,22 +292,25 @@ function bindShortcuts() {
   document.addEventListener('keydown', (event) => {
     const isTyping = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
     if (isTyping) return;
+    const key = event.key.toLowerCase();
     if (event.code === 'Space') {
       event.preventDefault();
+      log('debug', '快捷键：Space 切换计时');
       engine.toggle();
     }
-    if (event.key.toLowerCase() === 'p') engine.pause();
-    if (event.key.toLowerCase() === 'q') audioPlayer.play30();
-    if (event.key.toLowerCase() === 'w') audioPlayer.play5();
-    if (event.key.toLowerCase() === 'e') audioPlayer.playEnd();
-    if (event.key.toLowerCase() === 'f') window.electronAPI.toggleFullscreen();
-    if (event.key.toLowerCase() === 'b') {
+    if (key === 'p') { log('debug', '快捷键：P 暂停'); engine.pause(); }
+    if (key === 'q') { log('debug', '快捷键：Q 试播30秒提示音'); audioPlayer.play30(); }
+    if (key === 'w') { log('debug', '快捷键：W 试播5秒提示音'); audioPlayer.play5(); }
+    if (key === 'e') { log('debug', '快捷键：E 试播结束提示音'); audioPlayer.playEnd(); }
+    if (key === 'f') { log('debug', '快捷键：F 切换全屏'); window.electronAPI.toggleFullscreen(); }
+    if (key === 'b') {
+      log('debug', '快捷键：B 返回');
       if (isStandalone) openStandaloneSetup();
       else window.electronAPI.openEditor();
     }
-    if (event.key === 'ArrowRight') engine.nextSegment();
-    if (event.key === 'ArrowLeft') engine.prevSegment();
-    if (event.key.toLowerCase() === 'c') engine.switchSide();
+    if (event.key === 'ArrowRight') { log('debug', '快捷键：→ 下一环节'); engine.nextSegment(); }
+    if (event.key === 'ArrowLeft') { log('debug', '快捷键：← 上一环节'); engine.prevSegment(); }
+    if (key === 'c') { log('debug', '快捷键：C 切换持方'); engine.switchSide(); }
   });
 }
 
@@ -307,8 +321,9 @@ function bindControlButtons() {
   document.getElementById('startBtn').addEventListener('click', () => {
     if (!engine) return;
     const wasRunning = engine.isRunning;
-    engine.toggle();
     const isDual = config?.segments?.[engine.currentIndex]?.type === 'dual_debate';
+    log('info', `点击启动按钮，${isDual ? '双边模式' : '单边模式'}，${wasRunning ? '切换' : '启动'}`);
+    engine.toggle();
     if (isDual) {
       syncUi(wasRunning ? '已切换发言方' : '计时已开始');
     } else {
@@ -319,6 +334,7 @@ function bindControlButtons() {
   });
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (!engine) return;
+    log('info', '点击重置按钮');
     engine.resetCurrentSegment();
     syncUi('已重置当前环节');
     document.getElementById('resetBtn').classList.add('pulse');
@@ -326,6 +342,7 @@ function bindControlButtons() {
   });
   document.getElementById('prevBtn').addEventListener('click', () => {
     if (!engine) return;
+    log('info', '点击上一环节按钮');
     engine.prevSegment();
     syncUi('已切换到上一个环节');
     document.getElementById('prevBtn').classList.add('pulse');
@@ -333,6 +350,7 @@ function bindControlButtons() {
   });
   document.getElementById('nextBtn').addEventListener('click', () => {
     if (!engine) return;
+    log('info', '点击下一环节按钮');
     engine.nextSegment();
     syncUi('已切换到下一个环节');
     document.getElementById('nextBtn').classList.add('pulse');
@@ -340,30 +358,35 @@ function bindControlButtons() {
   });
   document.getElementById('stopBtn').addEventListener('click', () => {
     if (!engine) return;
+    log('info', '点击停止按钮');
     engine.stop();
     syncUi('已停止所有计时');
     document.getElementById('stopBtn').classList.add('pulse');
     setTimeout(() => document.getElementById('stopBtn').classList.remove('pulse'), 180);
   });
-  document.getElementById('test30Btn').addEventListener('click', () => { audioPlayer.play30(); setStatus('已播放 30 秒提示音'); });
-  document.getElementById('test5Btn').addEventListener('click', () => { audioPlayer.play5(); setStatus('已播放 5 秒提示音'); });
-  document.getElementById('testEndBtn').addEventListener('click', () => { audioPlayer.playEnd(); setStatus('已播放时间到提示音'); });
-  document.getElementById('fullscreenBtn').addEventListener('click', async () => { await window.electronAPI.toggleFullscreen(); setStatus('已切换全屏状态'); });
+  document.getElementById('test30Btn').addEventListener('click', () => { log('debug', '试播30秒提示音'); audioPlayer.play30(); setStatus('已播放 30 秒提示音'); });
+  document.getElementById('test5Btn').addEventListener('click', () => { log('debug', '试播5秒提示音'); audioPlayer.play5(); setStatus('已播放 5 秒提示音'); });
+  document.getElementById('testEndBtn').addEventListener('click', () => { log('debug', '试播结束提示音'); audioPlayer.playEnd(); setStatus('已播放时间到提示音'); });
+  document.getElementById('fullscreenBtn').addEventListener('click', async () => { log('info', '切换全屏'); await window.electronAPI.toggleFullscreen(); setStatus('已切换全屏状态'); });
   document.getElementById('backBtn').addEventListener('click', async () => {
     if (isStandalone) {
+      log('info', '打开独立计时器队伍设置');
       openStandaloneSetup();
       setStatus('已打开队伍设置');
     } else {
+      log('info', '返回编辑页');
       await window.electronAPI.openEditor();
       setStatus('已返回编辑页');
     }
   });
   document.getElementById('jumpBtn').addEventListener('click', () => {
     if (!engine) return;
+    log('info', '打开环节跳转模态框');
     openJumpModal();
   });
   document.getElementById('setTimeBtn').addEventListener('click', () => {
     if (!engine) return;
+    log('info', '打开设置时间模态框');
     openSetTimeModal();
   });
   document.getElementById('jumpCancelBtn').addEventListener('click', closeJumpModal);
@@ -372,6 +395,7 @@ function bindControlButtons() {
     if (!engine) return;
     const min = parseInt(document.getElementById('setTimeMin').value, 10) || 0;
     const sec = parseInt(document.getElementById('setTimeSec').value, 10) || 0;
+    log('info', `设置剩余时间: ${min}分${sec}秒`);
     engine.setRemaining(min * 60 + sec);
     closeSetTimeModal();
     syncUi('已设置剩余时间');
@@ -388,6 +412,7 @@ function openJumpModal() {
     btn.className = 'segment-jump-btn';
     btn.textContent = `${index + 1}. ${segment.name || '未命名环节'}${segment.type === 'dual_debate' ? ' [双计时]' : ''}`;
     btn.addEventListener('click', () => {
+      log('info', `跳转到环节: ${segment.name || ('第' + (index + 1) + '环节')}`);
       engine.jumpToSegment(index);
       closeJumpModal();
       syncUi(`已跳转到${segment.name || '第' + (index + 1) + '环节'}`);
@@ -409,6 +434,7 @@ function openSetTimeModal() {
   document.getElementById('setTimeMin').value = Math.floor(total / 60);
   document.getElementById('setTimeSec').value = total % 60;
   modal.classList.add('active');
+  log('debug', `打开设置时间模态框，当前剩余=${total}秒`);
 }
 
 function closeSetTimeModal() {
@@ -417,7 +443,7 @@ function closeSetTimeModal() {
 
 if (!window.__STANDALONE_CONFIG__) {
   initTimerApp().catch((error) => {
-    console.error('Timer app init failed:', error);
+    log('error', `计时页初始化失败: ${error.message}`);
     setStatus('初始化失败，请重试');
   });
 }

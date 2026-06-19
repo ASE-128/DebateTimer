@@ -4,33 +4,6 @@ const path = require('path');
 const childProcess = require('child_process');
 const embeddedBinaries = require('./vendor/embedded-binaries');
 
-const logPath = path.join(__dirname, 'debate-timer.log');
-const maxLogSize = 1024 * 1024; // 1MB
-
-function rotateLog() {
-  try {
-    if (fs.existsSync(logPath)) {
-      const stat = fs.statSync(logPath);
-      if (stat.size >= maxLogSize) {
-        const backupPath = logPath + '.1';
-        if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
-        fs.renameSync(logPath, backupPath);
-      }
-    }
-  } catch (e) { /* ignore */ }
-}
-
-function log(level, message) {
-  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  const line = `[${timestamp}] [${level.toUpperCase()}] ${message}\n`;
-  try {
-    rotateLog();
-    fs.appendFileSync(logPath, line, 'utf8');
-  } catch (e) {
-    console.error('日志写入失败:', e.message);
-  }
-}
-
 const isElectron = !!(process.versions && process.versions.electron);
 
 const appDataRoot = isElectron ? path.join(app.getPath('appData'), 'DebateTimer') : path.join(require('os').homedir(), 'AppData', 'Roaming', 'DebateTimer');
@@ -41,6 +14,39 @@ if (isElectron) {
 }
 
 const userDataPath = isElectron ? app.getPath('userData') : appDataRoot;
+
+// 日志路径：程序运行目录下的 logs 文件夹，按日期命名（单文件无大小限制）
+function getLogDir() {
+  return path.join(__dirname, 'logs');
+}
+
+function getLogPath() {
+  const logDir = getLogDir();
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const filename = `${y}${m}${d}.log`;
+  return path.join(logDir, filename);
+}
+
+function log(level, message) {
+  const now = new Date();
+  const timestamp = now.toISOString().replace('T', ' ').slice(0, 23);
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  const fullTimestamp = `${timestamp}.${ms}`;
+  const line = `[${fullTimestamp}] [${level.toUpperCase()}] ${message}\n`;
+  try {
+    const logPath = getLogPath();
+    const logDir = path.dirname(logPath);
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    fs.appendFileSync(logPath, line, 'utf8');
+  } catch (e) {
+    console.error('日志写入失败:', e.message);
+  }
+}
 
 const configPath = path.join(userDataPath, 'config.json');
 
@@ -227,15 +233,17 @@ function cleanupTemp(dir) {
 }
 
 function getElectronDist() {
+  // 优先使用 node_modules 中的 Electron 运行时，这是纯净的运行时
+  const devPath = path.join(__dirname, 'node_modules', 'electron', 'dist');
+  if (fs.existsSync(devPath)) {
+    return devPath;
+  }
+  // 如果找不到（例如在生产环境中），尝试使用当前应用目录
   if (app.isPackaged) {
     const packedDir = path.dirname(process.execPath);
     if (fs.existsSync(packedDir)) return packedDir;
   }
-  const devPath = path.join(__dirname, 'node_modules', 'electron', 'dist');
-  if (!fs.existsSync(devPath)) {
-    throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
-  }
-  return devPath;
+  throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
 }
 
 function generateStandaloneExe(config, savePath) {

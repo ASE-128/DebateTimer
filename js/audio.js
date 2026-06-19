@@ -1,3 +1,9 @@
+function log(level, message) {
+  if (typeof window !== 'undefined' && window.electronAPI?.log) {
+    window.electronAPI.log(level, message);
+  }
+}
+
 class AudioPlayer {
   constructor() {
     this.audioCtx = null;
@@ -10,6 +16,7 @@ class AudioPlayer {
       this.gainNode = this.audioCtx.createGain();
       this.gainNode.gain.value = 0.08;
       this.gainNode.connect(this.audioCtx.destination);
+      log('debug', 'AudioContext 初始化完成');
     }
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
   }
@@ -19,6 +26,7 @@ class AudioPlayer {
     const now = this.audioCtx.currentTime;
     const durationSec = durationMs / 1000;
     const intervalSec = intervalMs / 1000;
+    log('debug', `播放提示音: freq=${frequency}Hz, duration=${durationMs}ms, repeat=${repeat}`);
     for (let i = 0; i < repeat; i++) {
       const startAt = now + i * intervalSec;
       const osc = this.audioCtx.createOscillator();

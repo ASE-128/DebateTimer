@@ -1,3 +1,9 @@
+function log(level, message) {
+  if (typeof window !== 'undefined' && window.electronAPI?.log) {
+    window.electronAPI.log(level, message);
+  }
+}
+
 class TimerEngine {
   constructor(config, onRender) {
     this.config = config;
@@ -13,6 +19,7 @@ class TimerEngine {
     this.animationFrame = null;
     this.alertState = { last30: false, last5: false, lastEnd: false };
     this.lastRenderedSecond = -1;
+    log('info', `TimerEngine 初始化，首环节索引=${this.currentIndex}`);
   }
 
   findFirstTimedSegment() {
@@ -37,6 +44,7 @@ class TimerEngine {
     this.alertState = { last30: false, last5: false, lastEnd: false };
     this.lastRenderedSecond = -1;
     this.render();
+    log('info', `重置环节: ${segment.name || ('第' + (this.currentIndex + 1) + '环节')}`);
   }
 
   cancelAnimationFrame() {
@@ -86,6 +94,7 @@ class TimerEngine {
     this.lastTimestamp = performance.now();
     this.render();
     this.scheduleTick();
+    log('info', `计时开始: ${segment.name || '环节'}，时长=${duration}秒，类型=${segment.type}`);
   }
 
   pause() {
@@ -94,6 +103,7 @@ class TimerEngine {
     this.isPaused = true;
     this.lastTimestamp = null;
     this.render();
+    log('info', '计时暂停');
   }
 
   stop() {
@@ -102,6 +112,7 @@ class TimerEngine {
     this.isPaused = true;
     this.lastTimestamp = null;
     this.render();
+    log('info', '计时停止');
   }
 
   toggle() {
@@ -170,16 +181,19 @@ class TimerEngine {
     if (currentRemaining <= 0 && !this.alertState.lastEnd) {
       this.alertState.lastEnd = true;
       audioPlayer?.playEnd?.();
+      log('debug', '触发结束提示音');
       return;
     }
     if (currentRemaining <= 5 && previousRemaining > 5 && !this.alertState.last5) {
       this.alertState.last5 = true;
       audioPlayer?.play5?.();
+      log('debug', '触发5秒提示音');
       return;
     }
     if (currentRemaining <= 30 && previousRemaining > 30 && !this.alertState.last30) {
       this.alertState.last30 = true;
       audioPlayer?.play30?.();
+      log('debug', '触发30秒提示音');
     }
   }
 
@@ -193,6 +207,7 @@ class TimerEngine {
       this.lastRenderedSecond = -1;
       this.render();
       this.scheduleTick();
+      log('info', `切换发言方 → ${this.activeSide === 'affirmative' ? '正方' : '反方'}`);
     }
   }
 
@@ -200,18 +215,21 @@ class TimerEngine {
     const nextIndex = (this.currentIndex + 1) % this.segments.length;
     this.currentIndex = nextIndex;
     this.resetCurrentSegment();
+    log('info', `切换到下一环节: 第${nextIndex + 1}环节`);
   }
 
   prevSegment() {
     const prevIndex = (this.currentIndex - 1 + this.segments.length) % this.segments.length;
     this.currentIndex = prevIndex;
     this.resetCurrentSegment();
+    log('info', `切换到上一环节: 第${prevIndex + 1}环节`);
   }
 
   jumpToSegment(index) {
     if (!this.segments.length) return;
     this.currentIndex = Math.max(0, Math.min(index, this.segments.length - 1));
     this.resetCurrentSegment();
+    log('info', `跳转环节: 第${this.currentIndex + 1}环节`);
   }
 
   setRemaining(seconds) {
@@ -222,6 +240,7 @@ class TimerEngine {
     this.alertState = { last30: false, last5: false, lastEnd: false };
     this.lastRenderedSecond = -1;
     this.render();
+    log('info', `设置剩余时间: ${value}秒`);
   }
 
   getState() {

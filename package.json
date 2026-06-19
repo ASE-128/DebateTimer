@@ -1,6 +1,6 @@
 {
   "name": "debate-timer-electron",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Electron debate timer app",
   "main": "main.js",
   "scripts": {
