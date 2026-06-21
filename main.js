@@ -70,11 +70,14 @@ function defaultConfig() {
       backgroundColor: '#1a1a1a',
       fontFamily: 'system-ui',
       fontSizeScale: 1,
+      customFont: '',
+      customFontName: '',
       colors: {
         affirmative: '#c0392b',
         negative: '#2980b9',
         title: '#3498db',
-        text: '#ffffff'
+        text: '#ffffff',
+        neutral: '#ffffff'
       }
     },
     segments: [
@@ -111,15 +114,16 @@ function validateConfig(input) {
         affirmative: String(input.theme?.colors?.affirmative || def.theme.colors.affirmative),
         negative: String(input.theme?.colors?.negative || def.theme.colors.negative),
         title: String(input.theme?.colors?.title || def.theme.colors.title),
-        text: String(input.theme?.colors?.text || def.theme.colors.text)
+        text: String(input.theme?.colors?.text || def.theme.colors.text),
+        neutral: String(input.theme?.colors?.neutral || def.theme.colors.neutral)
       }
     },
     segments: Array.isArray(input.segments) ? input.segments.map((seg, i) => ({
       id: i + 1,
       name: String(seg.name || '未命名环节'),
-      type: ['none', 'single_speech', 'single_question', 'dual_debate'].includes(seg.type) ? seg.type : 'none',
+      type: ['none', 'single_speech', 'single_question', 'dual_debate', 'neutral_timer'].includes(seg.type) ? seg.type : 'none',
       duration: Math.max(0, Number(seg.duration || 0)),
-      side: ['affirmative', 'negative'].includes(seg.side) ? seg.side : undefined
+      side: ['affirmative', 'negative', 'neutral'].includes(seg.side) ? seg.side : undefined
     })) : def.segments
   };
 }
@@ -181,7 +185,8 @@ function generateStandaloneAppFiles(config, appDir) {
   const mainJs = `const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\n\napp.disableHardwareAcceleration();\n\nfunction createWindow() {\n  const win = new BrowserWindow({\n    width: 1500,\n    height: 950,\n    fullscreen: false,\n    autoHideMenuBar: true,\n    webPreferences: {\n      preload: path.join(__dirname, 'preload.js'),\n      contextIsolation: true,\n      nodeIntegration: false\n    }\n  });\n  win.loadFile(path.join(__dirname, 'timer.html'));\n}\n\napp.whenReady().then(() => {\n  createWindow();\n  ipcMain.handle('toggle-fullscreen', () => {\n    const win = BrowserWindow.getFocusedWindow();\n    if (win) win.setFullScreen(!win.isFullScreen());\n  });\n});\n\napp.on('window-all-closed', () => {\n  if (process.platform !== 'darwin') app.quit();\n});\n`;
   fs.writeFileSync(path.join(appDir, 'main.js'), mainJs);
 
-  const preloadJs = `const { contextBridge, ipcRenderer } = require('electron');\nconst embeddedConfig = ${JSON.stringify(config)};\ncontextBridge.exposeInMainWorld('electronAPI', {\n  loadConfig: () => Promise.resolve(embeddedConfig),\n  openEditor: () => Promise.resolve(),\n  toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),\n  onConfigUpdated: () => () => {}\n});\n`;
+  const preloadJs = `const { contextBridge, ipcRenderer } = require('electron');\nconst embeddedConfig = ${JSON.stringify(config)};\ncontextBridge.exposeInMainWorld('electronAPI', {\n  loadConfig: () => Promise.resolve(embeddedConfig),\n  openEditor: () => Promise.resolve(),\n  toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
+  log: () => Promise.resolve(),\n  onConfigUpdated: () => () => {}\n});\n`;
   fs.writeFileSync(path.join(appDir, 'preload.js'), preloadJs);
 
   const timerHtml = readAsset('timer.html');
@@ -217,6 +222,7 @@ function generateStandaloneAppFiles(config, appDir) {
 </html>`;
 
   fs.writeFileSync(path.join(appDir, 'timer.html'), standaloneTimerHtml);
+  fs.writeFileSync(path.join(appDir, 'styles', 'variables.css'), readAsset('styles', 'variables.css'));
   fs.writeFileSync(path.join(appDir, 'styles', 'timer.css'), readAsset('styles', 'timer.css'));
   fs.writeFileSync(path.join(appDir, 'js', 'audio.js'), readAsset('js', 'audio.js'));
   fs.writeFileSync(path.join(appDir, 'js', 'timer-core.js'), readAsset('js', 'timer-core.js'));

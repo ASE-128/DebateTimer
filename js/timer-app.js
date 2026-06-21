@@ -37,6 +37,7 @@ function formatTime(seconds) {
 function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--accent-affirmative', theme.colors?.affirmative || '#e74c3c');
   document.documentElement.style.setProperty('--accent-negative', theme.colors?.negative || '#3498db');
+  document.documentElement.style.setProperty('--accent-neutral', theme.colors?.neutral || '#ffffff');
   document.documentElement.style.setProperty('--accent-title', theme.colors?.title || '#5dade2');
   document.documentElement.style.setProperty('--text-color', theme.colors?.text || '#f0f2f5');
   document.documentElement.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
@@ -93,7 +94,8 @@ function updateControlLabel(state) {
     startBtnEl.textContent = state.isRunning ? '暂停' : '启动';
     return;
   }
-  if (config?.segments?.[engine?.currentIndex]?.type === 'dual_debate') {
+  const segType = config?.segments?.[engine?.currentIndex]?.type;
+  if (segType === 'dual_debate') {
     btnLabel.textContent = state.isRunning ? '切换' : '开始';
   } else {
     btnLabel.textContent = state.isRunning ? '暂停' : '启动';
@@ -118,7 +120,11 @@ function updateProgress(state) {
   }
   timerProgressEl.style.display = '';
   const totalDuration = Number(segment.duration || 0);
-  if (totalDuration <= 0) return;
+  if (totalDuration <= 0) {
+    timerProgressEl.style.display = 'none';
+    return;
+  }
+  timerProgressEl.style.display = '';
   let remaining = 0;
   if (segment.type === 'dual_debate') {
     remaining = state.activeSide === 'affirmative' ? state.remaining : state.remainingOpposite;
@@ -158,17 +164,21 @@ function render(state) {
     segmentNameEl.classList.toggle('segment-name-large', isNoTimer);
     lastRenderCache.isNoTimer = isNoTimer;
   }
-  const sideLabelText = isNoTimer ? '' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中');
+  const sideLabelText = isNoTimer ? '' : (state.activeSide === 'neutral' ? '中立计时中' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中'));
   if (sideLabelEl.textContent !== sideLabelText) {
     sideLabelEl.textContent = sideLabelText;
   }
   const sideLabelAffirmative = !isNoTimer && state.activeSide === 'affirmative';
   const sideLabelNegative = !isNoTimer && state.activeSide === 'negative';
+  const sideLabelNeutral = !isNoTimer && state.activeSide === 'neutral';
   if (sideLabelEl.classList.contains('affirmative') !== sideLabelAffirmative) {
     sideLabelEl.classList.toggle('affirmative', sideLabelAffirmative);
   }
   if (sideLabelEl.classList.contains('negative') !== sideLabelNegative) {
     sideLabelEl.classList.toggle('negative', sideLabelNegative);
+  }
+  if (sideLabelEl.classList.contains('neutral') !== sideLabelNeutral) {
+    sideLabelEl.classList.toggle('neutral', sideLabelNeutral);
   }
   const sideLabelDisplay = isNoTimer ? 'none' : '';
   if (sideLabelEl.style.display !== sideLabelDisplay) {
@@ -219,11 +229,15 @@ function render(state) {
     }
     const singleAffirmative = state.activeSide === 'affirmative';
     const singleNegative = state.activeSide === 'negative';
+    const singleNeutral = state.activeSide === 'neutral';
     if (singleTimerEl.classList.contains('affirmative') !== singleAffirmative) {
       singleTimerEl.classList.toggle('affirmative', singleAffirmative);
     }
     if (singleTimerEl.classList.contains('negative') !== singleNegative) {
       singleTimerEl.classList.toggle('negative', singleNegative);
+    }
+    if (singleTimerEl.classList.contains('neutral') !== singleNeutral) {
+      singleTimerEl.classList.toggle('neutral', singleNeutral);
     }
   }
 }
@@ -279,7 +293,7 @@ async function refreshFromConfig(nextConfig) {
   engine.currentIndex = 0;
   engine.remaining = engine.getCurrentDuration();
   engine.remainingOpposite = engine.getCurrentDuration();
-  engine.activeSide = engine.segments[0]?.side || 'affirmative';
+  engine.activeSide = engine.segments[0]?.type === 'neutral_timer' ? 'neutral' : (engine.segments[0]?.side || 'affirmative');
   engine.isRunning = false;
   engine.isPaused = true;
   engine.lastTimestamp = null;
@@ -410,7 +424,7 @@ function openJumpModal() {
   (config?.segments || []).forEach((segment, index) => {
     const btn = document.createElement('button');
     btn.className = 'segment-jump-btn';
-    btn.textContent = `${index + 1}. ${segment.name || '未命名环节'}${segment.type === 'dual_debate' ? ' [双计时]' : ''}`;
+    btn.textContent = `${index + 1}. ${segment.name || '未命名环节'}${segment.type === 'dual_debate' ? ' [双计时]' : segment.type === 'neutral_timer' ? ' [中立计时]' : ''}`;
     btn.addEventListener('click', () => {
       log('info', `跳转到环节: ${segment.name || ('第' + (index + 1) + '环节')}`);
       engine.jumpToSegment(index);

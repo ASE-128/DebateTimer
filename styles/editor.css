@@ -649,7 +649,7 @@ body {
 .type-badge-none { background: rgba(90, 96, 112, 0.3); color: var(--text-muted); border: 1px solid rgba(90, 96, 112, 0.4); }
 .type-badge-single_speech { background: rgba(52, 152, 219, 0.15); color: var(--accent-negative); border: 1px solid rgba(52, 152, 219, 0.3); }
 .type-badge-single_question { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3); }
-.type-badge-dual_debate { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+.type-badge-neutral_timer { background: rgba(255, 255, 255, 0.15); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); }
 
 /* === 设计署名 === */
 .design-by {

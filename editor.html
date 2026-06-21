@@ -63,6 +63,7 @@
               <label>背景图片<input id="backgroundImage" type="file" accept="image/*" /></label>
               <label>正方色<input id="affirmativeColor" type="color" /></label>
               <label>反方色<input id="negativeColor" type="color" /></label>
+              <label>中立色<input id="neutralColor" type="color" /></label>
               <label>标题色<input id="titleColor" type="color" /></label>
               <label>字体<select id="fontFamily"></select></label>
               <label>自定义 TTF 字体（仅用于文本）<input id="customFont" type="file" accept=".ttf,.otf" /></label>
@@ -75,6 +76,7 @@
                 <div style="font-size: 24px; color: var(--text-primary); font-weight: 800; margin-bottom: 12px;" id="previewSegmentName">正方一辩·陈词</div>
                 <div style="font-size: 48px; font-family: var(--font-mono); font-weight: 700; color: var(--accent-affirmative); letter-spacing: 4px;" id="previewTimer">03:00</div>
                 <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary);" id="previewSideLabel">正方发言中</div>
+                <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary); display: none;" id="previewNeutralLabel">中立计时中</div>
               </div>
             </div>
           </div>
@@ -92,6 +94,7 @@
                   <button id="addNoneBtn" type="button">+ 无计时</button>
                   <button id="addSpeechBtn" type="button">+ 陈词</button>
                   <button id="addQuestionBtn" type="button">+ 质询</button>
+                  <button id="addNeutralBtn" type="button">+ 中立计时</button>
                   <button id="addDebateBtn" type="button">+ 对辩</button>
                   <button id="addFreeDebateBtn" type="button">+ 自由辩论</button>
                 </div>
@@ -104,7 +107,7 @@
         </div>
       </div>
 
-      <div class="design-by">© Chen Yu 2026<br>All rights reserved.</div>
+      <div class="design-by">© Chen Yu 2026<br> All rights reserved.</div>
     </main>
     <script src="js/toast.js"></script>
     <script src="js/editor-app.js"></script>

@@ -30,6 +30,7 @@
   --accent-affirmative: #e74c3c;
   --accent-negative: #3498db;
   --accent-title: #5dade2;
+  --accent-neutral: #ffffff;
   --text-primary: #f0f2f5;
   --text-secondary: #8e95a5;
   --text-muted: #5a6070;
@@ -45,6 +46,7 @@
   --accent-affirmative: #ff6b6b;
   --accent-negative: #4ecdc4;
   --accent-title: #ffe66d;
+  --accent-neutral: #ffffff;
   --bg-primary: #0d0f15;
   --bg-secondary: #151824;
   --bg-card: rgba(24, 28, 40, 0.85);
@@ -56,6 +58,7 @@
   --accent-affirmative: #e0e0e0;
   --accent-negative: #a0a0a0;
   --accent-title: #ffffff;
+  --accent-neutral: #ffffff;
   --bg-primary: #000000;
   --bg-secondary: #0a0a0a;
   --bg-card: rgba(24, 24, 24, 0.9);

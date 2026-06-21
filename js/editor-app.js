@@ -28,6 +28,7 @@ function fillEditorUI(config) {
   document.getElementById('backgroundColor').value = config.theme?.backgroundColor || '#1a1a1a';
   document.getElementById('affirmativeColor').value = config.theme?.colors?.affirmative || '#c0392b';
   document.getElementById('negativeColor').value = config.theme?.colors?.negative || '#2980b9';
+  document.getElementById('neutralColor').value = config.theme?.colors?.neutral || '#ffffff';
   document.getElementById('titleColor').value = config.theme?.colors?.title || '#3498db';
   document.getElementById('fontFamily').value = config.theme?.fontFamily || 'system-ui';
   document.getElementById('fontSizeScale').value = config.theme?.fontSizeScale || 1;
@@ -53,6 +54,7 @@ function updatePreview() {
   if (!preview) return;
   const affirmativeColor = document.getElementById('affirmativeColor').value;
   const negativeColor = document.getElementById('negativeColor').value;
+  const neutralColor = document.getElementById('neutralColor').value;
   const titleColor = document.getElementById('titleColor').value;
   const fontFamily = document.getElementById('fontFamily').value;
   const fontSizeScale = document.getElementById('fontSizeScale').value;
@@ -67,12 +69,14 @@ function updatePreview() {
   const pSegmentName = document.getElementById('previewSegmentName');
   const pTimer = document.getElementById('previewTimer');
   const pSideLabel = document.getElementById('previewSideLabel');
+  const pNeutralLabel = document.getElementById('previewNeutralLabel');
 
   if (pEventName) pEventName.style.color = titleColor;
   if (pEventName) pEventName.textContent = eventName;
   if (pTimer) pTimer.style.color = affirmativeColor;
   if (pTimer) pTimer.style.textShadow = `0 0 30px ${affirmativeColor}40`;
   if (pSideLabel) pSideLabel.style.color = affirmativeColor;
+  if (pNeutralLabel) pNeutralLabel.style.color = neutralColor;
 }
 
 function switchPanel(panelId) {
@@ -119,7 +123,7 @@ function renderSegments(segments) {
     if (sideSelect) {
       sideSelect.value = segment.side || '';
       const sideRow = card.querySelector('.side-row');
-      if (sideRow) sideRow.style.display = segment.type === 'none' ? 'none' : '';
+      if (sideRow) sideRow.style.display = segment.type === 'none' || segment.type === 'neutral_timer' ? 'none' : '';
     }
   }
 
@@ -129,7 +133,7 @@ function renderSegments(segments) {
     card.className = 'segment-card';
     card.innerHTML = `
       <div class="row segment-name-row"><strong>${i + 1}</strong><input data-field="name" value="${segment.name || ''}" /></div>
-      <div class="row"><select data-field="type"><option value="none" ${segment.type === 'none' ? 'selected' : ''}>无计时</option><option value="single_speech" ${segment.type === 'single_speech' ? 'selected' : ''}>单边计时</option><option value="single_question" ${segment.type === 'single_question' ? 'selected' : ''}>单边发问</option><option value="dual_debate" ${segment.type === 'dual_debate' ? 'selected' : ''}>双边对辩</option></select></div>
+      <div class="row"><select data-field="type"><option value="none" ${segment.type === 'none' ? 'selected' : ''}>无计时</option><option value="single_speech" ${segment.type === 'single_speech' ? 'selected' : ''}>单边计时</option><option value="single_question" ${segment.type === 'single_question' ? 'selected' : ''}>单边发问</option><option value="neutral_timer" ${segment.type === 'neutral_timer' ? 'selected' : ''}>中立计时</option><option value="dual_debate" ${segment.type === 'dual_debate' ? 'selected' : ''}>双边对辩</option></select></div>
       <div class="row name-template-row">
         <select data-name-side class="name-template"></select>
         <select data-name-position class="name-template"></select>
@@ -441,7 +445,7 @@ function updateNameTemplateSelect(card, type) {
   const durationRow = card.querySelector('.duration-row');
   const sideRow = card.querySelector('.side-row');
   if (durationRow) durationRow.style.display = type === 'none' ? 'none' : '';
-  if (sideRow) sideRow.style.display = type === 'none' ? 'none' : '';
+  if (sideRow) sideRow.style.display = type === 'none' || type === 'neutral_timer' ? 'none' : '';
 
   const sideOptions = [
     ['持方', ''],
@@ -474,6 +478,13 @@ function updateNameTemplateSelect(card, type) {
       ['提问', '提问'],
       ['追问', '追问'],
       ['盘问', '盘问']
+    ],
+    neutral_timer: [
+      ['请选择模板', ''],
+      ['中场暂停', '中场暂停'],
+      ['评委述票', '评委述票'],
+      ['休息', '休息'],
+      ['准备时间', '准备时间']
     ],
     dual_debate: [
       ['请选择模板', ''],
@@ -524,6 +535,7 @@ function gatherConfig() {
       colors: {
         affirmative: document.getElementById('affirmativeColor').value,
         negative: document.getElementById('negativeColor').value,
+        neutral: document.getElementById('neutralColor').value,
         title: document.getElementById('titleColor').value,
         text: '#ffffff'
       }
@@ -613,7 +625,7 @@ function addSegmentPreset(type, name, duration, side) {
   card.className = 'segment-card';
   card.innerHTML = `
     <div class="row segment-name-row"><strong>${root.children.length + 1}</strong><input data-field="name" value="${name}" /></div>
-    <div class="row"><select data-field="type"><option value="none" ${type === 'none' ? 'selected' : ''}>无计时</option><option value="single_speech" ${type === 'single_speech' ? 'selected' : ''}>单边计时</option><option value="single_question" ${type === 'single_question' ? 'selected' : ''}>单边发问</option><option value="dual_debate" ${type === 'dual_debate' ? 'selected' : ''}>双边对辩</option></select></div>
+    <div class="row"><select data-field="type"><option value="none" ${type === 'none' ? 'selected' : ''}>无计时</option><option value="single_speech" ${type === 'single_speech' ? 'selected' : ''}>单边计时</option><option value="single_question" ${type === 'single_question' ? 'selected' : ''}>单边发问</option><option value="neutral_timer" ${type === 'neutral_timer' ? 'selected' : ''}>中立计时</option><option value="dual_debate" ${type === 'dual_debate' ? 'selected' : ''}>双边对辩</option></select></div>
     <div class="row name-template-row">
       <select data-name-side class="name-template"></select>
       <select data-name-position class="name-template"></select>
@@ -623,7 +635,7 @@ function addSegmentPreset(type, name, duration, side) {
     </div>
     <div class="row duration-row" ${type === 'none' ? 'style="display:none"' : ''}><input data-field="duration" type="number" value="${duration}" min="0" step="5" /></div>
     <div class="row action-row"><button data-action="up">上移</button><button data-action="down">下移</button><button data-action="del">删除</button></div>
-    <div class="row side-row" ${type === 'none' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!side ? 'selected' : ''}>默认</option><option value="affirmative" ${side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${side === 'negative' ? 'selected' : ''}>反方</option></select></div>
+    <div class="row side-row" ${type === 'none' || type === 'neutral_timer' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!side ? 'selected' : ''}>默认</option><option value="affirmative" ${side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${side === 'negative' ? 'selected' : ''}>反方</option></select></div>
   `;
   root.appendChild(card);
   updateNameTemplateSelect(card, type);
@@ -683,6 +695,7 @@ document.getElementById('exportTimerBtn').addEventListener('click', async () => 
 document.getElementById('addNoneBtn').addEventListener('click', () => addSegmentPreset('none', '无计时', 0, undefined));
 document.getElementById('addSpeechBtn').addEventListener('click', () => addSegmentPreset('single_speech', '陈词', 180, 'affirmative'));
 document.getElementById('addQuestionBtn').addEventListener('click', () => addSegmentPreset('single_question', '质询', 60, 'affirmative'));
+document.getElementById('addNeutralBtn').addEventListener('click', () => addSegmentPreset('neutral_timer', '中场暂停', 300, undefined));
 document.getElementById('addDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '对辩', 120, 'affirmative'));
 document.getElementById('addFreeDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '自由辩论', 240, 'affirmative'));
 document.getElementById('openTimerBtn').addEventListener('click', () => window.electronAPI.openTimer());
@@ -707,7 +720,7 @@ document.getElementById('customFont').addEventListener('change', (event) => {
   });
 
   // 实时预览事件绑定
-  ['eventName', 'affirmativeColor', 'negativeColor', 'titleColor', 'fontFamily', 'fontSizeScale', 'backgroundColor'].forEach((id) => {
+  ['eventName', 'affirmativeColor', 'negativeColor', 'neutralColor', 'titleColor', 'fontFamily', 'fontSizeScale', 'backgroundColor'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updatePreview);
   });

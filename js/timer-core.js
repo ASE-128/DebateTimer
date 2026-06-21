@@ -36,7 +36,7 @@ class TimerEngine {
     const segment = this.segments[this.currentIndex] || {};
     this.remaining = Number(segment.duration || 0);
     this.remainingOpposite = Number(segment.duration || 0);
-    this.activeSide = segment.side || 'affirmative';
+    this.activeSide = segment.type === 'neutral_timer' ? 'neutral' : (segment.side || 'affirmative');
     this.isPaused = true;
     this.isRunning = false;
     this.lastTimestamp = null;
