@@ -30,6 +30,7 @@ function fillEditorUI(config) {
   document.getElementById('negativeColor').value = config.theme?.colors?.negative || '#2980b9';
   document.getElementById('neutralColor').value = config.theme?.colors?.neutral || '#ffffff';
   document.getElementById('titleColor').value = config.theme?.colors?.title || '#3498db';
+  document.getElementById('textColor').value = config.theme?.colors?.text || '#ffffff';
   document.getElementById('fontFamily').value = config.theme?.fontFamily || 'system-ui';
   document.getElementById('fontSizeScale').value = config.theme?.fontSizeScale || 1;
   const customFontInput = document.getElementById('customFont');
@@ -56,12 +57,22 @@ function updatePreview() {
   const negativeColor = document.getElementById('negativeColor').value;
   const neutralColor = document.getElementById('neutralColor').value;
   const titleColor = document.getElementById('titleColor').value;
+  const textColor = document.getElementById('textColor').value;
   const fontFamily = document.getElementById('fontFamily').value;
   const fontSizeScale = document.getElementById('fontSizeScale').value;
   const eventName = document.getElementById('eventName').value || '赛事名称';
   const bgColor = document.getElementById('backgroundColor').value;
+  const bgType = document.getElementById('backgroundType').value;
+  const bgImage = document.getElementById('backgroundImage').dataset.dataUrl;
 
-  preview.style.background = bgColor;
+  if (bgType === 'image' && bgImage) {
+    preview.style.background = `url(${bgImage})`;
+    preview.style.backgroundSize = 'cover';
+    preview.style.backgroundPosition = 'center';
+  } else {
+    preview.style.background = bgColor;
+  }
+
   preview.style.fontFamily = fontFamily;
   preview.style.fontSize = `${parseFloat(fontSizeScale)}em`;
 
@@ -71,10 +82,15 @@ function updatePreview() {
   const pSideLabel = document.getElementById('previewSideLabel');
   const pNeutralLabel = document.getElementById('previewNeutralLabel');
 
-  if (pEventName) pEventName.style.color = titleColor;
-  if (pEventName) pEventName.textContent = eventName;
-  if (pTimer) pTimer.style.color = affirmativeColor;
-  if (pTimer) pTimer.style.textShadow = `0 0 30px ${affirmativeColor}40`;
+  if (pEventName) {
+    pEventName.style.color = titleColor;
+    pEventName.textContent = eventName;
+  }
+  if (pSegmentName) pSegmentName.style.color = textColor;
+  if (pTimer) {
+    pTimer.style.color = affirmativeColor;
+    pTimer.style.textShadow = `0 0 30px ${affirmativeColor}40`;
+  }
   if (pSideLabel) pSideLabel.style.color = affirmativeColor;
   if (pNeutralLabel) pNeutralLabel.style.color = neutralColor;
 }
@@ -143,7 +159,7 @@ function renderSegments(segments) {
       </div>
       <div class="row duration-row" ${segment.type === 'none' ? 'style="display:none"' : ''}><input data-field="duration" type="number" value="${segment.duration || 0}" min="0" step="5" /></div>
       <div class="row action-row"><button data-action="up">上移</button><button data-action="down">下移</button><button data-action="del">删除</button></div>
-      <div class="row side-row" ${segment.type === 'none' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!segment.side ? 'selected' : ''}>默认</option><option value="affirmative" ${segment.side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${segment.side === 'negative' ? 'selected' : ''}>反方</option></select></div>
+      <div class="row side-row" ${segment.type === 'none' || segment.type === 'neutral_timer' ? 'style="display:none"' : ''}><select data-field="side"><option value="" ${!segment.side ? 'selected' : ''}>默认</option><option value="affirmative" ${segment.side === 'affirmative' ? 'selected' : ''}>正方</option><option value="negative" ${segment.side === 'negative' ? 'selected' : ''}>反方</option></select></div>
     `;
     root.appendChild(card);
     updateNameTemplateSelect(card, segment.type || 'single_speech');
@@ -537,7 +553,7 @@ function gatherConfig() {
         negative: document.getElementById('negativeColor').value,
         neutral: document.getElementById('neutralColor').value,
         title: document.getElementById('titleColor').value,
-        text: '#ffffff'
+        text: document.getElementById('textColor').value
       }
     },
     segments: Array.from(document.querySelectorAll('.segment-card')).map((card, index) => ({
@@ -654,6 +670,7 @@ document.getElementById('backgroundImage').addEventListener('change', (event) =>
   reader.onload = () => {
     event.target.dataset.dataUrl = reader.result;
     document.body.style.backgroundImage = `url(${reader.result})`;
+    updatePreview();
   };
   reader.readAsDataURL(file);
 });
@@ -720,7 +737,7 @@ document.getElementById('customFont').addEventListener('change', (event) => {
   });
 
   // 实时预览事件绑定
-  ['eventName', 'affirmativeColor', 'negativeColor', 'neutralColor', 'titleColor', 'fontFamily', 'fontSizeScale', 'backgroundColor'].forEach((id) => {
+  ['eventName', 'affirmativeColor', 'negativeColor', 'neutralColor', 'titleColor', 'textColor', 'fontFamily', 'fontSizeScale', 'backgroundColor', 'backgroundType'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updatePreview);
   });

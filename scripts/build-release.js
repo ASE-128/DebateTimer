@@ -4,7 +4,6 @@ const childProcess = require('child_process');
 
 const projectRoot = path.join(__dirname, '..');
 const releaseDir = path.join(projectRoot, 'release');
-const electronDist = path.join(projectRoot, 'node_modules', 'electron', 'dist');
 const embeddedBinaries = require(path.join(projectRoot, 'vendor', 'embedded-binaries'));
 
 function ensureDir(dir) {
@@ -67,7 +66,16 @@ function inlineTimerHtml(config) {
   const audioJs = minifyJs(readAsset('js', 'audio.js'));
   const coreJs = minifyJs(readAsset('js', 'timer-core.js'));
   const appJs = minifyJs(readAsset('js', 'timer-app.js'));
+  const variablesCss = minifyCss(readAsset('styles', 'variables.css'));
   const timerCss = minifyCss(readAsset('styles', 'timer.css'));
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -76,6 +84,7 @@ function inlineTimerHtml(config) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="author" content="Chen Yu">
 <title>辩论赛计时器</title>
+<style>${variablesCss}</style>
 <style>${timerCss}</style>
 </head>
 <body>
@@ -83,10 +92,10 @@ ${bodyContent}
 <div id="standaloneSetup" class="standalone-setup">
   <div class="box">
     <h2>赛前设置</h2>
-    <label>正方队伍<input id="ssAffirmativeTeam" type="text" value="${(config.teams?.affirmative || '').replace(/"/g, '&quot;')}"></label>
-    <label>正方辩题<input id="ssAffirmativeTopic" type="text" value="${(config.topics?.affirmative || '').replace(/"/g, '&quot;')}"></label>
-    <label>反方队伍<input id="ssNegativeTeam" type="text" value="${(config.teams?.negative || '').replace(/"/g, '&quot;')}"></label>
-    <label>反方辩题<input id="ssNegativeTopic" type="text" value="${(config.topics?.negative || '').replace(/"/g, '&quot;')}"></label>
+    <label>正方队伍<input id="ssAffirmativeTeam" type="text" value="${escapeHtml(config.teams?.affirmative || '')}"></label>
+    <label>正方辩题<input id="ssAffirmativeTopic" type="text" value="${escapeHtml(config.topics?.affirmative || '')}"></label>
+    <label>反方队伍<input id="ssNegativeTeam" type="text" value="${escapeHtml(config.teams?.negative || '')}"></label>
+    <label>反方辩题<input id="ssNegativeTopic" type="text" value="${escapeHtml(config.topics?.negative || '')}"></label>
     <button id="ssStartBtn">开始计时</button>
   </div>
 </div>
@@ -99,14 +108,40 @@ ${bodyContent}
 </html>`;
 }
 
+function getElectronDist() {
+  const devPath = path.join(projectRoot, 'node_modules', 'electron', 'dist');
+  if (fs.existsSync(devPath)) {
+    return devPath;
+  }
+  const packedDir = path.dirname(process.execPath);
+  if (fs.existsSync(packedDir)) {
+    return packedDir;
+  }
+  throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
+}
+
 function buildStandalone(config, savePath) {
   const tempBase = fs.mkdtempSync(path.join(require('os').tmpdir(), 'dt-release-'));
   try {
     // 1. Copy Electron runtime
+    const electronDist = getElectronDist();
     if (!fs.existsSync(electronDist)) {
       throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
     }
     copyDir(electronDist, tempBase);
+
+    // 打包后 electron.exe 被重命名（如 DebateTimer.exe），需额外复制一份 electron.exe
+    if (!fs.existsSync(path.join(tempBase, 'electron.exe'))) {
+      const appExeCandidates = fs.readdirSync(tempBase).filter((f) => f.endsWith('.exe') && f !== 'electron.exe');
+      for (const candidate of appExeCandidates) {
+        const candidatePath = path.join(tempBase, candidate);
+        if (fs.existsSync(candidatePath)) {
+          fs.copyFileSync(candidatePath, path.join(tempBase, 'electron.exe'));
+          console.log('从', candidate, '复制一份 electron.exe');
+          break;
+        }
+      }
+    }
 
     // 2. Create app folder with inlined resources
     const appDir = path.join(tempBase, 'resources', 'app');
@@ -121,7 +156,7 @@ function buildStandalone(config, savePath) {
     const mainJs = `const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\napp.disableHardwareAcceleration();\nfunction createWindow() {\n  const win = new BrowserWindow({ width: 1500, height: 950, fullscreen: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false } });\n  win.loadFile(path.join(__dirname, 'timer.html'));\n}\napp.whenReady().then(() => { createWindow(); ipcMain.handle('toggle-fullscreen', () => { const win = BrowserWindow.getFocusedWindow(); if (win) win.setFullScreen(!win.isFullScreen()); }); });\napp.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });`;
     fs.writeFileSync(path.join(appDir, 'main.js'), mainJs);
 
-    const preloadJs = `const { contextBridge, ipcRenderer } = require('electron');\nconst embeddedConfig = ${JSON.stringify(config)};\ncontextBridge.exposeInMainWorld('electronAPI', { loadConfig: () => Promise.resolve(embeddedConfig), openEditor: () => Promise.resolve(), toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'), onConfigUpdated: () => () => {} });`;
+    const preloadJs = `const { contextBridge, ipcRenderer } = require('electron');\nconst embeddedConfig = ${JSON.stringify(config)};\ncontextBridge.exposeInMainWorld('electronAPI', { loadConfig: () => Promise.resolve(embeddedConfig), openEditor: () => Promise.resolve(), toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'), log: () => Promise.resolve(), onConfigUpdated: () => () => {} });`;
     fs.writeFileSync(path.join(appDir, 'preload.js'), preloadJs);
 
     fs.writeFileSync(path.join(appDir, 'timer.html'), inlineTimerHtml(config));
@@ -169,12 +204,16 @@ function buildStandalone(config, savePath) {
 
 function buildEditorRelease(config, savePath) {
   const editorHtml = readAsset('editor.html');
+  const variablesCss = minifyCss(readAsset('styles', 'variables.css'));
   const editorCss = minifyCss(readAsset('styles', 'editor.css'));
   const editorJs = minifyJs(readAsset('js', 'editor-app.js'));
 
-  // Inline CSS and JS into editor.html
+  // Inline CSS, JS and toast into editor.html
   let html = editorHtml;
+  html = html.replace('<link rel="stylesheet" href="styles/variables.css" />', `<style>${variablesCss}</style>`);
   html = html.replace('<link rel="stylesheet" href="styles/editor.css" />', `<style>${editorCss}</style>`);
+  const toastJs = minifyJs(readAsset('js', 'toast.js'));
+  html = html.replace('<script src="js/toast.js"></script>', `<script>${toastJs}</script>`);
   html = html.replace('<script src="js/editor-app.js"></script>', `<script>${editorJs}</script>`);
 
   // Add meta author if not present

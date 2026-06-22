@@ -192,6 +192,14 @@ function generateStandaloneAppFiles(config, appDir) {
   const timerHtml = readAsset('timer.html');
   const bodyContent = extractBody(timerHtml);
 
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   const standaloneTimerHtml = `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -199,6 +207,7 @@ function generateStandaloneAppFiles(config, appDir) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="author" content="Chen Yu">
   <title>辩论赛计时器</title>
+  <link rel="stylesheet" href="styles/variables.css">
   <link rel="stylesheet" href="styles/timer.css">
 </head>
 <body>
@@ -206,10 +215,10 @@ function generateStandaloneAppFiles(config, appDir) {
   <div id="standaloneSetup" class="standalone-setup">
     <div class="box">
       <h2>赛前设置</h2>
-      <label>正方队伍<input id="ssAffirmativeTeam" type="text" value="${(config.teams?.affirmative || '').replace(/"/g, '&quot;')}"></label>
-      <label>正方辩题<input id="ssAffirmativeTopic" type="text" value="${(config.topics?.affirmative || '').replace(/"/g, '&quot;')}"></label>
-      <label>反方队伍<input id="ssNegativeTeam" type="text" value="${(config.teams?.negative || '').replace(/"/g, '&quot;')}"></label>
-      <label>反方辩题<input id="ssNegativeTopic" type="text" value="${(config.topics?.negative || '').replace(/"/g, '&quot;')}"></label>
+      <label>正方队伍<input id="ssAffirmativeTeam" type="text" value="${escapeHtml(config.teams?.affirmative || '')}"></label>
+      <label>正方辩题<input id="ssAffirmativeTopic" type="text" value="${escapeHtml(config.topics?.affirmative || '')}"></label>
+      <label>反方队伍<input id="ssNegativeTeam" type="text" value="${escapeHtml(config.teams?.negative || '')}"></label>
+      <label>反方辩题<input id="ssNegativeTopic" type="text" value="${escapeHtml(config.topics?.negative || '')}"></label>
       <button id="ssStartBtn">开始计时</button>
     </div>
   </div>
@@ -264,6 +273,16 @@ function generateStandaloneExe(config, savePath) {
       const electronDist = getElectronDist();
       copyDir(electronDist, tempBase);
       log('info', 'Electron 运行时复制完成');
+
+      // 打包后 electron.exe 被重命名（如 DebateTimer.exe），需额外复制一份 electron.exe
+      if (!fs.existsSync(path.join(tempBase, 'electron.exe'))) {
+        const appExeName = path.basename(process.execPath);
+        const appExePath = path.join(tempBase, appExeName);
+        if (fs.existsSync(appExePath)) {
+          fs.copyFileSync(appExePath, path.join(tempBase, 'electron.exe'));
+          log('info', `从 ${appExeName} 复制一份 electron.exe`);
+        }
+      }
 
       // 2. Create app folder
       const appDir = path.join(tempBase, 'resources', 'app');
