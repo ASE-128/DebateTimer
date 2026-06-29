@@ -154,6 +154,8 @@ function renderSegments(segments) {
         <select data-name-side class="name-template"></select>
         <select data-name-position class="name-template"></select>
         <select data-name-template class="name-template"></select>
+        <select data-name-side2 class="name-template" style="display:none"></select>
+        <select data-name-position2 class="name-template" style="display:none" multiple></select>
         <select data-name-option2 class="name-template"></select>
         <button type="button" data-action="apply-name">确认名称</button>
       </div>
@@ -457,6 +459,8 @@ function updateNameTemplateSelect(card, type) {
   const sideSelect = card.querySelector('[data-name-side]');
   const positionSelect = card.querySelector('[data-name-position]');
   const templateSelect = card.querySelector('[data-name-template]');
+  const side2Select = card.querySelector('[data-name-side2]');
+  const position2Select = card.querySelector('[data-name-position2]');
   const option2Select = card.querySelector('[data-name-option2]');
   const durationRow = card.querySelector('.duration-row');
   const sideRow = card.querySelector('.side-row');
@@ -479,7 +483,15 @@ function updateNameTemplateSelect(card, type) {
     ['无', '无']
   ];
   const templateOptions = {
-    none: [['无计时', '无计时'], ['请选择模板', '']],
+    none: [
+      ['请选择模板', ''],
+      ['开场', '开场'],
+      ['评委介绍', '评委介绍'],
+      ['双方介绍', '双方介绍'],
+      ['提示音介绍', '提示音介绍'],
+      ['评委点评', '评委点评'],
+      ['赛果公示', '赛果公示']
+    ],
     single_speech: [
       ['请选择模板', ''],
       ['陈词', '陈词'],
@@ -491,8 +503,6 @@ function updateNameTemplateSelect(card, type) {
     single_question: [
       ['请选择模板', ''],
       ['质询', '质询'],
-      ['提问', '提问'],
-      ['追问', '追问'],
       ['盘问', '盘问']
     ],
     neutral_timer: [
@@ -518,15 +528,57 @@ function updateNameTemplateSelect(card, type) {
     ['结辩', '结辩'],
     ['自由', '自由']
   ];
+  const side2Options = [
+    ['对方持方', ''],
+    ['正方', '正方'],
+    ['反方', '反方']
+  ];
+  const position2Options = [
+    ['对方辩手', ''],
+    ['一辩', '一辩'],
+    ['二辩', '二辩'],
+    ['三辩', '三辩'],
+    ['四辩', '四辩'],
+    ['全体', '全体']
+  ];
 
   sideSelect.innerHTML = sideOptions.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
   sideSelect.value = '';
   positionSelect.innerHTML = positionOptions.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
   positionSelect.value = '';
   templateSelect.innerHTML = (templateOptions[type] || templateOptions.single_speech).map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
-  templateSelect.value = type === 'none' ? '无计时' : '';
+  templateSelect.value = type === 'none' ? '' : '';
+  side2Select.innerHTML = side2Options.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
+  side2Select.value = '';
+  position2Select.innerHTML = position2Options.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
+  for (const opt of position2Select.options) { opt.selected = false; }
   option2Select.innerHTML = option2Options.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
   option2Select.value = '';
+
+  // 控制各 select 的显示/隐藏
+  const show = (el, v) => { if (el) el.style.display = v ? '' : 'none'; };
+  if (type === 'none') {
+    show(sideSelect, false);
+    show(positionSelect, false);
+    show(templateSelect, true);
+    show(side2Select, false);
+    show(position2Select, false);
+    show(option2Select, false);
+  } else if (type === 'single_question') {
+    show(sideSelect, true);
+    show(positionSelect, true);
+    show(templateSelect, true);
+    show(side2Select, true);
+    show(position2Select, true);
+    show(option2Select, false);
+  } else {
+    show(sideSelect, true);
+    show(positionSelect, true);
+    show(templateSelect, true);
+    show(side2Select, false);
+    show(position2Select, false);
+    show(option2Select, true);
+  }
 }
 
 function gatherConfig() {
@@ -603,19 +655,37 @@ function bindSegmentActions() {
     }
     if (action === 'apply-name') {
       const card = event.target.closest('.segment-card');
-      const side = card.querySelector('[data-name-side]').value;
-      const position = card.querySelector('[data-name-position]').value;
+      const type = card.querySelector('[data-field="type"]').value;
       const template = card.querySelector('[data-name-template]').value;
-      const option2 = card.querySelector('[data-name-option2]').value;
       const nameInput = card.querySelector('[data-field="name"]');
-
-      const prefixParts = [side, position].filter(Boolean);
-      const prefix = prefixParts.join('');
       let name = '';
-      if (template) {
-        name = prefix ? `${prefix}·${template}` : template;
-        if (option2) {
-          name = `${name}（${option2}）`;
+
+      if (type === 'none') {
+        name = template || nameInput.value || '新环节';
+      } else if (type === 'single_question') {
+        const side = card.querySelector('[data-name-side]').value;
+        const position = card.querySelector('[data-name-position]').value;
+        const side2 = card.querySelector('[data-name-side2]').value;
+        const position2Select = card.querySelector('[data-name-position2]');
+        const selectedPositions = Array.from(position2Select.selectedOptions).map((o) => o.value).filter(Boolean);
+        const position2 = selectedPositions.length ? selectedPositions.join('/') : '';
+        const prefix = [side, position].filter(Boolean).join('');
+        const target = [side2, position2].filter(Boolean).join('');
+        if (template) {
+          name = prefix ? `${prefix}·${template}` : template;
+          if (target) name = `${name}·${target}`;
+        }
+      } else {
+        const side = card.querySelector('[data-name-side]').value;
+        const position = card.querySelector('[data-name-position]').value;
+        const option2 = card.querySelector('[data-name-option2]').value;
+        const prefixParts = [side, position].filter(Boolean);
+        const prefix = prefixParts.join('');
+        if (template) {
+          name = prefix ? `${prefix}·${template}` : template;
+          if (option2) {
+            name = `${name}（${option2}）`;
+          }
         }
       }
       nameInput.value = name || nameInput.value || '新环节';
@@ -646,6 +716,8 @@ function addSegmentPreset(type, name, duration, side) {
       <select data-name-side class="name-template"></select>
       <select data-name-position class="name-template"></select>
       <select data-name-template class="name-template"></select>
+      <select data-name-side2 class="name-template" style="display:none"></select>
+      <select data-name-position2 class="name-template" style="display:none" multiple></select>
       <select data-name-option2 class="name-template"></select>
       <button type="button" data-action="apply-name">确认名称</button>
     </div>

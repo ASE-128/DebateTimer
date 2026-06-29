@@ -150,6 +150,8 @@ body {
 .segment-name-large {
   font-size: clamp(80px, 15vw, 180px);
   filter: brightness(1.2);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* === 计时器 === */

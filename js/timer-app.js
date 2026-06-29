@@ -141,6 +141,21 @@ function updateProgress(state) {
   }
 }
 
+function adjustSegmentNameFontSize() {
+  if (!segmentNameEl) return;
+  const parent = segmentNameEl.parentElement;
+  if (!parent) return;
+  const parentWidth = parent.clientWidth;
+  const maxFontSize = window.innerWidth * 0.15; // 15vw 对应像素
+  const minFontSize = 32;
+  let fontSize = maxFontSize;
+  segmentNameEl.style.fontSize = `${fontSize}px`;
+  while (segmentNameEl.scrollWidth > parentWidth && fontSize > minFontSize) {
+    fontSize -= 4;
+    segmentNameEl.style.fontSize = `${fontSize}px`;
+  }
+}
+
 function syncUi(actionLabel) {
   const state = engine.getState();
   render(state);
@@ -162,7 +177,13 @@ function render(state) {
   }
   if (lastRenderCache.isNoTimer !== isNoTimer) {
     segmentNameEl.classList.toggle('segment-name-large', isNoTimer);
+    if (!isNoTimer) {
+      segmentNameEl.style.fontSize = '';
+    }
     lastRenderCache.isNoTimer = isNoTimer;
+  }
+  if (isNoTimer && lastRenderCache.segmentName !== segmentName) {
+    requestAnimationFrame(() => adjustSegmentNameFontSize());
   }
   const sideLabelText = isNoTimer ? '' : (state.activeSide === 'neutral' ? '中立计时中' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中'));
   if (sideLabelEl.textContent !== sideLabelText) {
