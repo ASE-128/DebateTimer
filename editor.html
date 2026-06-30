@@ -6,6 +6,7 @@
     <meta name="author" content="Chen Yu" />
     <title>辩论赛计时器 - 编辑页</title>
     <link rel="stylesheet" href="styles/variables.css" />
+    <link rel="stylesheet" href="styles/timer.css" />
     <link rel="stylesheet" href="styles/editor.css" />
   </head>
   <body>
@@ -23,18 +24,14 @@
       </header>
 
       <div class="editor-tabs">
-        <button class="editor-tab active" data-panel="event">赛事信息</button>
-        <button class="editor-tab" data-panel="theme">主题样式</button>
+        <button class="editor-tab active" data-panel="editor">编辑界面</button>
         <button class="editor-tab" data-panel="segments">环节管理</button>
       </div>
 
       <div class="editor-body">
         <nav class="editor-sidebar" id="editorSidebar">
-          <div class="editor-nav-item active" data-panel="event">
-            <span>赛事信息</span>
-          </div>
-          <div class="editor-nav-item" data-panel="theme">
-            <span>主题样式</span>
+          <div class="editor-nav-item active" data-panel="editor">
+            <span>编辑界面</span>
           </div>
           <div class="editor-nav-item" data-panel="segments">
             <span>环节管理</span>
@@ -42,42 +39,44 @@
         </nav>
 
         <div class="editor-content">
-          <!-- 赛事信息面板 -->
-          <div class="editor-panel active" id="panel-event">
-            <div class="card">
-              <h2>赛事信息</h2>
-              <label>赛事名称<input id="eventName" type="text" placeholder="输入赛事名称" /></label>
-              <label>正方队伍<input id="affirmativeTeam" type="text" placeholder="正方队伍名称" /></label>
-              <label>反方队伍<input id="negativeTeam" type="text" placeholder="反方队伍名称" /></label>
-              <label>正方辩题<input id="affirmativeTopic" type="text" placeholder="正方辩题" /></label>
-              <label>反方辩题<input id="negativeTopic" type="text" placeholder="反方辩题" /></label>
+          <!-- 编辑界面面板 -->
+          <div class="editor-panel active" id="panel-editor">
+            <div class="editor-preview-toolbar">
+              <button id="editBackgroundBtn" class="btn btn-accent">修改背景相关设置</button>
+              <span class="editor-hint">提示：点击文本元素可编辑内容、字体、大小和颜色；拖动可调整位置</span>
             </div>
-          </div>
+            <div class="editor-preview-wrapper" id="editorPreviewWrapper">
+              <div class="timer-shell" id="timerPreview">
+                <header class="top-band" id="previewTopBand">
+                  <div class="team affirmative">
+                    <span class="team-label">正方</span>
+                    <strong class="team-name" id="previewAffirmativeTeamName" data-editable="text" data-layout-key="affirmativeTeamName">正方队</strong>
+                    <span class="team-topic" id="previewAffirmativeTopic" data-editable="text" data-layout-key="affirmativeTopic">正方辩题</span>
+                  </div>
+                  <div class="event-title" id="previewEventTitle" data-editable="text" data-layout-key="eventTitle">赛事名称</div>
+                  <div class="team negative">
+                    <span class="team-label">反方</span>
+                    <strong class="team-name" id="previewNegativeTeamName" data-editable="text" data-layout-key="negativeTeamName">反方队</strong>
+                    <span class="team-topic" id="previewNegativeTopic" data-editable="text" data-layout-key="negativeTopic">反方辩题</span>
+                  </div>
+                  <div class="top-band-resize-handle" id="topBandResizeHandle"></div>
+                </header>
 
-          <!-- 主题样式面板 -->
-          <div class="editor-panel" id="panel-theme">
-            <div class="card">
-              <h2>主题样式</h2>
-              <label>背景类型<select id="backgroundType"><option value="color">纯色</option><option value="image">图片</option></select></label>
-              <label>背景色<input id="backgroundColor" type="color" /></label>
-              <label>背景图片<input id="backgroundImage" type="file" accept="image/*" /></label>
-              <label>正方色<input id="affirmativeColor" type="color" /></label>
-              <label>反方色<input id="negativeColor" type="color" /></label>
-              <label>中立色<input id="neutralColor" type="color" /></label>
-              <label>标题色<input id="titleColor" type="color" /></label>
-              <label>文字色<input id="textColor" type="color" /></label>
-              <label>字体<select id="fontFamily"></select></label>
-              <label>自定义 TTF 字体（仅用于文本）<input id="customFont" type="file" accept=".ttf,.otf" /></label>
-              <label>字号缩放<input id="fontSizeScale" type="range" min="0.8" max="1.4" step="0.05" /></label>
-            </div>
-            <div class="card theme-preview-card">
-              <h2>实时预览</h2>
-              <div id="themePreview" style="background: var(--bg-secondary); border-radius: var(--radius-md); padding: 20px; text-align: center; border: 1px solid var(--border-subtle);">
-                <div style="font-size: 18px; color: var(--accent-title); font-weight: 700; margin-bottom: 8px;" id="previewEventName">赛事名称</div>
-                <div style="font-size: 24px; color: var(--text-primary); font-weight: 800; margin-bottom: 12px;" id="previewSegmentName">正方一辩·陈词</div>
-                <div style="font-size: 48px; font-family: var(--font-mono); font-weight: 700; color: var(--accent-affirmative); letter-spacing: 4px;" id="previewTimer">03:00</div>
-                <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary);" id="previewSideLabel">正方发言中</div>
-                <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary);" id="previewNeutralLabel">中立计时中</div>
+                <section class="main-area" id="previewMainArea">
+                  <div class="event-name" id="previewEventName" data-editable="text" data-layout-key="eventName">赛事名称</div>
+                  <div class="segment-name" id="previewSegmentName" data-editable="text" data-layout-key="segmentName">中立计时</div>
+                  <div class="timer-display" id="previewTimerDisplay">
+                    <div class="single-timer neutral" id="previewSingleTimer">03:00</div>
+                    <div class="timer-progress" id="previewTimerProgress">
+                      <div class="timer-progress-bar" id="previewTimerProgressBar" style="width: 60%;"></div>
+                    </div>
+                  </div>
+                  <div class="side-label neutral" id="previewSideLabel" data-editable="text" data-layout-key="sideLabel">中立计时中</div>
+                  <div class="status-pill" id="previewStatusText" data-editable="text" data-layout-key="statusText">状态：预览模式</div>
+                </section>
+
+                <footer class="watermark" id="previewWatermark" data-editable="text" data-layout-key="watermark">辩论计时器</footer>
+                <div class="design-by" id="previewDesignBy" data-editable="text" data-layout-key="designBy">© Chen Yu 2026<br> All rights reserved.</div>
               </div>
             </div>
           </div>
@@ -109,6 +108,66 @@
       </div>
 
       <div class="design-by">© Chen Yu 2026<br> All rights reserved.</div>
+
+      <!-- 文本编辑浮动工具栏 -->
+      <div id="textEditToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header">
+          <span>文本编辑</span>
+          <button class="toolbar-close" id="textToolbarClose">×</button>
+        </div>
+        <div class="toolbar-body">
+          <label>内容<input id="toolbarTextContent" type="text" /></label>
+          <label>字体<select id="toolbarFontFamily"></select></label>
+          <label>字号(px)<input id="toolbarFontSize" type="number" min="8" max="200" /></label>
+          <label>颜色<input id="toolbarTextColor" type="color" /></label>
+        </div>
+      </div>
+
+      <!-- 状态栏编辑浮动工具栏 -->
+      <div id="statusBarToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header">
+          <span>状态栏设置</span>
+          <button class="toolbar-close" id="statusBarToolbarClose">×</button>
+        </div>
+        <div class="toolbar-body">
+          <label>背景颜色<input id="toolbarStatusBarColor" type="color" /></label>
+          <label>背景透明度<input id="toolbarStatusBarOpacity" type="range" min="0" max="100" /></label>
+          <label>渐变终点颜色<input id="toolbarStatusBarColor2" type="color" /></label>
+          <div class="toolbar-row">
+            <label><input id="toolbarStatusBarGradient" type="checkbox" /> 使用渐变</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 背景编辑浮动工具栏 -->
+      <div id="backgroundToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header">
+          <span>背景设置</span>
+          <button class="toolbar-close" id="bgToolbarClose">×</button>
+        </div>
+        <div class="toolbar-body">
+          <label>背景类型<select id="toolbarBgType">
+            <option value="color">纯色</option>
+            <option value="gradient">渐变</option>
+            <option value="image">图片</option>
+          </select></label>
+          <div id="bgColorPanel">
+            <label>背景色<input id="toolbarBgColor" type="color" /></label>
+          </div>
+          <div id="bgGradientPanel" style="display:none;">
+            <label>起始颜色<input id="toolbarBgGradientStart" type="color" /></label>
+            <label>结束颜色<input id="toolbarBgGradientEnd" type="color" /></label>
+            <label>角度<input id="toolbarBgGradientAngle" type="number" min="0" max="360" value="135" /></label>
+          </div>
+          <div id="bgImagePanel" style="display:none;">
+            <label>背景图片<input id="toolbarBgImage" type="file" accept="image/*" /></label>
+            <label>透明度<input id="toolbarBgImageOpacity" type="range" min="0" max="100" /></label>
+            <label>缩放<input id="toolbarBgImageScale" type="range" min="0.1" max="3" step="0.1" /></label>
+            <label>X偏移<input id="toolbarBgImageOffsetX" type="range" min="-100" max="100" /></label>
+            <label>Y偏移<input id="toolbarBgImageOffsetY" type="range" min="-100" max="100" /></label>
+          </div>
+        </div>
+      </div>
     </main>
     <script src="js/toast.js"></script>
     <script src="js/editor-app.js"></script>

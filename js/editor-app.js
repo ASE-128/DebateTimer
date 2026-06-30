@@ -6,39 +6,196 @@ function log(level, message) {
 
 const fonts = ['system-ui', 'SimSun', 'Microsoft YaHei', 'KaiTi', 'Segoe UI', 'Inter', 'Noto Sans SC'];
 
+let currentConfig = null;
+let editingElement = null;
+let editingLayoutKey = null;
+let isDraggingText = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragElementStartX = 0;
+let dragElementStartY = 0;
+let isBackgroundEditMode = false;
+let isResizingStatusBar = false;
+let statusBarStartHeight = 0;
+let resizeStartY = 0;
+
 function renderFonts() {
-  const select = document.getElementById('fontFamily');
-  select.innerHTML = '';
-  fonts.forEach((font) => {
-    const option = document.createElement('option');
-    option.value = font;
-    option.textContent = font;
-    select.appendChild(option);
+  const selects = document.querySelectorAll('#toolbarFontFamily, #fontFamily');
+  selects.forEach((select) => {
+    if (!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '';
+    fonts.forEach((font) => {
+      const option = document.createElement('option');
+      option.value = font;
+      option.textContent = font;
+      select.appendChild(option);
+    });
+    if (currentVal) select.value = currentVal;
   });
+}
+
+function defaultLayout() {
+  return {
+    eventTitle: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    affirmativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    negativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    affirmativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    negativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    statusText: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
+  };
+}
+
+function defaultStatusBar() {
+  return {
+    height: 80,
+    background: 'linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)',
+    color: ''
+  };
+}
+
+function defaultBackgroundImageSettings() {
+  return {
+    opacity: 1,
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0
+  };
+}
+
+function defaultBackgroundGradient() {
+  return { start: '#1a1a1a', end: '#0b0e14', angle: 135 };
+}
+
+function getSymmetricKey(key) {
+  const map = {
+    affirmativeTeamName: 'negativeTeamName',
+    negativeTeamName: 'affirmativeTeamName',
+    affirmativeTopic: 'negativeTopic',
+    negativeTopic: 'affirmativeTopic'
+  };
+  return map[key] || null;
+}
+
+function applyLayoutToPreview(layout = {}) {
+  const preview = document.getElementById('timerPreview');
+  if (!preview) return;
+  const elements = preview.querySelectorAll('[data-layout-key]');
+  elements.forEach((el) => {
+    const key = el.getAttribute('data-layout-key');
+    const settings = layout[key] || {};
+    if (settings.x !== undefined && settings.x !== 0) {
+      el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
+    } else if (settings.y !== undefined && settings.y !== 0) {
+      el.style.transform = `translate(0px, ${settings.y}px)`;
+    } else {
+      el.style.transform = '';
+    }
+    if (settings.fontSize && settings.fontSize > 0) {
+      el.style.fontSize = `${settings.fontSize}px`;
+    } else {
+      el.style.fontSize = '';
+    }
+    if (settings.fontFamily) {
+      el.style.fontFamily = settings.fontFamily;
+    } else {
+      el.style.fontFamily = '';
+    }
+    if (settings.color) {
+      el.style.color = settings.color;
+    } else {
+      el.style.color = '';
+    }
+  });
+}
+
+function applyStatusBarToPreview(statusBar = {}) {
+  const topBand = document.getElementById('previewTopBand');
+  if (!topBand) return;
+  if (statusBar.height && statusBar.height > 0) {
+    topBand.style.height = `${statusBar.height}px`;
+  }
+  if (statusBar.background) {
+    topBand.style.background = statusBar.background;
+  }
+  if (statusBar.color) {
+    topBand.style.color = statusBar.color;
+  }
+}
+
+function applyBackgroundToPreview(theme = {}) {
+  const preview = document.getElementById('timerPreview');
+  if (!preview) return;
+  const bgType = theme.backgroundType || 'color';
+  const bgImageSettings = theme.backgroundImageSettings || defaultBackgroundImageSettings();
+
+  if (bgType === 'image' && theme.backgroundImage) {
+    preview.style.backgroundImage = `url(${theme.backgroundImage})`;
+    preview.style.backgroundSize = `${bgImageSettings.scale * 100}%`;
+    preview.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX}px) calc(50% + ${bgImageSettings.offsetY}px)`;
+    preview.style.backgroundRepeat = 'no-repeat';
+    preview.style.backgroundColor = theme.backgroundColor || '#1a1a1a';
+    preview.style.opacity = bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1;
+  } else if (bgType === 'gradient' && theme.backgroundGradient) {
+    const grad = theme.backgroundGradient;
+    preview.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
+    preview.style.backgroundSize = '';
+    preview.style.backgroundPosition = '';
+    preview.style.backgroundRepeat = '';
+    preview.style.opacity = 1;
+  } else {
+    preview.style.backgroundImage = '';
+    preview.style.background = theme.backgroundColor || '#1a1a1a';
+    preview.style.backgroundSize = '';
+    preview.style.backgroundPosition = '';
+    preview.style.backgroundRepeat = '';
+    preview.style.opacity = 1;
+  }
+}
+
+function applyThemeToPreview(theme = {}) {
+  const preview = document.getElementById('timerPreview');
+  if (!preview) return;
+  const colors = theme.colors || {};
+  const root = preview;
+
+  root.style.setProperty('--accent-affirmative', colors.affirmative || '#e74c3c');
+  root.style.setProperty('--accent-negative', colors.negative || '#3498db');
+  root.style.setProperty('--accent-neutral', colors.neutral || '#ffffff');
+  root.style.setProperty('--accent-title', colors.title || '#5dade2');
+  root.style.setProperty('--text-color', colors.text || '#f0f2f5');
+  root.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
+  root.style.setProperty('--font-family', theme.fontFamily || 'system-ui');
+  root.style.setProperty('--font-scale', theme.fontSizeScale || 1);
+
+  applyBackgroundToPreview(theme);
+  applyStatusBarToPreview(theme.statusBar || defaultStatusBar());
+  applyLayoutToPreview(currentConfig?.layout || defaultLayout());
 }
 
 function fillEditorUI(config) {
   if (!config) return;
-  document.getElementById('eventName').value = config.eventName || '';
-  document.getElementById('affirmativeTeam').value = config.teams?.affirmative || '';
-  document.getElementById('negativeTeam').value = config.teams?.negative || '';
-  document.getElementById('affirmativeTopic').value = config.topics?.affirmative || '';
-  document.getElementById('negativeTopic').value = config.topics?.negative || '';
-  document.getElementById('backgroundType').value = config.theme?.backgroundType || 'color';
-  document.getElementById('backgroundColor').value = config.theme?.backgroundColor || '#1a1a1a';
-  document.getElementById('affirmativeColor').value = config.theme?.colors?.affirmative || '#c0392b';
-  document.getElementById('negativeColor').value = config.theme?.colors?.negative || '#2980b9';
-  document.getElementById('neutralColor').value = config.theme?.colors?.neutral || '#ffffff';
-  document.getElementById('titleColor').value = config.theme?.colors?.title || '#3498db';
-  document.getElementById('textColor').value = config.theme?.colors?.text || '#ffffff';
-  document.getElementById('fontFamily').value = config.theme?.fontFamily || 'system-ui';
-  document.getElementById('fontSizeScale').value = config.theme?.fontSizeScale || 1;
-  const customFontInput = document.getElementById('customFont');
-  customFontInput.dataset.dataUrl = config.theme?.customFont || '';
-  customFontInput.dataset.fileName = config.theme?.customFontName || '';
+  currentConfig = config;
+
+  // 填充预览文本内容
+  document.getElementById('previewEventTitle').textContent = config.eventName || '赛事名称';
+  document.getElementById('previewEventName').textContent = config.eventName || '赛事名称';
+  document.getElementById('previewAffirmativeTeamName').textContent = config.teams?.affirmative || '正方队';
+  document.getElementById('previewNegativeTeamName').textContent = config.teams?.negative || '反方队';
+  document.getElementById('previewAffirmativeTopic').textContent = config.topics?.affirmative || '正方辩题';
+  document.getElementById('previewNegativeTopic').textContent = config.topics?.negative || '反方辩题';
+
+  // 应用主题
+  applyThemeToPreview(config.theme || {});
+  applyLayoutToPreview(config.layout || defaultLayout());
+
   renderSegments(config.segments || []);
   renderSegmentNav();
-  updatePreview();
 }
 
 async function loadConfig() {
@@ -48,51 +205,6 @@ async function loadConfig() {
 
 async function loadConfigFromImport(config) {
   fillEditorUI(config);
-}
-
-function updatePreview() {
-  const preview = document.getElementById('themePreview');
-  if (!preview) return;
-  const affirmativeColor = document.getElementById('affirmativeColor').value;
-  const negativeColor = document.getElementById('negativeColor').value;
-  const neutralColor = document.getElementById('neutralColor').value;
-  const titleColor = document.getElementById('titleColor').value;
-  const textColor = document.getElementById('textColor').value;
-  const fontFamily = document.getElementById('fontFamily').value;
-  const fontSizeScale = document.getElementById('fontSizeScale').value;
-  const eventName = document.getElementById('eventName').value || '赛事名称';
-  const bgColor = document.getElementById('backgroundColor').value;
-  const bgType = document.getElementById('backgroundType').value;
-  const bgImage = document.getElementById('backgroundImage').dataset.dataUrl;
-
-  if (bgType === 'image' && bgImage) {
-    preview.style.background = `url(${bgImage})`;
-    preview.style.backgroundSize = 'cover';
-    preview.style.backgroundPosition = 'center';
-  } else {
-    preview.style.background = bgColor;
-  }
-
-  preview.style.fontFamily = fontFamily;
-  preview.style.fontSize = `${parseFloat(fontSizeScale)}em`;
-
-  const pEventName = document.getElementById('previewEventName');
-  const pSegmentName = document.getElementById('previewSegmentName');
-  const pTimer = document.getElementById('previewTimer');
-  const pSideLabel = document.getElementById('previewSideLabel');
-  const pNeutralLabel = document.getElementById('previewNeutralLabel');
-
-  if (pEventName) {
-    pEventName.style.color = titleColor;
-    pEventName.textContent = eventName;
-  }
-  if (pSegmentName) pSegmentName.style.color = textColor;
-  if (pTimer) {
-    pTimer.style.color = affirmativeColor;
-    pTimer.style.textShadow = `0 0 30px ${affirmativeColor}40`;
-  }
-  if (pSideLabel) pSideLabel.style.color = affirmativeColor;
-  if (pNeutralLabel) pNeutralLabel.style.color = neutralColor;
 }
 
 function switchPanel(panelId) {
@@ -582,32 +694,76 @@ function updateNameTemplateSelect(card, type) {
 }
 
 function gatherConfig() {
+  const theme = currentConfig?.theme || {};
+  const layout = currentConfig?.layout ? JSON.parse(JSON.stringify(currentConfig.layout)) : defaultLayout();
+  const statusBar = currentConfig?.theme?.statusBar ? JSON.parse(JSON.stringify(currentConfig.theme.statusBar)) : defaultStatusBar();
+  const bgImageSettings = currentConfig?.theme?.backgroundImageSettings ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundImageSettings)) : defaultBackgroundImageSettings();
+  const bgGradient = currentConfig?.theme?.backgroundGradient ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundGradient)) : defaultBackgroundGradient();
+
+  // 从预览中收集最新布局数据
+  const preview = document.getElementById('timerPreview');
+  if (preview) {
+    preview.querySelectorAll('[data-layout-key]').forEach((el) => {
+      const key = el.getAttribute('data-layout-key');
+      if (!layout[key]) layout[key] = {};
+      const transform = el.style.transform;
+      const match = transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+      if (match) {
+        layout[key].x = parseFloat(match[1]);
+        layout[key].y = parseFloat(match[2]);
+      }
+      const fontSize = parseFloat(el.style.fontSize);
+      if (fontSize > 0) layout[key].fontSize = fontSize;
+      if (el.style.fontFamily) layout[key].fontFamily = el.style.fontFamily;
+      if (el.style.color) layout[key].color = el.style.color;
+    });
+  }
+
+  // 收集状态栏高度
+  const topBand = document.getElementById('previewTopBand');
+  if (topBand) {
+    const h = parseFloat(topBand.style.height);
+    if (h > 0) statusBar.height = h;
+    if (topBand.style.background) statusBar.background = topBand.style.background;
+    if (topBand.style.color) statusBar.color = topBand.style.color;
+  }
+
+  // 收集背景设置 - 优先从 currentConfig.theme 读取（已被 updateBackgroundToolbar 更新）
+  const bgType = theme.backgroundType || 'color';
+  const bgColor = theme.backgroundColor || '#1a1a1a';
+  const bgImage = theme.backgroundImage || '';
+
   return {
-    eventName: document.getElementById('eventName').value,
+    eventName: document.getElementById('previewEventTitle')?.textContent || '新建辩论赛事',
     teams: {
-      affirmative: document.getElementById('affirmativeTeam').value,
-      negative: document.getElementById('negativeTeam').value
+      affirmative: document.getElementById('previewAffirmativeTeamName')?.textContent || '正方',
+      negative: document.getElementById('previewNegativeTeamName')?.textContent || '反方'
     },
     topics: {
-      affirmative: document.getElementById('affirmativeTopic').value,
-      negative: document.getElementById('negativeTopic').value
+      affirmative: document.getElementById('previewAffirmativeTopic')?.textContent || '正方辩题',
+      negative: document.getElementById('previewNegativeTopic')?.textContent || '反方辩题'
     },
     theme: {
-      backgroundType: document.getElementById('backgroundType').value || 'color',
-      backgroundImage: document.getElementById('backgroundImage').dataset.dataUrl || '',
-      backgroundColor: document.getElementById('backgroundColor').value,
-      fontFamily: document.getElementById('fontFamily').value,
-      fontSizeScale: Number(document.getElementById('fontSizeScale').value),
-      customFont: document.getElementById('customFont').dataset.dataUrl || '',
-      customFontName: document.getElementById('customFont').dataset.fileName || '',
-      colors: {
-        affirmative: document.getElementById('affirmativeColor').value,
-        negative: document.getElementById('negativeColor').value,
-        neutral: document.getElementById('neutralColor').value,
-        title: document.getElementById('titleColor').value,
-        text: document.getElementById('textColor').value
-      }
+      preset: theme.preset || 'classic',
+      backgroundType: bgType,
+      backgroundImage: bgImage,
+      backgroundColor: bgColor,
+      backgroundGradient: bgGradient,
+      fontFamily: theme.fontFamily || 'system-ui',
+      fontSizeScale: theme.fontSizeScale || 1,
+      customFont: theme.customFont || '',
+      customFontName: theme.customFontName || '',
+      colors: theme.colors || {
+        affirmative: '#c0392b',
+        negative: '#2980b9',
+        neutral: '#ffffff',
+        title: '#3498db',
+        text: '#ffffff'
+      },
+      statusBar: statusBar,
+      backgroundImageSettings: bgImageSettings
     },
+    layout: layout,
     segments: Array.from(document.querySelectorAll('.segment-card')).map((card, index) => ({
       id: index + 1,
       name: card.querySelector('[data-field="name"]').value,
@@ -730,23 +886,468 @@ function addSegmentPreset(type, name, duration, side) {
   renderSegmentNav();
 }
 
+// ==================== 文本编辑工具栏 ====================
+function showTextToolbar(element, layoutKey) {
+  const toolbar = document.getElementById('textEditToolbar');
+  if (!toolbar) return;
+
+  editingElement = element;
+  editingLayoutKey = layoutKey;
+
+  // 填充当前值
+  const contentInput = document.getElementById('toolbarTextContent');
+  const fontSelect = document.getElementById('toolbarFontFamily');
+  const sizeInput = document.getElementById('toolbarFontSize');
+  const colorInput = document.getElementById('toolbarTextColor');
+
+  if (contentInput) contentInput.value = element.textContent || '';
+  if (fontSelect) fontSelect.value = element.style.fontFamily || currentConfig?.theme?.fontFamily || 'system-ui';
+
+  const computedSize = parseFloat(element.style.fontSize) || parseFloat(getComputedStyle(element).fontSize);
+  if (sizeInput) sizeInput.value = Math.round(computedSize);
+
+  const rgb = getComputedStyle(element).color;
+  const hex = rgbToHex(rgb);
+  if (colorInput) colorInput.value = hex;
+
+  // 定位工具栏
+  const rect = element.getBoundingClientRect();
+  toolbar.style.left = `${rect.left}px`;
+  toolbar.style.top = `${rect.bottom + 8}px`;
+  toolbar.style.display = 'block';
+
+  element.classList.add('editing');
+}
+
+function hideTextToolbar() {
+  const toolbar = document.getElementById('textEditToolbar');
+  if (toolbar) toolbar.style.display = 'none';
+  if (editingElement) {
+    editingElement.classList.remove('editing');
+    editingElement = null;
+  }
+  editingLayoutKey = null;
+}
+
+function rgbToHex(rgb) {
+  if (!rgb || rgb.startsWith('#')) return rgb || '#ffffff';
+  const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) return '#ffffff';
+  return '#' + [match[1], match[2], match[3]].map((x) => {
+    const hex = parseInt(x).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
+}
+
+function updateTextToolbar() {
+  if (!editingElement) return;
+  const content = document.getElementById('toolbarTextContent')?.value;
+  const font = document.getElementById('toolbarFontFamily')?.value;
+  const size = document.getElementById('toolbarFontSize')?.value;
+  const color = document.getElementById('toolbarTextColor')?.value;
+
+  if (content !== undefined && !editingElement.classList.contains('team-label')) {
+    editingElement.textContent = content;
+  }
+  if (font) editingElement.style.fontFamily = font;
+  if (size) editingElement.style.fontSize = `${size}px`;
+  if (color) editingElement.style.color = color;
+
+  // 同步对称元素
+  const symKey = getSymmetricKey(editingLayoutKey);
+  if (symKey) {
+    const symEl = document.querySelector(`[data-layout-key="${symKey}"]`);
+    if (symEl) {
+      if (font) symEl.style.fontFamily = font;
+      if (size) symEl.style.fontSize = `${size}px`;
+      if (color) symEl.style.color = color;
+    }
+  }
+}
+
+// ==================== 状态栏工具栏 ====================
+function showStatusBarToolbar() {
+  const toolbar = document.getElementById('statusBarToolbar');
+  if (!toolbar) return;
+  const topBand = document.getElementById('previewTopBand');
+  if (!topBand) return;
+
+  const rect = topBand.getBoundingClientRect();
+  toolbar.style.left = `${rect.left + 20}px`;
+  toolbar.style.top = `${rect.bottom + 8}px`;
+  toolbar.style.display = 'block';
+}
+
+function hideStatusBarToolbar() {
+  const toolbar = document.getElementById('statusBarToolbar');
+  if (toolbar) toolbar.style.display = 'none';
+}
+
+function updateStatusBarToolbar() {
+  const topBand = document.getElementById('previewTopBand');
+  if (!topBand) return;
+  const color = document.getElementById('toolbarStatusBarColor')?.value || '#e74c3c';
+  const color2 = document.getElementById('toolbarStatusBarColor2')?.value || '#3498db';
+  const opacity = document.getElementById('toolbarStatusBarOpacity')?.value || 25;
+  const useGradient = document.getElementById('toolbarStatusBarGradient')?.checked;
+
+  const alpha = opacity / 100;
+  const hexToRgba = (hex, a) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  };
+
+  let background;
+  if (useGradient) {
+    background = `linear-gradient(90deg, ${hexToRgba(color, alpha)} 0%, ${hexToRgba(color2, alpha)} 100%)`;
+  } else {
+    background = hexToRgba(color, alpha);
+  }
+  topBand.style.background = background;
+
+  // 同步到 currentConfig
+  if (!currentConfig) currentConfig = {};
+  if (!currentConfig.theme) currentConfig.theme = {};
+  if (!currentConfig.theme.statusBar) currentConfig.theme.statusBar = {};
+  currentConfig.theme.statusBar.background = background;
+  currentConfig.theme.statusBar.color = document.getElementById('toolbarStatusBarColor')?.value || '';
+}
+
+// ==================== 背景工具栏 ====================
+function showBackgroundToolbar() {
+  const toolbar = document.getElementById('backgroundToolbar');
+  if (!toolbar) return;
+  toolbar.style.left = '20px';
+  toolbar.style.top = '80px';
+  toolbar.style.display = 'block';
+}
+
+function hideBackgroundToolbar() {
+  const toolbar = document.getElementById('backgroundToolbar');
+  if (toolbar) toolbar.style.display = 'none';
+}
+
+function updateBackgroundToolbar() {
+  const bgType = document.getElementById('toolbarBgType')?.value || 'color';
+  document.getElementById('bgColorPanel').style.display = bgType === 'color' ? 'block' : 'none';
+  document.getElementById('bgGradientPanel').style.display = bgType === 'gradient' ? 'block' : 'none';
+  document.getElementById('bgImagePanel').style.display = bgType === 'image' ? 'block' : 'none';
+
+  if (!currentConfig) currentConfig = {};
+  if (!currentConfig.theme) currentConfig.theme = {};
+  const theme = currentConfig.theme;
+  theme.backgroundType = bgType;
+
+  if (bgType === 'color') {
+    theme.backgroundColor = document.getElementById('toolbarBgColor')?.value || '#1a1a1a';
+  } else if (bgType === 'gradient') {
+    if (!theme.backgroundGradient) theme.backgroundGradient = {};
+    theme.backgroundGradient.start = document.getElementById('toolbarBgGradientStart')?.value || '#1a1a1a';
+    theme.backgroundGradient.end = document.getElementById('toolbarBgGradientEnd')?.value || '#0b0e14';
+    theme.backgroundGradient.angle = Number(document.getElementById('toolbarBgGradientAngle')?.value || 135);
+  } else if (bgType === 'image') {
+    if (!theme.backgroundImageSettings) theme.backgroundImageSettings = {};
+    theme.backgroundImageSettings.opacity = Number(document.getElementById('toolbarBgImageOpacity')?.value || 100) / 100;
+    theme.backgroundImageSettings.scale = Number(document.getElementById('toolbarBgImageScale')?.value || 100) / 100;
+    theme.backgroundImageSettings.offsetX = Number(document.getElementById('toolbarBgImageOffsetX')?.value || 0);
+    theme.backgroundImageSettings.offsetY = Number(document.getElementById('toolbarBgImageOffsetY')?.value || 0);
+  }
+
+  applyBackgroundToPreview(theme);
+}
+
+// ==================== 文本拖动 ====================
+function bindTextDragAndEdit() {
+  const preview = document.getElementById('timerPreview');
+  if (!preview) return;
+
+  let dragElement = null;
+  let dragLayoutKey = null;
+  let startX = 0;
+  let startY = 0;
+  let elStartX = 0;
+  let elStartY = 0;
+
+  preview.addEventListener('mousedown', (e) => {
+    const editable = e.target.closest('[data-editable="text"]');
+    if (!editable) return;
+    if (isBackgroundEditMode) return; // 背景编辑模式下禁用文本编辑
+
+    e.preventDefault();
+
+    // 判断是点击还是拖动（根据移动距离）
+    let isClick = true;
+    const clickStartX = e.clientX;
+    const clickStartY = e.clientY;
+
+    dragElement = editable;
+    dragLayoutKey = editable.getAttribute('data-layout-key');
+    startX = e.clientX;
+    startY = e.clientY;
+
+    const transform = editable.style.transform;
+    const match = transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    elStartX = match ? parseFloat(match[1]) : 0;
+    elStartY = match ? parseFloat(match[2]) : 0;
+
+    editable.classList.add('dragging');
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        isClick = false;
+      }
+
+      // 边界限制
+      const wrapper = document.getElementById('editorPreviewWrapper');
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const elRect = editable.getBoundingClientRect();
+
+      let newX = elStartX + dx;
+      let newY = elStartY + dy;
+
+      // 判断元素是否在状态栏内
+      const topBand = document.getElementById('previewTopBand');
+      const isInStatusBar = topBand && topBand.contains(editable);
+
+      if (isInStatusBar) {
+        // 状态栏内元素：限制在状态栏区域内
+        const bandRect = topBand.getBoundingClientRect();
+        const minX = -elRect.left + bandRect.left + elStartX;
+        const maxX = bandRect.right - elRect.right + elStartX;
+        const minY = -elRect.top + bandRect.top + elStartY;
+        const maxY = bandRect.bottom - elRect.bottom + elStartY;
+        newX = Math.max(minX, Math.min(maxX, newX));
+        newY = Math.max(minY, Math.min(maxY, newY));
+      } else {
+        // 其他元素：限制在预览容器内
+        const minX = -elRect.left + wrapperRect.left + elStartX;
+        const maxX = wrapperRect.right - elRect.right + elStartX;
+        const minY = -elRect.top + wrapperRect.top + elStartY;
+        const maxY = wrapperRect.bottom - elRect.bottom + elStartY;
+        newX = Math.max(minX, Math.min(maxX, newX));
+        newY = Math.max(minY, Math.min(maxY, newY));
+      }
+
+      editable.style.transform = `translate(${newX}px, ${newY}px)`;
+
+      // 对称移动
+      const symKey = getSymmetricKey(dragLayoutKey);
+      if (symKey) {
+        const symEl = document.querySelector(`[data-layout-key="${symKey}"]`);
+        if (symEl) {
+          // 以预览容器中心为对称轴
+          const containerCenter = wrapperRect.left + wrapperRect.width / 2;
+          const elCenter = elRect.left + elRect.width / 2;
+          const distToCenter = elCenter - containerCenter;
+          const symElRect = symEl.getBoundingClientRect();
+          const symElCenter = containerCenter - distToCenter;
+          const symNewX = symElCenter - (symElRect.left - (symEl.style.transform ? parseFloat(symEl.style.transform.match(/translate\(([-\d.]+)px/)?.[1] || 0) : 0)) - symElRect.width / 2;
+          // 简化：只同步Y轴，X轴保持对称位置
+          const symTransform = symEl.style.transform;
+          const symMatch = symTransform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+          const symCurrentX = symMatch ? parseFloat(symMatch[1]) : 0;
+          symEl.style.transform = `translate(${symCurrentX}px, ${newY}px)`;
+        }
+      }
+    }
+
+    function onUp(ev) {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      editable.classList.remove('dragging');
+
+      if (isClick) {
+        // 点击 - 显示编辑工具栏
+        showTextToolbar(editable, dragLayoutKey);
+      }
+
+      dragElement = null;
+      dragLayoutKey = null;
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// ==================== 状态栏高度拖拽 ====================
+function bindStatusBarResize() {
+  const handle = document.getElementById('topBandResizeHandle');
+  const topBand = document.getElementById('previewTopBand');
+  if (!handle || !topBand) return;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizingStatusBar = true;
+    statusBarStartHeight = parseFloat(getComputedStyle(topBand).height);
+    resizeStartY = e.clientY;
+
+    function onMove(ev) {
+      if (!isResizingStatusBar) return;
+      const dy = ev.clientY - resizeStartY;
+      const newHeight = Math.max(40, Math.min(200, statusBarStartHeight + dy));
+      topBand.style.height = `${newHeight}px`;
+    }
+
+    function onUp() {
+      isResizingStatusBar = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // 点击状态栏空白区域显示工具栏
+  topBand.addEventListener('click', (e) => {
+    if (e.target.closest('[data-editable="text"]') || e.target === handle) return;
+    if (isBackgroundEditMode) return;
+    showStatusBarToolbar();
+  });
+}
+
+// ==================== 背景编辑模式 ====================
+function bindBackgroundEditMode() {
+  const btn = document.getElementById('editBackgroundBtn');
+  const wrapper = document.getElementById('editorPreviewWrapper');
+  if (!btn || !wrapper) return;
+
+  btn.addEventListener('click', () => {
+    isBackgroundEditMode = !isBackgroundEditMode;
+    wrapper.classList.toggle('bg-edit-mode', isBackgroundEditMode);
+    btn.textContent = isBackgroundEditMode ? '退出背景编辑' : '修改背景相关设置';
+
+    if (isBackgroundEditMode) {
+      showBackgroundToolbar();
+      hideTextToolbar();
+      hideStatusBarToolbar();
+    } else {
+      hideBackgroundToolbar();
+    }
+  });
+}
+
+// ==================== 工具栏拖动 ====================
+function bindToolbarDrag(toolbarId, headerSelector) {
+  const toolbar = document.getElementById(toolbarId);
+  if (!toolbar) return;
+  const header = toolbar.querySelector(headerSelector);
+  if (!header) return;
+
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let toolbarStartX = 0;
+  let toolbarStartY = 0;
+
+  header.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    const rect = toolbar.getBoundingClientRect();
+    toolbarStartX = rect.left;
+    toolbarStartY = rect.top;
+
+    function onMove(ev) {
+      if (!isDragging) return;
+      const dx = ev.clientX - dragStartX;
+      const dy = ev.clientY - dragStartY;
+      toolbar.style.left = `${toolbarStartX + dx}px`;
+      toolbar.style.top = `${toolbarStartY + dy}px`;
+      toolbar.style.right = 'auto';
+    }
+
+    function onUp() {
+      isDragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// ==================== 初始化绑定 ====================
 renderFonts();
 loadConfig();
 bindSegmentActions();
 bindSegmentNavDragDrop();
+bindTextDragAndEdit();
+bindStatusBarResize();
+bindBackgroundEditMode();
 
-document.getElementById('backgroundImage').addEventListener('change', (event) => {
+// 工具栏拖动
+bindToolbarDrag('textEditToolbar', '.toolbar-header');
+bindToolbarDrag('statusBarToolbar', '.toolbar-header');
+bindToolbarDrag('backgroundToolbar', '.toolbar-header');
+
+// 工具栏关闭按钮
+document.getElementById('textToolbarClose')?.addEventListener('click', hideTextToolbar);
+document.getElementById('statusBarToolbarClose')?.addEventListener('click', hideStatusBarToolbar);
+document.getElementById('bgToolbarClose')?.addEventListener('click', hideBackgroundToolbar);
+
+// 工具栏输入事件
+document.getElementById('toolbarTextContent')?.addEventListener('input', updateTextToolbar);
+document.getElementById('toolbarFontFamily')?.addEventListener('change', updateTextToolbar);
+document.getElementById('toolbarFontSize')?.addEventListener('input', updateTextToolbar);
+document.getElementById('toolbarTextColor')?.addEventListener('input', updateTextToolbar);
+
+document.getElementById('toolbarStatusBarColor')?.addEventListener('input', updateStatusBarToolbar);
+document.getElementById('toolbarStatusBarOpacity')?.addEventListener('input', updateStatusBarToolbar);
+document.getElementById('toolbarStatusBarColor2')?.addEventListener('input', updateStatusBarToolbar);
+document.getElementById('toolbarStatusBarGradient')?.addEventListener('change', updateStatusBarToolbar);
+
+document.getElementById('toolbarBgType')?.addEventListener('change', updateBackgroundToolbar);
+document.getElementById('toolbarBgColor')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgGradientStart')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgGradientEnd')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgGradientAngle')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgImageOpacity')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgImageScale')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgImageOffsetX')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgImageOffsetY')?.addEventListener('input', updateBackgroundToolbar);
+
+document.getElementById('toolbarBgImage')?.addEventListener('change', (event) => {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    event.target.dataset.dataUrl = reader.result;
-    document.body.style.backgroundImage = `url(${reader.result})`;
-    updatePreview();
+    if (!currentConfig) currentConfig = {};
+    if (!currentConfig.theme) currentConfig.theme = {};
+    currentConfig.theme.backgroundImage = reader.result;
+    applyBackgroundToPreview(currentConfig.theme);
   };
   reader.readAsDataURL(file);
 });
 
+// 点击空白处关闭工具栏
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#textEditToolbar') && !e.target.closest('[data-editable="text"]')) {
+    hideTextToolbar();
+  }
+  if (!e.target.closest('#statusBarToolbar') && !e.target.closest('#previewTopBand')) {
+    hideStatusBarToolbar();
+  }
+});
+
+// 导航切换
+document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
+  el.addEventListener('click', () => {
+    const panel = el.getAttribute('data-panel');
+    if (panel) switchPanel(panel);
+  });
+});
+
+// 原有按钮事件
 document.getElementById('saveBtn').addEventListener('click', saveConfig);
 document.getElementById('resetBtn').addEventListener('click', resetConfig);
 document.getElementById('importConfigBtn').addEventListener('click', async () => {
@@ -770,6 +1371,7 @@ document.getElementById('exportConfigBtn').addEventListener('click', async () =>
     alert(`配置已导出到：${result.path}`);
   }
 });
+
 document.getElementById('exportTimerBtn').addEventListener('click', async () => {
   log('info', '导出独立计时器');
   const result = await window.electronAPI.exportStandalone(gatherConfig());
@@ -781,6 +1383,7 @@ document.getElementById('exportTimerBtn').addEventListener('click', async () => 
     alert(`导出失败：${result?.error || '未知错误'}`);
   }
 });
+
 document.getElementById('addNoneBtn').addEventListener('click', () => addSegmentPreset('none', '无计时', 0, undefined));
 document.getElementById('addSpeechBtn').addEventListener('click', () => addSegmentPreset('single_speech', '陈词', 180, 'affirmative'));
 document.getElementById('addQuestionBtn').addEventListener('click', () => addSegmentPreset('single_question', '质询', 60, 'affirmative'));
@@ -788,28 +1391,3 @@ document.getElementById('addNeutralBtn').addEventListener('click', () => addSegm
 document.getElementById('addDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '对辩', 120, 'affirmative'));
 document.getElementById('addFreeDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '自由辩论', 240, 'affirmative'));
 document.getElementById('openTimerBtn').addEventListener('click', () => window.electronAPI.openTimer());
-
-document.getElementById('customFont').addEventListener('change', (event) => {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    event.target.dataset.dataUrl = reader.result;
-    event.target.dataset.fileName = file.name;
-  };
-  reader.readAsDataURL(file);
-});
-
-// 导航切换
-  document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
-    el.addEventListener('click', () => {
-      const panel = el.getAttribute('data-panel');
-      if (panel) switchPanel(panel);
-    });
-  });
-
-  // 实时预览事件绑定
-  ['eventName', 'affirmativeColor', 'negativeColor', 'neutralColor', 'titleColor', 'textColor', 'fontFamily', 'fontSizeScale', 'backgroundColor', 'backgroundType'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updatePreview);
-  });

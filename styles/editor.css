@@ -72,6 +72,282 @@ body {
   filter: brightness(1.1);
 }
 
+/* === 编辑界面预览区域 === */
+.editor-preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.editor-preview-toolbar .btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.editor-preview-toolbar .btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-focus);
+}
+
+.editor-preview-toolbar .btn-accent {
+  background: var(--accent-negative);
+  border-color: var(--accent-negative);
+  color: #fff;
+}
+
+.editor-preview-toolbar .btn-accent:hover {
+  filter: brightness(1.1);
+}
+
+.editor-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-text);
+}
+
+.editor-preview-wrapper {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+#timerPreview {
+  min-height: 100%;
+  transform-origin: top center;
+}
+
+/* 背景编辑模式：非背景元素虚化 */
+.editor-preview-wrapper.bg-edit-mode #timerPreview .top-band,
+.editor-preview-wrapper.bg-edit-mode #timerPreview .main-area,
+.editor-preview-wrapper.bg-edit-mode #timerPreview .watermark,
+.editor-preview-wrapper.bg-edit-mode #timerPreview .design-by {
+  opacity: 0.25;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.editor-preview-wrapper.bg-edit-mode {
+  cursor: default;
+}
+
+/* === 状态栏拖拽手柄 === */
+.top-band-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 10;
+  background: transparent;
+}
+
+.top-band-resize-handle:hover {
+  background: rgba(52, 152, 219, 0.3);
+}
+
+/* === 浮动工具栏通用 === */
+.floating-toolbar {
+  position: fixed;
+  z-index: 10000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 220px;
+  max-width: 280px;
+  overflow: hidden;
+  animation: toolbarFadeIn 0.2s ease;
+}
+
+@keyframes toolbarFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.toolbar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: move;
+  user-select: none;
+}
+
+.toolbar-header span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-text);
+}
+
+.toolbar-close {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+
+.toolbar-close:hover {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--danger);
+}
+
+.toolbar-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toolbar-body label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font-text);
+}
+
+.toolbar-body input,
+.toolbar-body select {
+  width: 100%;
+  margin-top: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  font-family: var(--font-text);
+  font-size: 13px;
+  outline: none;
+}
+
+.toolbar-body input:focus,
+.toolbar-body select:focus {
+  border-color: var(--accent-negative);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.12);
+}
+
+.toolbar-body input[type="color"] {
+  padding: 3px;
+  height: 32px;
+  cursor: pointer;
+}
+
+.toolbar-body input[type="range"] {
+  padding: 0;
+  accent-color: var(--accent-negative);
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.toolbar-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent-negative);
+}
+
+/* 可编辑文本元素高亮 */
+#timerPreview [data-editable="text"] {
+  cursor: pointer;
+  position: relative;
+}
+
+#timerPreview [data-editable="text"]:hover::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 1px dashed var(--accent-negative);
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+#timerPreview [data-editable="text"].dragging {
+  cursor: grabbing;
+  z-index: 100;
+}
+
+#timerPreview [data-editable="text"].editing {
+  outline: 2px solid var(--accent-negative);
+  outline-offset: 2px;
+}
+
+/* === 编辑界面面板特殊布局 === */
+#panel-editor.editor-panel.active {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  height: 100%;
+}
+
+#panel-editor {
+  height: 100%;
+}
+
+/* === 响应式调整 === */
+@media (max-width: 1200px) {
+  .editor-preview-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .editor-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .editor-preview-wrapper {
+    border-radius: var(--radius-sm);
+  }
+  .floating-toolbar {
+    min-width: 180px;
+    max-width: 240px;
+  }
+  .toolbar-body {
+    padding: 10px;
+  }
+}
+
 /* === 主内容区：左侧导航 + 右侧内容 === */
 .editor-body {
   flex: 1;
@@ -707,7 +983,13 @@ body {
   }
   .segments-sidebar .segment-nav {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .segments-sidebar .segment-nav::-webkit-scrollbar {
+    display: none;
   }
   .segments-sidebar .segment-action-bar {
     flex-direction: row;

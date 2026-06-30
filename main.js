@@ -17,7 +17,7 @@ const userDataPath = isElectron ? app.getPath('userData') : appDataRoot;
 
 // 日志路径：程序运行目录下的 logs 文件夹，按日期命名（单文件无大小限制）
 function getLogDir() {
-  return path.join(__dirname, 'logs');
+  return path.join(userDataPath, 'logs');
 }
 
 function getLogPath() {
@@ -68,6 +68,7 @@ function defaultConfig() {
       backgroundType: 'color',
       backgroundImage: '',
       backgroundColor: '#1a1a1a',
+      backgroundGradient: { start: '#1a1a1a', end: '#0b0e14', angle: 135 },
       fontFamily: 'system-ui',
       fontSizeScale: 1,
       customFont: '',
@@ -78,7 +79,31 @@ function defaultConfig() {
         title: '#3498db',
         text: '#ffffff',
         neutral: '#ffffff'
+      },
+      statusBar: {
+        height: 80,
+        background: 'linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)',
+        color: ''
+      },
+      backgroundImageSettings: {
+        opacity: 1,
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0
       }
+    },
+    layout: {
+      eventTitle: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      affirmativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      negativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      affirmativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      negativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      statusText: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
     },
     segments: [
       { id: 1, name: '开场', type: 'none', duration: 0 },
@@ -91,6 +116,8 @@ function defaultConfig() {
 function validateConfig(input) {
   const def = defaultConfig();
   if (!input || typeof input !== 'object') return def;
+  const theme = input.theme || {};
+  const defTheme = def.theme;
   return {
     eventName: String(input.eventName || def.eventName),
     teams: {
@@ -102,22 +129,47 @@ function validateConfig(input) {
       negative: String(input.topics?.negative || def.topics.negative)
     },
     theme: {
-      preset: String(input.theme?.preset || def.theme.preset),
-      backgroundType: ['color', 'image'].includes(input.theme?.backgroundType) ? input.theme.backgroundType : def.theme.backgroundType,
-      backgroundImage: String(input.theme?.backgroundImage || def.theme.backgroundImage),
-      backgroundColor: String(input.theme?.backgroundColor || def.theme.backgroundColor),
-      fontFamily: String(input.theme?.fontFamily || def.theme.fontFamily),
-      fontSizeScale: Number(input.theme?.fontSizeScale || def.theme.fontSizeScale),
-      customFont: String(input.theme?.customFont || def.theme.customFont),
-      customFontName: String(input.theme?.customFontName || def.theme.customFontName),
+      preset: String(theme.preset || defTheme.preset),
+      backgroundType: ['color', 'image', 'gradient'].includes(theme.backgroundType) ? theme.backgroundType : defTheme.backgroundType,
+      backgroundImage: String(theme.backgroundImage || defTheme.backgroundImage),
+      backgroundColor: String(theme.backgroundColor || defTheme.backgroundColor),
+      backgroundGradient: theme.backgroundGradient && typeof theme.backgroundGradient === 'object' ? {
+        start: String(theme.backgroundGradient.start || '#1a1a1a'),
+        end: String(theme.backgroundGradient.end || '#0b0e14'),
+        angle: Number(theme.backgroundGradient.angle || 135)
+      } : defTheme.backgroundGradient,
+      fontFamily: String(theme.fontFamily || defTheme.fontFamily),
+      fontSizeScale: Number(theme.fontSizeScale || defTheme.fontSizeScale),
+      customFont: String(theme.customFont || defTheme.customFont),
+      customFontName: String(theme.customFontName || defTheme.customFontName),
       colors: {
-        affirmative: String(input.theme?.colors?.affirmative || def.theme.colors.affirmative),
-        negative: String(input.theme?.colors?.negative || def.theme.colors.negative),
-        title: String(input.theme?.colors?.title || def.theme.colors.title),
-        text: String(input.theme?.colors?.text || def.theme.colors.text),
-        neutral: String(input.theme?.colors?.neutral || def.theme.colors.neutral)
-      }
+        affirmative: String(theme.colors?.affirmative || defTheme.colors.affirmative),
+        negative: String(theme.colors?.negative || defTheme.colors.negative),
+        title: String(theme.colors?.title || defTheme.colors.title),
+        text: String(theme.colors?.text || defTheme.colors.text),
+        neutral: String(theme.colors?.neutral || defTheme.colors.neutral)
+      },
+      statusBar: theme.statusBar && typeof theme.statusBar === 'object' ? {
+        height: Number(theme.statusBar.height || 80),
+        background: String(theme.statusBar.background || 'linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)'),
+        color: String(theme.statusBar.color || '')
+      } : defTheme.statusBar,
+      backgroundImageSettings: theme.backgroundImageSettings && typeof theme.backgroundImageSettings === 'object' ? {
+        opacity: Number(theme.backgroundImageSettings.opacity ?? 1),
+        scale: Number(theme.backgroundImageSettings.scale ?? 1),
+        offsetX: Number(theme.backgroundImageSettings.offsetX ?? 0),
+        offsetY: Number(theme.backgroundImageSettings.offsetY ?? 0)
+      } : defTheme.backgroundImageSettings
     },
+    layout: input.layout && typeof input.layout === 'object' ? Object.fromEntries(
+      Object.entries(input.layout).map(([key, val]) => [key, {
+        x: Number(val?.x || 0),
+        y: Number(val?.y || 0),
+        fontSize: Number(val?.fontSize || 0),
+        fontFamily: String(val?.fontFamily || ''),
+        color: String(val?.color || '')
+      }])
+    ) : def.layout,
     segments: Array.isArray(input.segments) ? input.segments.map((seg, i) => ({
       id: i + 1,
       name: String(seg.name || '未命名环节'),

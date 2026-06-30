@@ -41,13 +41,76 @@ function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--accent-title', theme.colors?.title || '#5dade2');
   document.documentElement.style.setProperty('--text-color', theme.colors?.text || '#f0f2f5');
   document.documentElement.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
-  document.body.style.backgroundImage = theme.backgroundType === 'image' && theme.backgroundImage ? `url(${theme.backgroundImage})` : 'none';
-  document.body.style.backgroundSize = 'cover';
-  document.body.style.backgroundPosition = 'center';
+
+  const bgType = theme.backgroundType || 'color';
+  const bgImageSettings = theme.backgroundImageSettings || { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 };
+
+  if (bgType === 'image' && theme.backgroundImage) {
+    document.body.style.backgroundImage = `url(${theme.backgroundImage})`;
+    document.body.style.backgroundSize = `${bgImageSettings.scale * 100}%`;
+    document.body.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX}px) calc(50% + ${bgImageSettings.offsetY}px)`;
+    document.body.style.backgroundRepeat = 'no-repeat';
+    document.body.style.backgroundColor = theme.backgroundColor || '#0b0e14';
+  } else if (bgType === 'gradient' && theme.backgroundGradient) {
+    const grad = theme.backgroundGradient;
+    document.body.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
+    document.body.style.backgroundSize = '';
+    document.body.style.backgroundPosition = '';
+    document.body.style.backgroundRepeat = '';
+  } else {
+    document.body.style.backgroundImage = 'none';
+    document.body.style.background = theme.backgroundColor || '#0b0e14';
+    document.body.style.backgroundSize = '';
+    document.body.style.backgroundPosition = '';
+    document.body.style.backgroundRepeat = '';
+  }
+
   const baseFont = theme.fontFamily || 'system-ui';
   document.body.style.fontFamily = baseFont;
   document.documentElement.style.setProperty('--font-family', baseFont);
   document.documentElement.style.setProperty('--font-scale', theme.fontSizeScale || 1);
+
+  // 应用状态栏设置
+  const topBand = document.querySelector('.top-band');
+  if (topBand && theme.statusBar) {
+    const sb = theme.statusBar;
+    if (sb.height) topBand.style.height = `${sb.height}px`;
+    if (sb.background) topBand.style.background = sb.background;
+    if (sb.color) topBand.style.color = sb.color;
+  }
+
+  // 应用布局设置
+  if (theme.layout) {
+    const layout = theme.layout;
+    const layoutMap = {
+      eventTitle: 'eventTitle',
+      affirmativeTeamName: 'affirmativeTeamName',
+      negativeTeamName: 'negativeTeamName',
+      affirmativeTopic: 'affirmativeTopic',
+      negativeTopic: 'negativeTopic',
+      eventName: 'eventName',
+      segmentName: 'segmentName',
+      sideLabel: 'sideLabel',
+      statusText: 'statusText',
+      watermark: 'watermark',
+      designBy: 'designBy'
+    };
+    Object.entries(layoutMap).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      const settings = layout[key];
+      if (el && settings) {
+        if (settings.x !== undefined && settings.x !== 0) {
+          el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
+        } else if (settings.y !== undefined && settings.y !== 0) {
+          el.style.transform = `translate(0px, ${settings.y}px)`;
+        }
+        if (settings.fontSize && settings.fontSize > 0) el.style.fontSize = `${settings.fontSize}px`;
+        if (settings.fontFamily) el.style.fontFamily = settings.fontFamily;
+        if (settings.color) el.style.color = settings.color;
+      }
+    });
+  }
+
   applyCustomFont(theme);
   log('debug', `应用主题: 背景=${theme.backgroundType}, 字体=${baseFont}, 缩放=${theme.fontSizeScale || 1}`);
 }
