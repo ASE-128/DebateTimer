@@ -43,12 +43,12 @@ function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
 
   const bgType = theme.backgroundType || 'color';
-  const bgImageSettings = theme.backgroundImageSettings || { opacity: 1, scale: 1, offsetX: 0, offsetY: 0 };
+  const bgImageSettings = theme.backgroundImageSettings || { opacity: 1, scaleX: 100, scaleY: 100, offsetX: 0, offsetY: 0 };
 
   if (bgType === 'image' && theme.backgroundImage) {
     document.body.style.backgroundImage = `url(${theme.backgroundImage})`;
-    document.body.style.backgroundSize = `${bgImageSettings.scale * 100}%`;
-    document.body.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX}px) calc(50% + ${bgImageSettings.offsetY}px)`;
+    document.body.style.backgroundSize = `${bgImageSettings.scaleX || bgImageSettings.scale || 100}% ${bgImageSettings.scaleY || bgImageSettings.scale || 100}%`;
+    document.body.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX || 0}%) calc(50% + ${bgImageSettings.offsetY || 0}%)`;
     document.body.style.backgroundRepeat = 'no-repeat';
     document.body.style.backgroundColor = theme.backgroundColor || '#0b0e14';
   } else if (bgType === 'gradient' && theme.backgroundGradient) {
@@ -63,6 +63,12 @@ function applyTheme(theme = config.theme || {}) {
     document.body.style.backgroundSize = '';
     document.body.style.backgroundPosition = '';
     document.body.style.backgroundRepeat = '';
+  }
+
+  // 清除 .timer-shell 的背景，避免覆盖 body 的背景图片/渐变
+  const timerShell = document.querySelector('.timer-shell');
+  if (timerShell) {
+    timerShell.style.background = 'transparent';
   }
 
   const baseFont = theme.fontFamily || 'system-ui';
@@ -539,7 +545,14 @@ function closeSetTimeModal() {
   document.getElementById('setTimeModal').classList.remove('active');
 }
 
-if (!window.__STANDALONE_CONFIG__) {
+if (window.__STANDALONE_CONFIG__) {
+  // 独立模式：直接初始化
+  initTimerApp().catch((error) => {
+    log('error', `计时页初始化失败: ${error.message}`);
+    setStatus('初始化失败，请重试');
+  });
+} else {
+  // 编辑页模式：等待主进程发送配置
   initTimerApp().catch((error) => {
     log('error', `计时页初始化失败: ${error.message}`);
     setStatus('初始化失败，请重试');

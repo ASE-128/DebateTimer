@@ -33,3 +33,6 @@ timer-none*.png
 timer-event.png
 editor-export.png
 standalone-verify*.png
+.playwright-mcp/
+test_*.jpg
+*.png

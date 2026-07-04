@@ -62,7 +62,8 @@ function defaultStatusBar() {
 function defaultBackgroundImageSettings() {
   return {
     opacity: 1,
-    scale: 1,
+    scaleX: 100,
+    scaleY: 100,
     offsetX: 0,
     offsetY: 0
   };
@@ -134,26 +135,34 @@ function applyBackgroundToPreview(theme = {}) {
   const bgType = theme.backgroundType || 'color';
   const bgImageSettings = theme.backgroundImageSettings || defaultBackgroundImageSettings();
 
+  // 将背景设置在 timerPreview 上（最外层 .timer-shell），并确保子元素透明
+  preview.style.background = 'transparent';
+
   if (bgType === 'image' && theme.backgroundImage) {
     preview.style.backgroundImage = `url(${theme.backgroundImage})`;
-    preview.style.backgroundSize = `${bgImageSettings.scale * 100}%`;
-    preview.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX}px) calc(50% + ${bgImageSettings.offsetY}px)`;
+    preview.style.backgroundSize = `${bgImageSettings.scaleX || bgImageSettings.scale || 100}% ${bgImageSettings.scaleY || bgImageSettings.scale || 100}%`;
+    preview.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX || 0}%) calc(50% + ${bgImageSettings.offsetY || 0}%)`;
     preview.style.backgroundRepeat = 'no-repeat';
     preview.style.backgroundColor = theme.backgroundColor || '#1a1a1a';
-    preview.style.opacity = bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1;
   } else if (bgType === 'gradient' && theme.backgroundGradient) {
     const grad = theme.backgroundGradient;
     preview.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
     preview.style.backgroundSize = '';
     preview.style.backgroundPosition = '';
     preview.style.backgroundRepeat = '';
-    preview.style.opacity = 1;
+    preview.style.backgroundColor = '';
   } else {
     preview.style.backgroundImage = '';
     preview.style.background = theme.backgroundColor || '#1a1a1a';
     preview.style.backgroundSize = '';
     preview.style.backgroundPosition = '';
     preview.style.backgroundRepeat = '';
+  }
+
+  // 图片透明度通过 timerPreview 的 opacity 实现
+  if (bgType === 'image') {
+    preview.style.opacity = bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1;
+  } else {
     preview.style.opacity = 1;
   }
 }
@@ -193,6 +202,28 @@ function fillEditorUI(config) {
   // 应用主题
   applyThemeToPreview(config.theme || {});
   applyLayoutToPreview(config.layout || defaultLayout());
+
+  // 初始化背景工具栏值
+  const theme = config.theme || {};
+  const bgType = theme.backgroundType || 'color';
+  const bgImageSettings = theme.backgroundImageSettings || defaultBackgroundImageSettings();
+  document.getElementById('toolbarBgType').value = bgType;
+  document.getElementById('toolbarBgColor').value = theme.backgroundColor || '#1a1a1a';
+  if (theme.backgroundGradient) {
+    document.getElementById('toolbarBgGradientStart').value = theme.backgroundGradient.start || '#1a1a1a';
+    document.getElementById('toolbarBgGradientEnd').value = theme.backgroundGradient.end || '#0b0e14';
+    document.getElementById('toolbarBgGradientAngle').value = theme.backgroundGradient.angle || 135;
+  }
+  document.getElementById('toolbarBgImageOpacity').value = Math.round((bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1) * 100);
+  document.getElementById('toolbarBgImageScaleX').value = bgImageSettings.scaleX || bgImageSettings.scale || 100;
+  document.getElementById('toolbarBgImageScaleY').value = bgImageSettings.scaleY || bgImageSettings.scale || 100;
+  document.getElementById('toolbarBgImageOffsetX').value = bgImageSettings.offsetX || 0;
+  document.getElementById('toolbarBgImageOffsetY').value = bgImageSettings.offsetY || 0;
+  
+  // 切换面板显示
+  document.getElementById('bgColorPanel').style.display = bgType === 'color' ? 'block' : 'none';
+  document.getElementById('bgGradientPanel').style.display = bgType === 'gradient' ? 'block' : 'none';
+  document.getElementById('bgImagePanel').style.display = bgType === 'image' ? 'block' : 'none';
 
   renderSegments(config.segments || []);
   renderSegmentNav();
@@ -1050,7 +1081,8 @@ function updateBackgroundToolbar() {
   } else if (bgType === 'image') {
     if (!theme.backgroundImageSettings) theme.backgroundImageSettings = {};
     theme.backgroundImageSettings.opacity = Number(document.getElementById('toolbarBgImageOpacity')?.value || 100) / 100;
-    theme.backgroundImageSettings.scale = Number(document.getElementById('toolbarBgImageScale')?.value || 100) / 100;
+    theme.backgroundImageSettings.scaleX = Number(document.getElementById('toolbarBgImageScaleX')?.value || 100);
+    theme.backgroundImageSettings.scaleY = Number(document.getElementById('toolbarBgImageScaleY')?.value || 100);
     theme.backgroundImageSettings.offsetX = Number(document.getElementById('toolbarBgImageOffsetX')?.value || 0);
     theme.backgroundImageSettings.offsetY = Number(document.getElementById('toolbarBgImageOffsetY')?.value || 0);
   }
@@ -1091,6 +1123,17 @@ function bindTextDragAndEdit() {
     const match = transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
     elStartX = match ? parseFloat(match[1]) : 0;
     elStartY = match ? parseFloat(match[2]) : 0;
+
+    let symElStartX = 0;
+    let symElStartY = 0;
+    const symKey = getSymmetricKey(dragLayoutKey);
+    const symEl = symKey ? document.querySelector(`[data-layout-key="${symKey}"]`) : null;
+    if (symEl) {
+      const symTransform = symEl.style.transform;
+      const symMatch = symTransform.match(/translate\(([\-\d.]+)px,\s*([\-\d.]+)px\)/);
+      symElStartX = symMatch ? parseFloat(symMatch[1]) : 0;
+      symElStartY = symMatch ? parseFloat(symMatch[2]) : 0;
+    }
 
     editable.classList.add('dragging');
 
@@ -1135,24 +1178,14 @@ function bindTextDragAndEdit() {
 
       editable.style.transform = `translate(${newX}px, ${newY}px)`;
 
-      // 对称移动
-      const symKey = getSymmetricKey(dragLayoutKey);
-      if (symKey) {
-        const symEl = document.querySelector(`[data-layout-key="${symKey}"]`);
-        if (symEl) {
-          // 以预览容器中心为对称轴
-          const containerCenter = wrapperRect.left + wrapperRect.width / 2;
-          const elCenter = elRect.left + elRect.width / 2;
-          const distToCenter = elCenter - containerCenter;
-          const symElRect = symEl.getBoundingClientRect();
-          const symElCenter = containerCenter - distToCenter;
-          const symNewX = symElCenter - (symElRect.left - (symEl.style.transform ? parseFloat(symEl.style.transform.match(/translate\(([-\d.]+)px/)?.[1] || 0) : 0)) - symElRect.width / 2;
-          // 简化：只同步Y轴，X轴保持对称位置
-          const symTransform = symEl.style.transform;
-          const symMatch = symTransform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
-          const symCurrentX = symMatch ? parseFloat(symMatch[1]) : 0;
-          symEl.style.transform = `translate(${symCurrentX}px, ${newY}px)`;
-        }
+      // 对称移动：基于实际移动距离（考虑边界限制后）
+      if (symEl) {
+        // 实际水平位移 = 边界限制后的新位置 - 起始位置
+        const actualDx = newX - elStartX;
+        // 镜像移动：对称元素向相反方向移动相同距离
+        const symNewX = symElStartX - actualDx;
+        const symNewY = symElStartY + (newY - elStartY);
+        symEl.style.transform = `translate(${symNewX}px, ${symNewY}px)`;
       }
     }
 
@@ -1186,6 +1219,8 @@ function bindStatusBarResize() {
     e.stopPropagation();
     isResizingStatusBar = true;
     statusBarStartHeight = parseFloat(getComputedStyle(topBand).height);
+    resizeStartY = e.clientY;
+      dragLayoutKey = null;
     resizeStartY = e.clientY;
 
     function onMove(ev) {
@@ -1312,7 +1347,8 @@ document.getElementById('toolbarBgGradientStart')?.addEventListener('input', upd
 document.getElementById('toolbarBgGradientEnd')?.addEventListener('input', updateBackgroundToolbar);
 document.getElementById('toolbarBgGradientAngle')?.addEventListener('input', updateBackgroundToolbar);
 document.getElementById('toolbarBgImageOpacity')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgImageScale')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgImageScaleX')?.addEventListener('input', updateBackgroundToolbar);
+document.getElementById('toolbarBgImageScaleY')?.addEventListener('input', updateBackgroundToolbar);
 document.getElementById('toolbarBgImageOffsetX')?.addEventListener('input', updateBackgroundToolbar);
 document.getElementById('toolbarBgImageOffsetY')?.addEventListener('input', updateBackgroundToolbar);
 
@@ -1324,6 +1360,15 @@ document.getElementById('toolbarBgImage')?.addEventListener('change', (event) =>
     if (!currentConfig) currentConfig = {};
     if (!currentConfig.theme) currentConfig.theme = {};
     currentConfig.theme.backgroundImage = reader.result;
+    // 新图片导入时自动铺满全屏
+    if (!currentConfig.theme.backgroundImageSettings) currentConfig.theme.backgroundImageSettings = {};
+    currentConfig.theme.backgroundImageSettings.scaleX = 100;
+    currentConfig.theme.backgroundImageSettings.scaleY = 100;
+    // 同步更新工具栏滑块
+    const scaleXInput = document.getElementById('toolbarBgImageScaleX');
+    const scaleYInput = document.getElementById('toolbarBgImageScaleY');
+    if (scaleXInput) scaleXInput.value = 100;
+    if (scaleYInput) scaleYInput.value = 100;
     applyBackgroundToPreview(currentConfig.theme);
   };
   reader.readAsDataURL(file);
