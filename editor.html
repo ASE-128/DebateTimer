@@ -71,7 +71,6 @@
                     </div>
                   </div>
                   <div class="side-label neutral" id="previewSideLabel" data-editable="text" data-layout-key="sideLabel">中立计时中</div>
-                  <div class="status-pill" id="previewStatusText" data-editable="text" data-layout-key="statusText">状态：预览模式</div>
                 </section>
 
                 <footer class="watermark" id="previewWatermark" data-editable="text" data-layout-key="watermark">辩论计时器</footer>
@@ -169,6 +168,17 @@
         </div>
       </div>
     </main>
+
+    <div id="exportProgressOverlay" class="export-progress-overlay">
+      <div class="export-progress-box">
+        <h2>正在导出独立计时器</h2>
+        <div class="export-progress-bar-wrap">
+          <div id="exportProgressBar" class="export-progress-bar"></div>
+        </div>
+        <p id="exportProgressText" class="export-progress-text">准备中...</p>
+      </div>
+    </div>
+
     <script src="js/toast.js"></script>
     <script src="js/editor-app.js"></script>
   </body>

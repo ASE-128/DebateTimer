@@ -44,7 +44,6 @@ function defaultLayout() {
     eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
-    statusText: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
   };
@@ -1415,15 +1414,41 @@ document.getElementById('exportConfigBtn').addEventListener('click', async () =>
   }
 });
 
+const exportProgressOverlay = document.getElementById('exportProgressOverlay');
+const exportProgressBar = document.getElementById('exportProgressBar');
+const exportProgressText = document.getElementById('exportProgressText');
+
+if (window.electronAPI?.onExportProgress) {
+  window.electronAPI.onExportProgress(({ percent, message }) => {
+    if (!exportProgressOverlay || !exportProgressBar || !exportProgressText) return;
+    exportProgressBar.style.width = `${percent}%`;
+    exportProgressText.textContent = message || '';
+    if (percent >= 100) {
+      setTimeout(() => exportProgressOverlay.classList.remove('active'), 400);
+    }
+  });
+}
+
 document.getElementById('exportTimerBtn').addEventListener('click', async () => {
   log('info', '导出独立计时器');
-  const result = await window.electronAPI.exportStandalone(gatherConfig());
-  if (result?.ok) {
-    log('info', `独立计时器已导出: ${result.path}`);
-    alert(`独立计时器已导出到：${result.path}\n说明：该 exe 会自解压到临时目录并启动 Electron 计时器。`);
-  } else {
-    log('error', `导出独立计时器失败: ${result?.error || '未知错误'}`);
-    alert(`导出失败：${result?.error || '未知错误'}`);
+  if (exportProgressOverlay) {
+    exportProgressBar.style.width = '0%';
+    exportProgressText.textContent = '准备中...';
+    exportProgressOverlay.classList.add('active');
+  }
+  try {
+    const result = await window.electronAPI.exportStandalone(gatherConfig());
+    if (result?.ok) {
+      log('info', `独立计时器已导出: ${result.path}`);
+      alert(`独立计时器已导出到：${result.path}\n说明：这是一个 NSIS 安装程序，运行后会在本地安装并创建桌面和开始菜单快捷方式。`);
+    } else {
+      log('error', `导出独立计时器失败: ${result?.error || '未知错误'}`);
+      alert(`导出失败：${result?.error || '未知错误'}`);
+    }
+  } finally {
+    if (exportProgressOverlay) {
+      exportProgressOverlay.classList.remove('active');
+    }
   }
 });
 

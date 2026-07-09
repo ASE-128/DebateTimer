@@ -1009,3 +1009,67 @@ body {
   .card { padding: 16px; }
   .editor-content { padding: 12px 16px; }
 }
+
+/* === 导出独立计时器全屏进度条 === */
+.export-progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 300ms ease, visibility 300ms ease;
+}
+
+.export-progress-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.export-progress-box {
+  width: 480px;
+  max-width: 90vw;
+  padding: 40px;
+  background: var(--bg-card, #0f172a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-lg, 0 24px 64px rgba(0, 0, 0, 0.6));
+  text-align: center;
+}
+
+.export-progress-box h2 {
+  margin: 0 0 24px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary, #f0f2f5);
+  font-family: var(--font-text);
+}
+
+.export-progress-bar-wrap {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.export-progress-bar {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-negative, #3498db), var(--accent-title, #5dade2));
+  border-radius: 5px;
+  transition: width 200ms ease;
+  box-shadow: 0 0 12px rgba(52, 152, 219, 0.4);
+}
+
+.export-progress-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary, rgba(240, 242, 245, 0.7));
+  font-family: var(--font-text);
+  min-height: 20px;
+}

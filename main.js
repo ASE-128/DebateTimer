@@ -100,7 +100,6 @@ function defaultConfig() {
       eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
-      statusText: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
     },
@@ -236,12 +235,19 @@ function generateStandaloneAppFiles(config, appDir) {
   const mainJs = `const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\n\napp.disableHardwareAcceleration();\n\nfunction createWindow() {\n  const win = new BrowserWindow({\n    width: 1500,\n    height: 950,\n    fullscreen: false,\n    autoHideMenuBar: true,\n    webPreferences: {\n      preload: path.join(__dirname, 'preload.js'),\n      contextIsolation: true,\n      nodeIntegration: false\n    }\n  });\n  win.loadFile(path.join(__dirname, 'timer.html'));\n}\n\napp.whenReady().then(() => {\n  createWindow();\n  ipcMain.handle('toggle-fullscreen', () => {\n    const win = BrowserWindow.getFocusedWindow();\n    if (win) win.setFullScreen(!win.isFullScreen());\n  });\n});\n\napp.on('window-all-closed', () => {\n  if (process.platform !== 'darwin') app.quit();\n});\n`;
   fs.writeFileSync(path.join(appDir, 'main.js'), mainJs);
 
-  const preloadJs = `const { contextBridge, ipcRenderer } = require('electron');\nconst embeddedConfig = ${JSON.stringify(config)};\ncontextBridge.exposeInMainWorld('electronAPI', {\n  loadConfig: () => Promise.resolve(embeddedConfig),\n  openEditor: () => Promise.resolve(),\n  toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
-  log: () => Promise.resolve(),\n  onConfigUpdated: () => () => {}\n});\n`;
+  const preloadJs = 'const { contextBridge, ipcRenderer } = require(\'electron\');\n' +
+    'const embeddedConfig = ' + JSON.stringify(config) + ';\n' +
+    'contextBridge.exposeInMainWorld(\'electronAPI\', {\n' +
+    '  loadConfig: () => Promise.resolve(embeddedConfig),\n' +
+    '  openEditor: () => Promise.resolve(),\n' +
+    '  toggleFullscreen: () => ipcRenderer.invoke(\'toggle-fullscreen\'),\n' +
+    '  log: () => Promise.resolve(),\n' +
+    '  onConfigUpdated: () => () => {}\n' +
+    '});\n';
   fs.writeFileSync(path.join(appDir, 'preload.js'), preloadJs);
 
   const timerHtml = readAsset('timer.html');
-  const bodyContent = extractBody(timerHtml);
+  const bodyContent = extractBody(timerHtml).replace(/<div[^>]*id=["']standaloneSetup["'][^>]*>[\s\S]*?<\/div>\s*<\/div>/i, '').trim();
 
   function escapeHtml(str) {
     return str
@@ -251,39 +257,41 @@ function generateStandaloneAppFiles(config, appDir) {
       .replace(/"/g, '&quot;');
   }
 
-  const standaloneTimerHtml = `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="author" content="Chen Yu">
-  <title>辩论赛计时器</title>
-  <link rel="stylesheet" href="styles/variables.css">
-  <link rel="stylesheet" href="styles/timer.css">
-</head>
-<body>
-  ${bodyContent}
-  <div id="standaloneSetup" class="standalone-setup">
-    <div class="box">
-      <h2>赛前设置</h2>
-      <label>正方队伍<input id="ssAffirmativeTeam" type="text" value="${escapeHtml(config.teams?.affirmative || '')}"></label>
-      <label>正方辩题<input id="ssAffirmativeTopic" type="text" value="${escapeHtml(config.topics?.affirmative || '')}"></label>
-      <label>反方队伍<input id="ssNegativeTeam" type="text" value="${escapeHtml(config.teams?.negative || '')}"></label>
-      <label>反方辩题<input id="ssNegativeTopic" type="text" value="${escapeHtml(config.topics?.negative || '')}"></label>
-      <button id="ssStartBtn">开始计时</button>
-    </div>
-  </div>
-  <script>window.__STANDALONE_CONFIG__ = ${JSON.stringify(config)};</script>
-  <script src="js/audio.js"></script>
-  <script src="js/timer-core.js"></script>
-  <script src="js/timer-app.js"></script>
-  <script>initTimerApp();</script>
-</body>
-</html>`;
+  const standaloneTimerHtml = '<!doctype html>\n' +
+    '<html lang="zh-CN">\n' +
+    '<head>\n' +
+    '  <meta charset="UTF-8">\n' +
+    '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '  <meta name="author" content="Chen Yu">\n' +
+    '  <title>辩论赛计时器</title>\n' +
+    '  <link rel="stylesheet" href="styles/variables.css">\n' +
+    '  <link rel="stylesheet" href="styles/timer.css">\n' +
+    '</head>\n' +
+    '<body>\n' +
+    '  ' + bodyContent + '\n' +
+    '  <div id="standaloneSetup" class="standalone-setup">\n' +
+    '    <div class="box">\n' +
+    '      <h2>赛前设置</h2>\n' +
+    '      <label>正方队伍<input id="ssAffirmativeTeam" type="text" value="' + escapeHtml(config.teams?.affirmative || '') + '"></label>\n' +
+    '      <label>正方辩题<input id="ssAffirmativeTopic" type="text" value="' + escapeHtml(config.topics?.affirmative || '') + '"></label>\n' +
+    '      <label>反方队伍<input id="ssNegativeTeam" type="text" value="' + escapeHtml(config.teams?.negative || '') + '"></label>\n' +
+    '      <label>反方辩题<input id="ssNegativeTopic" type="text" value="' + escapeHtml(config.topics?.negative || '') + '"></label>\n' +
+    '      <button id="ssStartBtn">开始计时</button>\n' +
+    '    </div>\n' +
+    '  </div>\n' +
+    '  <script>window.__STANDALONE_CONFIG__ = ' + JSON.stringify(config) + ';</script>\n' +
+    '  <script src="js/toast.js"></script>\n' +
+    '  <script src="js/audio.js"></script>\n' +
+    '  <script src="js/timer-core.js"></script>\n' +
+    '  <script src="js/timer-app.js"></script>\n' +
+    '  <script>initTimerApp();</script>\n' +
+    '</body>\n' +
+    '</html>';
 
   fs.writeFileSync(path.join(appDir, 'timer.html'), standaloneTimerHtml);
   fs.writeFileSync(path.join(appDir, 'styles', 'variables.css'), readAsset('styles', 'variables.css'));
   fs.writeFileSync(path.join(appDir, 'styles', 'timer.css'), readAsset('styles', 'timer.css'));
+  fs.writeFileSync(path.join(appDir, 'js', 'toast.js'), readAsset('js', 'toast.js'));
   fs.writeFileSync(path.join(appDir, 'js', 'audio.js'), readAsset('js', 'audio.js'));
   fs.writeFileSync(path.join(appDir, 'js', 'timer-core.js'), readAsset('js', 'timer-core.js'));
   fs.writeFileSync(path.join(appDir, 'js', 'timer-app.js'), readAsset('js', 'timer-app.js'));
@@ -295,6 +303,151 @@ function cleanupTemp(dir) {
     fs.rmSync(dir, { recursive: true, force: true });
   } catch (e) {
     console.error('清理临时目录失败:', e.message);
+  }
+}
+
+function findMakensis(tempBase) {
+  // 1. 优先使用 vendor/nsis/makensis.exe（完整 NSIS 目录，推荐）
+  const vendorNsisPath = path.join(__dirname, 'vendor', 'nsis', 'makensis.exe');
+  if (fs.existsSync(vendorNsisPath)) {
+    log('info', `使用 vendor/nsis 目录下的 makensis.exe: ${vendorNsisPath}`);
+    return vendorNsisPath;
+  }
+
+  // 2. 使用 vendor/makensis.exe
+  const vendorPath = path.join(__dirname, 'vendor', 'makensis.exe');
+  if (fs.existsSync(vendorPath)) {
+    log('info', `使用 vendor 目录下的 makensis.exe: ${vendorPath}`);
+    return vendorPath;
+  }
+
+  // 4. 从 PATH 环境变量中查找
+  const pathEnv = process.env.PATH || process.env.Path || '';
+  const dirs = pathEnv.split(path.delimiter);
+  for (const dir of dirs) {
+    if (!dir) continue;
+    const p = path.join(dir.trim(), 'makensis.exe');
+    if (fs.existsSync(p)) {
+      log('info', `从 PATH 找到 makensis.exe: ${p}`);
+      return p;
+    }
+  }
+
+  // 5. 使用内嵌的 makensis.exe（如果提供了 makensisBase64）
+  if (embeddedBinaries && embeddedBinaries.makensisBase64) {
+    const embeddedPath = path.join(tempBase, 'makensis.exe');
+    fs.writeFileSync(embeddedPath, Buffer.from(embeddedBinaries.makensisBase64, 'base64'));
+    log('info', '使用内嵌的 makensis.exe');
+    return embeddedPath;
+  }
+
+  throw new Error('未找到 makensis.exe。推荐将完整 NSIS 目录复制到 vendor/nsis/，或放置 makensis.exe 于 vendor/makensis.exe，或安装 NSIS 并加入 PATH，亦或在 vendor/embedded-binaries.js 中提供 makensisBase64。');
+}
+
+function generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName) {
+  const packageName = path.basename(packageDir);
+  const appVersion = '1.0.0';
+  const script =
+    '; 本安装程序由 DebateTimer 动态生成\n' +
+    'Unicode true\n' +
+    'SetCompressor /SOLID zlib\n' +
+    '\n' +
+    '!define APP_NAME "' + appName + '"\n' +
+    '!define APP_EXE "' + appExeName + '"\n' +
+    '!define ICON_NAME "' + iconName + '"\n' +
+    '\n' +
+    'Name "${APP_NAME}"\n' +
+    'OutFile "' + appName + '-Setup.exe"\n' +
+    'InstallDir "$LOCALAPPDATA\\' + appName + '-Standalone"\n' +
+    'RequestExecutionLevel user\n' +
+    '\n' +
+    '; 版本信息\n' +
+    'VIProductVersion "' + appVersion + '.0"\n' +
+    'VIAddVersionKey "ProductName" "${APP_NAME}"\n' +
+    'VIAddVersionKey "ProductVersion" "' + appVersion + '"\n' +
+    'VIAddVersionKey "FileVersion" "' + appVersion + '"\n' +
+    'VIAddVersionKey "FileDescription" "${APP_NAME}安装程序"\n' +
+    'VIAddVersionKey "LegalCopyright" "© Chen Yu 2026"\n' +
+    '\n' +
+    '!include "MUI2.nsh"\n' +
+    '!define MUI_ICON "${ICON_NAME}"\n' +
+    '!define MUI_UNICON "${ICON_NAME}"\n' +
+    '!insertmacro MUI_PAGE_DIRECTORY\n' +
+    '!insertmacro MUI_PAGE_INSTFILES\n' +
+    '!insertmacro MUI_LANGUAGE "SimpChinese"\n' +
+    '\n' +
+    '; 旧版本检测与卸载\n' +
+    'Function .onInit\n' +
+    '  ReadRegStr $0 HKCU "Software\\${APP_NAME}" "InstallPath"\n' +
+    '  StrCmp $0 "" done\n' +
+    '  IfFileExists "$0\\${APP_EXE}" 0 done\n' +
+    '  MessageBox MB_YESNO "检测到已安装版本（$0），是否先卸载旧版本？" IDYES uninstall IDNO cancel\n' +
+    '  uninstall:\n' +
+    '    ExecWait \'"$0\\uninst.exe" /S\'\n' +
+    '    Goto done\n' +
+    '  cancel:\n' +
+    '    Abort\n' +
+    '  done:\n' +
+    'FunctionEnd\n' +
+    '\n' +
+    'Section "Install" SecInstall\n' +
+    '  SetOutPath "$INSTDIR"\n' +
+    '  File /r "' + packageName + '\\*.*"\n' +
+    '\n' +
+    '  ; 记录安装路径到注册表，便于后续升级或卸载\n' +
+    '  WriteRegStr HKCU "Software\\${APP_NAME}" "InstallPath" "$INSTDIR"\n' +
+    '  WriteRegStr HKCU "Software\\${APP_NAME}" "Version" "' + appVersion + '"\n' +
+    '\n' +
+    '  ; 桌面快捷方式\n' +
+    '  CreateShortcut "$DESKTOP\\${APP_NAME}.lnk" "$INSTDIR\\${APP_EXE}" "" "$INSTDIR\\${ICON_NAME}"\n' +
+    '  ; 开始菜单\n' +
+    '  CreateDirectory "$SMPROGRAMS\\${APP_NAME}"\n' +
+    '  CreateShortcut "$SMPROGRAMS\\${APP_NAME}\\${APP_NAME}.lnk" "$INSTDIR\\${APP_EXE}" "" "$INSTDIR\\${ICON_NAME}"\n' +
+    '\n' +
+    '  WriteUninstaller "$INSTDIR\\uninst.exe"\n' +
+    '\n' +
+    '  ; 安装完成后运行应用\n' +
+    '  Exec \'"$INSTDIR\\${APP_EXE}"\'\n' +
+    'SectionEnd\n' +
+    '\n' +
+    'Section "Uninstall" SecUninstall\n' +
+    '  RMDir /r "$INSTDIR"\n' +
+    '  Delete "$DESKTOP\\${APP_NAME}.lnk"\n' +
+    '  RMDir /r "$SMPROGRAMS\\${APP_NAME}"\n' +
+    '  DeleteRegKey HKCU "Software\\${APP_NAME}"\n' +
+    'SectionEnd\n';
+
+  fs.writeFileSync(nsiPath, '\ufeff' + script, 'utf8');
+}
+
+function trimElectronRuntime(packageDir) {
+  // 仅保留中文语言包，减少安装包体积
+  const localesDir = path.join(packageDir, 'locales');
+  if (fs.existsSync(localesDir)) {
+    try {
+      const entries = fs.readdirSync(localesDir);
+      for (const entry of entries) {
+        if (entry.toLowerCase() !== 'zh-cn.pak') {
+          fs.rmSync(path.join(localesDir, entry), { recursive: true, force: true });
+        }
+      }
+      log('info', '已清理 Electron 运行时多语言文件');
+    } catch (e) {
+      log('warn', `清理多语言文件失败: ${e.message}`);
+    }
+  }
+
+  // 移除 WebGL/swiftshader 相关文件（计时器无需 WebGL）
+  const itemsToRemove = ['swiftshader', 'vk_swiftshader.dll', 'vk_swiftshader_icd.json'];
+  for (const item of itemsToRemove) {
+    const itemPath = path.join(packageDir, item);
+    if (fs.existsSync(itemPath)) {
+      try {
+        fs.rmSync(itemPath, { recursive: true, force: true });
+      } catch (e) {
+        log('warn', `清理 ${item} 失败: ${e.message}`);
+      }
+    }
   }
 }
 
@@ -312,121 +465,139 @@ function getElectronDist() {
   throw new Error('未找到 Electron 运行时，请确保已执行 npm install');
 }
 
-function generateStandaloneExe(config, savePath) {
+function writeIconToTemp(tempBase) {
+  const iconPath = path.join(tempBase, 'electron-icon.ico');
+  // 尝试优先使用 Electron 运行时目录下的默认 .ico（打包环境下）或项目内的 icon 文件，找不到则回退到内嵌图标
+  let sourceIcon = null;
+  try {
+    const execDir = path.dirname(process.execPath || '');
+    const candidates = [];
+    if (app && app.isPackaged) {
+      candidates.push(path.join(execDir, 'electron-icon.ico'));
+      candidates.push(path.join(execDir, path.basename(process.execPath, '.exe') + '.ico'));
+      candidates.push(path.join(execDir, 'icon.ico'));
+      candidates.push(path.join(execDir, 'resources', 'electron-icon.ico'));
+    } else {
+      candidates.push(path.join(__dirname, 'electron-icon.ico'));
+      candidates.push(path.join(__dirname, 'resources', 'electron-icon.ico'));
+    }
+    for (const c of candidates) {
+      if (fs.existsSync(c)) { sourceIcon = c; break; }
+    }
+  } catch (e) {
+    sourceIcon = null;
+  }
+  if (sourceIcon) {
+    try { fs.copyFileSync(sourceIcon, iconPath); }
+    catch (e) { fs.writeFileSync(iconPath, Buffer.from(embeddedBinaries.electronIconBase64, 'base64')); }
+  } else {
+    fs.writeFileSync(iconPath, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
+  }
+  return iconPath;
+}
+
+function generateStandaloneExe(config, savePath, onProgress = () => {}) {
   return new Promise((resolve, reject) => {
     let tempBase = null;
     try {
+      onProgress(2, '准备临时目录...');
       tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
       fs.mkdirSync(tempBase, { recursive: true });
       log('info', `创建临时目录: ${tempBase}`);
 
-      // 1. Copy Electron runtime
+      // 1. 复制 Electron 运行时至 package 目录
+      onProgress(5, '复制 Electron 运行时...');
+      const packageDir = path.join(tempBase, 'package');
       const electronDist = getElectronDist();
-      copyDir(electronDist, tempBase);
+      copyDir(electronDist, packageDir);
       log('info', 'Electron 运行时复制完成');
 
-      // 打包后 electron.exe 被重命名（如 DebateTimer.exe），需额外复制一份 electron.exe
-      if (!fs.existsSync(path.join(tempBase, 'electron.exe'))) {
+      // 1.5 清理运行时中不必要的文件以减小安装包体积
+      onProgress(25, '清理运行时冗余文件...');
+      trimElectronRuntime(packageDir);
+
+      // 打包后 electron.exe 可能被重命名，确保存在 electron.exe
+      if (!fs.existsSync(path.join(packageDir, 'electron.exe'))) {
         const appExeName = path.basename(process.execPath);
-        const appExePath = path.join(tempBase, appExeName);
+        const appExePath = path.join(packageDir, appExeName);
         if (fs.existsSync(appExePath)) {
-          fs.copyFileSync(appExePath, path.join(tempBase, 'electron.exe'));
+          fs.copyFileSync(appExePath, path.join(packageDir, 'electron.exe'));
           log('info', `从 ${appExeName} 复制一份 electron.exe`);
         }
       }
 
-      // 2. Create app folder
-      const appDir = path.join(tempBase, 'resources', 'app');
+      // 2. 生成应用文件
+      onProgress(35, '生成应用文件...');
+      const appDir = path.join(packageDir, 'resources', 'app');
       generateStandaloneAppFiles(config, appDir);
       log('info', '应用文件生成完成');
 
-      // 3. Write embedded WinRAR tools and icon into temp dir
-      const rarExe = path.join(tempBase, 'rar.exe');
-      const sfxModule = path.join(tempBase, 'Default.SFX');
-      const sfxIcon = path.join(tempBase, 'electron-icon.ico');
-      fs.writeFileSync(rarExe, Buffer.from(embeddedBinaries.rarExeBase64, 'base64'));
-      fs.writeFileSync(sfxModule, Buffer.from(embeddedBinaries.sfxModuleBase64, 'base64'));
-      // 尝试优先使用 Electron 运行时目录下的默认 .ico（打包环境下）或项目内的 icon 文件，找不到则回退到内嵌图标
-      let sourceIcon = null;
-      try {
-        const execDir = path.dirname(process.execPath || '');
-        const candidates = [];
-        if (app && app.isPackaged) {
-          candidates.push(path.join(execDir, 'electron-icon.ico'));
-          candidates.push(path.join(execDir, path.basename(process.execPath, '.exe') + '.ico'));
-          candidates.push(path.join(execDir, 'icon.ico'));
-          candidates.push(path.join(execDir, 'resources', 'electron-icon.ico'));
-        } else {
-          candidates.push(path.join(__dirname, 'electron-icon.ico'));
-          candidates.push(path.join(__dirname, 'resources', 'electron-icon.ico'));
-        }
-        for (const c of candidates) {
-          if (fs.existsSync(c)) { sourceIcon = c; break; }
-        }
-      } catch (e) {
-        sourceIcon = null;
-      }
-      if (sourceIcon) {
-        try { fs.copyFileSync(sourceIcon, sfxIcon); }
-        catch (e) { fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64')); }
-      } else {
-        fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
-      }
-      log('info', 'WinRAR 工具写入完成');
+      // 3. 重命名为独立的可执行文件名
+      onProgress(45, '准备可执行文件...');
+      const appExeName = 'DebateTimer.exe';
+      fs.renameSync(path.join(packageDir, 'electron.exe'), path.join(packageDir, appExeName));
+      log('info', `已将 electron.exe 重命名为 ${appExeName}`);
 
-      // 4. Create WinRAR SFX
-      const commentFile = path.join(tempBase, 'sfx-comment.txt');
-      fs.writeFileSync(commentFile, 'Setup=electron.exe\nTempMode\nSilent=1\nOverwrite=1');
-      const tmpExe = path.join(tempBase, 'debate-timer.exe');
+      // 4. 准备图标
+      onProgress(50, '准备图标...');
+      const iconName = 'electron-icon.ico';
+      const iconPath = writeIconToTemp(tempBase);
+      fs.copyFileSync(iconPath, path.join(packageDir, iconName));
+      log('info', '图标准备完成');
 
-      const child = childProcess.spawn(rarExe, [
-        'a',
-        '-sfxDefault.SFX',
-        '-iiconelectron-icon.ico',
-        '-zsfx-comment.txt',
-        '-r',
-        '-ep1',
-        '-xrar.exe',
-        '-xDefault.SFX',
-        '-xelectron-icon.ico',
-        '-xsfx-comment.txt',
-        '-xdebate-timer.exe',
-        'debate-timer.exe',
-        '*'
-      ], { cwd: tempBase, windowsHide: true });
+      // 5. 查找 makensis.exe
+      onProgress(55, '准备安装程序编译器...');
+      const makensisExe = findMakensis(tempBase);
 
+      // 6. 生成 .nsi 脚本
+      onProgress(60, '生成安装脚本...');
+      const appName = '辩论赛计时器';
+      const nsiPath = path.join(tempBase, 'installer.nsi');
+      generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName);
+      log('info', `NSIS 脚本生成完成: ${nsiPath}`);
+
+      // 7. 调用 makensis.exe 编译安装程序
+      onProgress(65, '编译安装程序（耗时较长）...');
+      const tmpExe = path.join(tempBase, `${appName}-Setup.exe`);
+      const child = childProcess.spawn(makensisExe, ['/INPUTCHARSET', 'UTF8', nsiPath], { cwd: tempBase, windowsHide: true });
+
+      let stdout = '';
       let stderr = '';
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (data) => { stdout += data; });
       child.stderr.setEncoding('utf8');
       child.stderr.on('data', (data) => { stderr += data; });
 
       child.on('error', (err) => {
         cleanupTemp(tempBase);
-        log('error', `rar.exe 启动失败: ${err.message}`);
-        reject(new Error(`rar.exe 启动失败: ${err.message}`));
+        log('error', `makensis.exe 启动失败: ${err.message}`);
+        reject(new Error(`makensis.exe 启动失败: ${err.message}`));
       });
 
       child.on('close', (code) => {
         if (code !== 0) {
           cleanupTemp(tempBase);
-          log('error', `rar.exe 执行失败（退出码 ${code}）${stderr ? ': ' + stderr : ''}`);
-          reject(new Error(`rar.exe 执行失败（退出码 ${code}）${stderr ? ': ' + stderr : ''}`));
+          log('error', `makensis.exe 执行失败（退出码 ${code}）${stderr ? ': ' + stderr : ''}`);
+          reject(new Error(`makensis.exe 执行失败（退出码 ${code}）${stderr ? ': ' + stderr : ''}`));
           return;
         }
         if (!fs.existsSync(tmpExe)) {
           cleanupTemp(tempBase);
-          log('error', '自解压程序生成失败，输出文件不存在');
-          reject(new Error('自解压程序生成失败，输出文件不存在'));
+          log('error', 'NSIS 安装程序生成失败，输出文件不存在');
+          reject(new Error('NSIS 安装程序生成失败，输出文件不存在'));
           return;
         }
         try {
+          onProgress(95, '复制安装程序到目标位置...');
           fs.copyFileSync(tmpExe, savePath);
+          onProgress(100, '完成');
           cleanupTemp(tempBase);
-          log('info', `EXE 复制到目标路径: ${savePath}`);
+          log('info', `安装程序复制到目标路径: ${savePath}`);
           resolve({ ok: true, path: savePath });
         } catch (err) {
           cleanupTemp(tempBase);
-          log('error', `复制 EXE 到目标路径失败: ${err.message}`);
-          reject(new Error(`复制 EXE 到目标路径失败: ${err.message}`));
+          log('error', `复制安装程序到目标路径失败: ${err.message}`);
+          reject(new Error(`复制安装程序到目标路径失败: ${err.message}`));
         }
       });
     } catch (err) {
@@ -602,7 +773,11 @@ if (isElectron) {
           return { ok: false, path: null, error: '用户取消保存' };
         }
         log('info', '开始生成独立计时器...');
-        const result = await generateStandaloneExe(config, filePath);
+        const result = await generateStandaloneExe(config, filePath, (percent, message) => {
+          if (editorWindow && !editorWindow.isDestroyed()) {
+            editorWindow.webContents.send('export-progress', { percent, message });
+          }
+        });
         log('info', `独立计时器已生成: ${filePath}`);
         return result;
       } catch (err) {
@@ -632,4 +807,4 @@ if (isElectron) {
   });
 }
 
-module.exports = { defaultConfig, readConfig, writeConfig, validateConfig, generateStandaloneExe, generateStandaloneAppFiles, readAsset, extractBody, copyDir };
+module.exports = { defaultConfig, readConfig, writeConfig, validateConfig, generateStandaloneExe, generateStandaloneAppFiles, generateNsisScript, readAsset, extractBody, copyDir };

@@ -1,6 +1,6 @@
 {
   "name": "debate-timer-electron",
-  "version": "2.11.2",
+  "version": "2.11.3",
   "description": "一款桌面辩论赛计时器",
   "main": "main.js",
   "scripts": {
@@ -20,8 +20,9 @@
       "editor.html",
       "js/**/*",
       "styles/**/*",
-      "scripts/**/*",
-      "vendor/**/*"
+      "vendor/**/*",
+      "LICENSE",
+      "README.md"
     ],
     "asarUnpack": [
       "vendor/**/*"

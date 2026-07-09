@@ -15,5 +15,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event, config) => callback(config);
     ipcRenderer.on('config-updated', listener);
     return () => ipcRenderer.removeListener('config-updated', listener);
+  },
+  onExportProgress: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('export-progress', listener);
+    return () => ipcRenderer.removeListener('export-progress', listener);
   }
 });

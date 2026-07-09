@@ -12,7 +12,6 @@ const eventNameEl = document.getElementById('eventName');
 const segmentNameEl = document.getElementById('segmentName');
 const timerDisplayEl = document.getElementById('timerDisplay');
 const sideLabelEl = document.getElementById('sideLabel');
-const statusTextEl = document.getElementById('statusText');
 const startBtnEl = document.getElementById('startBtn');
 const affirmativeTeamNameEl = document.getElementById('affirmativeTeamName');
 const negativeTeamNameEl = document.getElementById('negativeTeamName');
@@ -95,7 +94,6 @@ function applyTheme(theme = config.theme || {}) {
       eventName: 'eventName',
       segmentName: 'segmentName',
       sideLabel: 'sideLabel',
-      statusText: 'statusText',
       watermark: 'watermark',
       designBy: 'designBy'
     };
@@ -165,10 +163,6 @@ function applyCustomFont(theme) {
   }
 }
 
-function setStatus(text) {
-  statusTextEl.textContent = `状态：${text}`;
-}
-
 function updateControlLabel(state) {
   const btnLabel = startBtnEl.querySelector('.btn-label');
   if (!btnLabel) {
@@ -227,22 +221,39 @@ function adjustSegmentNameFontSize() {
   const parent = segmentNameEl.parentElement;
   if (!parent) return;
 
-  const parentWidth = parent.clientWidth || window.innerWidth;
+  const parentStyle = window.getComputedStyle(parent);
+  const parentWidth = parent.clientWidth
+    - parseFloat(parentStyle.paddingLeft || 0)
+    - parseFloat(parentStyle.paddingRight || 0);
+  if (parentWidth <= 0) return;
+
   const maxFontSize = Math.min(Math.max(window.innerWidth * 0.14, 48), 180);
   const minFontSize = 32;
-  let fontSize = maxFontSize;
 
-  segmentNameEl.style.fontSize = `${fontSize}px`;
-  while (segmentNameEl.scrollWidth > parentWidth && fontSize > minFontSize) {
-    fontSize -= 4;
-    segmentNameEl.style.fontSize = `${fontSize}px`;
+  segmentNameEl.style.fontSize = `${maxFontSize}px`;
+  if (segmentNameEl.scrollWidth <= parentWidth) {
+    return;
   }
+
+  let low = minFontSize;
+  let high = maxFontSize;
+  let best = minFontSize;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    segmentNameEl.style.fontSize = `${mid}px`;
+    if (segmentNameEl.scrollWidth <= parentWidth) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  segmentNameEl.style.fontSize = `${best}px`;
 }
 
 function syncUi(actionLabel) {
   const state = engine.getState();
   render(state);
-  if (actionLabel) setStatus(actionLabel);
 }
 
 function render(state) {
@@ -266,7 +277,7 @@ function render(state) {
     lastRenderCache.isNoTimer = isNoTimer;
   }
   if (isNoTimer) {
-    requestAnimationFrame(() => adjustSegmentNameFontSize());
+    adjustSegmentNameFontSize();
   }
   const sideLabelText = isNoTimer ? '' : (state.activeSide === 'neutral' ? '中立计时中' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中'));
   if (sideLabelEl.textContent !== sideLabelText) {
@@ -358,7 +369,6 @@ async function initTimerApp() {
 }
 
 function finishInit() {
-  setStatus('已加载配置');
   log('info', `计时页初始化完成，共 ${config?.segments?.length || 0} 个环节`);
   engine.render();
   bindShortcuts();
@@ -384,7 +394,6 @@ function openStandaloneSetup() {
     config.topics.negative = document.getElementById('ssNegativeTopic').value || config.topics.negative;
     modal.classList.remove('active');
     render(engine.getState());
-    setStatus('队伍信息已更新');
   });
   if (engine?.isRunning) engine.pause();
 }
@@ -402,7 +411,6 @@ async function refreshFromConfig(nextConfig) {
   engine.isPaused = true;
   engine.lastTimestamp = null;
   engine.cancelAnimationFrame?.();
-  setStatus('配置已同步');
   render(engine.getState());
 }
 
@@ -488,19 +496,17 @@ function bindControlButtons() {
     document.getElementById('stopBtn').classList.add('pulse');
     setTimeout(() => document.getElementById('stopBtn').classList.remove('pulse'), 180);
   });
-  document.getElementById('test30Btn').addEventListener('click', () => { log('debug', '试播30秒提示音'); audioPlayer.play30(); setStatus('已播放 30 秒提示音'); });
-  document.getElementById('test5Btn').addEventListener('click', () => { log('debug', '试播5秒提示音'); audioPlayer.play5(); setStatus('已播放 5 秒提示音'); });
-  document.getElementById('testEndBtn').addEventListener('click', () => { log('debug', '试播结束提示音'); audioPlayer.playEnd(); setStatus('已播放时间到提示音'); });
-  document.getElementById('fullscreenBtn').addEventListener('click', async () => { log('info', '切换全屏'); await window.electronAPI.toggleFullscreen(); setStatus('已切换全屏状态'); });
+  document.getElementById('test30Btn').addEventListener('click', () => { log('debug', '试播30秒提示音'); audioPlayer.play30(); });
+  document.getElementById('test5Btn').addEventListener('click', () => { log('debug', '试播5秒提示音'); audioPlayer.play5(); });
+  document.getElementById('testEndBtn').addEventListener('click', () => { log('debug', '试播结束提示音'); audioPlayer.playEnd(); });
+  document.getElementById('fullscreenBtn').addEventListener('click', async () => { log('info', '切换全屏'); await window.electronAPI.toggleFullscreen(); });
   document.getElementById('backBtn').addEventListener('click', async () => {
     if (isStandalone) {
       log('info', '打开独立计时器队伍设置');
       openStandaloneSetup();
-      setStatus('已打开队伍设置');
     } else {
       log('info', '返回编辑页');
       await window.electronAPI.openEditor();
-      setStatus('已返回编辑页');
     }
   });
   document.getElementById('jumpBtn').addEventListener('click', () => {
@@ -569,13 +575,11 @@ if (window.__STANDALONE_CONFIG__) {
   // 独立模式：直接初始化
   initTimerApp().catch((error) => {
     log('error', `计时页初始化失败: ${error.message}`);
-    setStatus('初始化失败，请重试');
   });
 } else {
   // 编辑页模式：等待主进程发送配置
   initTimerApp().catch((error) => {
     log('error', `计时页初始化失败: ${error.message}`);
-    setStatus('初始化失败，请重试');
   });
 }
 

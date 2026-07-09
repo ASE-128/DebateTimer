@@ -149,7 +149,7 @@ body {
   font-weight: 900;
   font-family: var(--text-font-family);
   text-align: center;
-  transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .segment-name-large {
@@ -303,19 +303,6 @@ body {
 
 .side-label.neutral {
   color: var(--accent-neutral);
-}
-
-/* === 状态文字 === */
-.status-pill {
-  margin-top: 16px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary);
-  font-size: calc(13px * var(--font-scale));
-  font-family: var(--text-font-family);
-  transition: all 300ms ease;
 }
 
 /* === 控制面板：底部悬浮胶囊 === */
@@ -488,7 +475,7 @@ body {
   margin-bottom: 24px;
   color: var(--accent-title);
   font-size: 20px;
-  font-family: var(--font-text);
+  font-family: var(--text-font-family);
   font-weight: 700;
 }
 
@@ -508,7 +495,7 @@ body {
   background: var(--bg-secondary);
   color: var(--text-primary);
   padding: 10px 12px;
-  font-family: var(--font-text);
+  font-family: var(--text-font-family);
   font-size: 14px;
   outline: none;
   transition: border-color 150ms ease, box-shadow 150ms ease;
@@ -530,7 +517,7 @@ body {
   font-weight: 700;
   font-size: 15px;
   cursor: pointer;
-  font-family: var(--font-text);
+  font-family: var(--text-font-family);
   transition: all 150ms ease;
   box-shadow: 0 4px 16px rgba(52, 152, 219, 0.3);
 }
@@ -583,7 +570,7 @@ body {
   margin-bottom: 16px;
   color: var(--accent-title);
   font-size: 18px;
-  font-family: var(--font-text);
+  font-family: var(--text-font-family);
   font-weight: 700;
 }
 
@@ -606,7 +593,7 @@ body {
   color: var(--text-primary);
   cursor: pointer;
   font-size: 14px;
-  font-family: var(--font-text);
+  font-family: var(--text-font-family);
   transition: all 150ms ease;
 }
 
@@ -657,7 +644,7 @@ body {
   background: var(--accent-negative);
   color: #fff;
   cursor: pointer;
-  font-family: var(--font-text);
+  font-family: var(--text-font-family);
   font-size: 14px;
   font-weight: 600;
   transition: all 150ms ease;
@@ -702,7 +689,6 @@ body {
   .segment-name { font-size: calc(36px * var(--font-scale)); }
   .segment-name-large { font-size: calc(56px * var(--font-scale)); }
   .side-label { font-size: calc(13px * var(--font-scale)); }
-  .status-pill { font-size: 11px; padding: 6px 12px; }
   .event-name { font-size: calc(22px * var(--font-scale)); }
   .dual-timer { gap: 24px; }
 }

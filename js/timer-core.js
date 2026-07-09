@@ -9,10 +9,11 @@ class TimerEngine {
     this.config = config;
     this.onRender = onRender;
     this.segments = config.segments || [];
-    this.currentIndex = this.findFirstTimedSegment();
+    this.currentIndex = 0;
     this.isRunning = false;
     this.isPaused = true;
-    this.activeSide = 'affirmative';
+    const firstSegment = this.segments[0] || {};
+    this.activeSide = firstSegment.type === 'neutral_timer' ? 'neutral' : (firstSegment.side || 'affirmative');
     this.remaining = this.getCurrentDuration();
     this.remainingOpposite = this.getCurrentDuration();
     this.lastTimestamp = null;
