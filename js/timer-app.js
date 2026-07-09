@@ -18,7 +18,6 @@ const affirmativeTeamNameEl = document.getElementById('affirmativeTeamName');
 const negativeTeamNameEl = document.getElementById('negativeTeamName');
 const affirmativeTopicEl = document.getElementById('affirmativeTopic');
 const negativeTopicEl = document.getElementById('negativeTopic');
-const eventTitleEl = document.getElementById('eventTitle');
 
 const singleTimerEl = document.getElementById('singleTimer');
 const dualTimerEl = document.getElementById('dualTimer');
@@ -85,11 +84,10 @@ function applyTheme(theme = config.theme || {}) {
     if (sb.color) topBand.style.color = sb.color;
   }
 
-  // 应用布局设置
-  if (theme.layout) {
-    const layout = theme.layout;
+  // 应用布局设置（布局数据保存在 config.layout）
+  const layout = config?.layout;
+  if (layout) {
     const layoutMap = {
-      eventTitle: 'eventTitle',
       affirmativeTeamName: 'affirmativeTeamName',
       negativeTeamName: 'negativeTeamName',
       affirmativeTopic: 'affirmativeTopic',
@@ -109,10 +107,24 @@ function applyTheme(theme = config.theme || {}) {
           el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
         } else if (settings.y !== undefined && settings.y !== 0) {
           el.style.transform = `translate(0px, ${settings.y}px)`;
+        } else {
+          el.style.transform = '';
         }
-        if (settings.fontSize && settings.fontSize > 0) el.style.fontSize = `${settings.fontSize}px`;
-        if (settings.fontFamily) el.style.fontFamily = settings.fontFamily;
-        if (settings.color) el.style.color = settings.color;
+        if (settings.fontSize && settings.fontSize > 0) {
+          el.style.fontSize = `${settings.fontSize}px`;
+        } else {
+          el.style.fontSize = '';
+        }
+        if (settings.fontFamily) {
+          el.style.fontFamily = settings.fontFamily;
+        } else {
+          el.style.fontFamily = '';
+        }
+        if (settings.color) {
+          el.style.color = settings.color;
+        } else {
+          el.style.color = '';
+        }
       }
     });
   }
@@ -176,7 +188,7 @@ function updateTeamDisplay(state) {
   negativeTeamNameEl.textContent = config?.teams?.negative || '反方队';
   affirmativeTopicEl.textContent = config?.topics?.affirmative || '正方辩题';
   negativeTopicEl.textContent = config?.topics?.negative || '反方辩题';
-  if (eventTitleEl) eventTitleEl.textContent = config.eventName || '赛事名称';
+  if (eventNameEl) eventNameEl.textContent = config.eventName || '赛事名称';
 }
 
 function updateProgress(state) {
@@ -214,10 +226,12 @@ function adjustSegmentNameFontSize() {
   if (!segmentNameEl) return;
   const parent = segmentNameEl.parentElement;
   if (!parent) return;
-  const parentWidth = parent.clientWidth;
-  const maxFontSize = window.innerWidth * 0.15; // 15vw 对应像素
+
+  const parentWidth = parent.clientWidth || window.innerWidth;
+  const maxFontSize = Math.min(Math.max(window.innerWidth * 0.14, 48), 180);
   const minFontSize = 32;
   let fontSize = maxFontSize;
+
   segmentNameEl.style.fontSize = `${fontSize}px`;
   while (segmentNameEl.scrollWidth > parentWidth && fontSize > minFontSize) {
     fontSize -= 4;
@@ -251,7 +265,7 @@ function render(state) {
     }
     lastRenderCache.isNoTimer = isNoTimer;
   }
-  if (isNoTimer && lastRenderCache.segmentName !== segmentName) {
+  if (isNoTimer) {
     requestAnimationFrame(() => adjustSegmentNameFontSize());
   }
   const sideLabelText = isNoTimer ? '' : (state.activeSide === 'neutral' ? '中立计时中' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中'));
@@ -393,6 +407,12 @@ async function refreshFromConfig(nextConfig) {
 }
 
 function bindShortcuts() {
+  window.addEventListener('resize', () => {
+    if (config?.segments?.[engine?.currentIndex]?.type === 'none') {
+      requestAnimationFrame(() => adjustSegmentNameFontSize());
+    }
+  });
+
   document.addEventListener('keydown', (event) => {
     const isTyping = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
     if (isTyping) return;

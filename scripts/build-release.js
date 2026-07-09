@@ -153,7 +153,7 @@ function buildStandalone(config, savePath) {
       main: 'main.js'
     }, null, 2));
 
-    const mainJs = `const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\napp.disableHardwareAcceleration();\nfunction createWindow() {\n  const win = new BrowserWindow({ width: 1500, height: 950, fullscreen: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false } });\n  win.loadFile(path.join(__dirname, 'timer.html'));\n}\napp.whenReady().then(() => { createWindow(); ipcMain.handle('toggle-fullscreen', () => { const win = BrowserWindow.getFocusedWindow(); if (win) win.setFullScreen(!win.isFullScreen()); }); });\napp.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });`;
+    const mainJs = `const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\napp.disableHardwareAcceleration();\nfunction createWindow() {\n  const win = new BrowserWindow({ width: 1500, height: 950, fullscreen: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false } });\n  win.loadFile(path.join(__dirname, 'timer.html'));\n}\napp.whenReady().then(() => { createWindow(); ipcMain.handle('toggle-fullscreen', (event) => { const win = BrowserWindow.fromWebContents(event.sender); if (win && !win.isDestroyed()) { const next = !win.isFullScreen(); win.setFullScreen(next); return { ok: true, fullscreen: next }; } return { ok: false, fullscreen: false }; }); });\napp.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });`;
     fs.writeFileSync(path.join(appDir, 'main.js'), mainJs);
 
     const preloadJs = `const { contextBridge, ipcRenderer } = require('electron');\nconst embeddedConfig = ${JSON.stringify(config)};\ncontextBridge.exposeInMainWorld('electronAPI', { loadConfig: () => Promise.resolve(embeddedConfig), openEditor: () => Promise.resolve(), toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'), log: () => Promise.resolve(), onConfigUpdated: () => () => {} });`;
@@ -167,7 +167,32 @@ function buildStandalone(config, savePath) {
     const sfxIcon = path.join(tempBase, 'electron-icon.ico');
     fs.writeFileSync(rarExe, Buffer.from(embeddedBinaries.rarExeBase64, 'base64'));
     fs.writeFileSync(sfxModule, Buffer.from(embeddedBinaries.sfxModuleBase64, 'base64'));
-    fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
+    // 优先尝试在运行时目录或资源目录中寻找图标文件，找不到则使用内嵌图标
+    let sourceIcon = null;
+    try {
+      const execDir = path.dirname(process.execPath || '');
+      const candidates = [];
+      if (app && app.isPackaged) {
+        candidates.push(path.join(execDir, 'electron-icon.ico'));
+        candidates.push(path.join(execDir, path.basename(process.execPath, '.exe') + '.ico'));
+        candidates.push(path.join(execDir, 'icon.ico'));
+        candidates.push(path.join(execDir, 'resources', 'electron-icon.ico'));
+      } else {
+        candidates.push(path.join(__dirname, '..', 'electron-icon.ico'));
+        candidates.push(path.join(__dirname, '..', 'resources', 'electron-icon.ico'));
+      }
+      for (const c of candidates) {
+        if (fs.existsSync(c)) { sourceIcon = c; break; }
+      }
+    } catch (e) {
+      sourceIcon = null;
+    }
+    if (sourceIcon) {
+      try { fs.copyFileSync(sourceIcon, sfxIcon); }
+      catch (e) { fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64')); }
+    } else {
+      fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
+    }
 
     // 4. Create WinRAR SFX
     const commentFile = path.join(tempBase, 'sfx-comment.txt');

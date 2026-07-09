@@ -1,8 +1,8 @@
 # 辩论赛计时器（DebateTimer）
 
-**版本：2.11.1** | 作者：Chen Yu | 许可证：GPL-3.0
+**版本：2.11.2** | 作者：Chen Yu | 许可证：GPL-3.0
 
-一款基于 Electron 的桌面辩论赛计时器，专为华语辩论赛场景设计。支持完整的赛事配置、环节管理、倒计时展示、提示音提醒、主题样式自定义，以及将当前配置导出为独立可执行文件（EXE）等功能。
+DebateTimer 是一款基于 Electron 的离线桌面辩论赛计时器，提供编辑器与计时两种视图，支持导出为独立 Windows 可执行文件以便比赛现场脱机使用。
 
 ## 功能特性
 
@@ -84,16 +84,17 @@ npm start
   - `←/→` 切换环节
   - `C` 切换持方（仅对单边计时有效）
 
-## 打包发布
+## 打包与发行
 
-已配置 `electron-builder`，支持生成 Windows 安装包（NSIS）与便携版（Portable）。
+项目内置 `electron-builder` 配置，支持生成 Windows 安装包（NSIS）与便携版（Portable）。
+
+生成分发包：
 
 ```bash
 npm run dist
-# 输出目录：dist/
-# DebateTimer Setup 2.11.1.exe —— 安装包
-# DebateTimer 2.11.1.exe —— 便携版
 ```
+
+构建输出位于 `dist/` 目录（安装包与便携版的命名会包含版本号）。
 
 ### 独立 EXE 导出（应用内）
 

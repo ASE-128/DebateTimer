@@ -93,7 +93,6 @@ function defaultConfig() {
       }
     },
     layout: {
-      eventTitle: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       affirmativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       negativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       affirmativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
@@ -347,7 +346,32 @@ function generateStandaloneExe(config, savePath) {
       const sfxIcon = path.join(tempBase, 'electron-icon.ico');
       fs.writeFileSync(rarExe, Buffer.from(embeddedBinaries.rarExeBase64, 'base64'));
       fs.writeFileSync(sfxModule, Buffer.from(embeddedBinaries.sfxModuleBase64, 'base64'));
-      fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
+      // 尝试优先使用 Electron 运行时目录下的默认 .ico（打包环境下）或项目内的 icon 文件，找不到则回退到内嵌图标
+      let sourceIcon = null;
+      try {
+        const execDir = path.dirname(process.execPath || '');
+        const candidates = [];
+        if (app && app.isPackaged) {
+          candidates.push(path.join(execDir, 'electron-icon.ico'));
+          candidates.push(path.join(execDir, path.basename(process.execPath, '.exe') + '.ico'));
+          candidates.push(path.join(execDir, 'icon.ico'));
+          candidates.push(path.join(execDir, 'resources', 'electron-icon.ico'));
+        } else {
+          candidates.push(path.join(__dirname, 'electron-icon.ico'));
+          candidates.push(path.join(__dirname, 'resources', 'electron-icon.ico'));
+        }
+        for (const c of candidates) {
+          if (fs.existsSync(c)) { sourceIcon = c; break; }
+        }
+      } catch (e) {
+        sourceIcon = null;
+      }
+      if (sourceIcon) {
+        try { fs.copyFileSync(sourceIcon, sfxIcon); }
+        catch (e) { fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64')); }
+      } else {
+        fs.writeFileSync(sfxIcon, Buffer.from(embeddedBinaries.electronIconBase64, 'base64'));
+      }
       log('info', 'WinRAR 工具写入完成');
 
       // 4. Create WinRAR SFX
@@ -438,6 +462,13 @@ function createEditorWindow() {
       nodeIntegration: false
     }
   });
+  editorWindow.on('closed', () => {
+    editorWindow = null;
+    if (timerWindow && !timerWindow.isDestroyed()) {
+      timerWindow.close();
+    }
+    app.quit();
+  });
   editorWindow.loadFile('editor.html');
 }
 
@@ -453,6 +484,13 @@ function createTimerWindow() {
       contextIsolation: true,
       nodeIntegration: false
     }
+  });
+  timerWindow.on('closed', () => {
+    timerWindow = null;
+    if (editorWindow && !editorWindow.isDestroyed()) {
+      editorWindow.close();
+    }
+    app.quit();
   });
   timerWindow.loadFile('timer.html');
 }
@@ -573,8 +611,9 @@ if (isElectron) {
         return { ok: false, path: null, error: err.message };
       }
     });
-    ipcMain.handle('toggle-fullscreen', () => {
-      const target = timerWindow && !timerWindow.isDestroyed() ? timerWindow : editorWindow;
+    ipcMain.handle('toggle-fullscreen', (event) => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      const target = senderWindow && !senderWindow.isDestroyed() ? senderWindow : (timerWindow && !timerWindow.isDestroyed() ? timerWindow : editorWindow);
       if (target) {
         const next = !target.isFullScreen();
         target.setFullScreen(next);

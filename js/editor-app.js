@@ -37,7 +37,6 @@ function renderFonts() {
 
 function defaultLayout() {
   return {
-    eventTitle: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     affirmativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     negativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     affirmativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
@@ -192,7 +191,6 @@ function fillEditorUI(config) {
   currentConfig = config;
 
   // 填充预览文本内容
-  document.getElementById('previewEventTitle').textContent = config.eventName || '赛事名称';
   document.getElementById('previewEventName').textContent = config.eventName || '赛事名称';
   document.getElementById('previewAffirmativeTeamName').textContent = config.teams?.affirmative || '正方队';
   document.getElementById('previewNegativeTeamName').textContent = config.teams?.negative || '反方队';
@@ -765,7 +763,7 @@ function gatherConfig() {
   const bgImage = theme.backgroundImage || '';
 
   return {
-    eventName: document.getElementById('previewEventTitle')?.textContent || '新建辩论赛事',
+    eventName: document.getElementById('previewEventName')?.textContent || '新建辩论赛事',
     teams: {
       affirmative: document.getElementById('previewAffirmativeTeamName')?.textContent || '正方',
       negative: document.getElementById('previewNegativeTeamName')?.textContent || '反方'
