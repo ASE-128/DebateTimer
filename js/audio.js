@@ -58,58 +58,9 @@ class AudioPlayer {
   }
 
   /**
-   * 30 秒提示：单音 660Hz，标准金属风，1.0s，80% 音量，慢起快收。
+   * 播放一次时间到铃声，可指定起始时间和共用混响节点。
    */
-  play30() {
-    this.ensureAudio();
-    const now = this.audioCtx.currentTime;
-    this.createTone({
-      frequency: 660,
-      type: 'triangle',
-      startAt: now,
-      duration: 1.0,
-      volume: 0.8,
-      attack: 0.3,
-      decay: 0.7,
-      outputNode: this.audioCtx.destination
-    });
-    log('debug', '播放 30 秒提示音');
-  }
-
-  /**
-   * 5 秒提示：双音小三度 880Hz+1047Hz，标准金属风，两声间隔 0.15s，每声 0.6s，80% 音量。
-   */
-  play5() {
-    this.ensureAudio();
-    const now = this.audioCtx.currentTime;
-    const freqs = [880, 1047];
-    for (let i = 0; i < 2; i++) {
-      const startAt = now + i * 0.15;
-      freqs.forEach((freq) => {
-        this.createTone({
-          frequency: freq,
-          type: 'triangle',
-          startAt,
-          duration: 0.6,
-          volume: 0.8,
-          attack: 0.01,
-          decay: 0.59,
-          outputNode: this.audioCtx.destination
-        });
-      });
-    }
-    log('debug', '播放 5 秒提示音');
-  }
-
-  /**
-   * 时间到：大三和弦 880Hz+1109Hz+1319Hz，硬金属风，一声长音 1.5s 后断掉，100% 音量，带混响。
-   */
-  playEnd() {
-    this.ensureAudio();
-    const now = this.audioCtx.currentTime;
-
-    // 轻微混响节点
-    const reverbNode = this.createReverb(0.5, 2.5);
+  _playEndRing({ startAt, reverbNode }) {
     const wetRatio = 0.3;
     const freqs = [880, 1109, 1319];
 
@@ -118,7 +69,7 @@ class AudioPlayer {
       this.createTone({
         frequency: freq,
         type: 'sawtooth',
-        startAt: now,
+        startAt,
         duration: 1.5,
         volume: 1.0,
         attack: 0.01,
@@ -130,7 +81,7 @@ class AudioPlayer {
       this.createTone({
         frequency: freq,
         type: 'sawtooth',
-        startAt: now,
+        startAt,
         duration: 1.5,
         volume: 1.0 * wetRatio,
         attack: 0.01,
@@ -138,6 +89,41 @@ class AudioPlayer {
         outputNode: reverbNode
       });
     });
+  }
+
+  /**
+   * 30 秒提示：统一使用时间到铃声，响 1 次。
+   */
+  play30() {
+    this.ensureAudio();
+    const now = this.audioCtx.currentTime;
+    const reverbNode = this.createReverb(0.5, 2.5);
+    this._playEndRing({ startAt: now, reverbNode });
+    log('debug', '播放 30 秒提示音（时间到铃声 ×1）');
+  }
+
+  /**
+   * 5 秒提示：统一使用时间到铃声，响 2 次。
+   */
+  play5() {
+    this.ensureAudio();
+    const now = this.audioCtx.currentTime;
+    const reverbNode = this.createReverb(0.5, 2.5);
+    this._playEndRing({ startAt: now, reverbNode });
+    this._playEndRing({ startAt: now + 0.15, reverbNode });
+    log('debug', '播放 5 秒提示音（时间到铃声 ×2）');
+  }
+
+  /**
+   * 时间到：统一使用时间到铃声，响 3 次。
+   */
+  playEnd() {
+    this.ensureAudio();
+    const now = this.audioCtx.currentTime;
+    const reverbNode = this.createReverb(0.5, 2.5);
+    this._playEndRing({ startAt: now, reverbNode });
+    this._playEndRing({ startAt: now + 0.3, reverbNode });
+    this._playEndRing({ startAt: now + 0.6, reverbNode });
     log('debug', '播放结束提示音');
   }
 }

@@ -829,7 +829,6 @@ async function saveConfig() {
   log('info', '保存配置');
   await window.electronAPI.saveConfig(gatherConfig());
   saveBtn.textContent = '已保存';
-  await window.electronAPI.openTimer();
   setTimeout(() => { saveBtn.textContent = '保存配置'; }, 1200);
 }
 

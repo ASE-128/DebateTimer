@@ -90,8 +90,8 @@ function defaultConfig() {
       },
       backgroundImageSettings: {
         opacity: 1,
-        scaleX: 1,
-        scaleY: 1,
+        scaleX: 100,
+        scaleY: 100,
         offsetX: 0,
         offsetY: 0
       }
@@ -159,8 +159,8 @@ function validateConfig(input) {
       } : defTheme.statusBar,
       backgroundImageSettings: theme.backgroundImageSettings && typeof theme.backgroundImageSettings === 'object' ? {
         opacity: Number(theme.backgroundImageSettings.opacity ?? 1),
-        scaleX: Number(theme.backgroundImageSettings.scaleX ?? 1),
-        scaleY: Number(theme.backgroundImageSettings.scaleY ?? 1),
+        scaleX: Number(theme.backgroundImageSettings.scaleX ?? 100),
+        scaleY: Number(theme.backgroundImageSettings.scaleY ?? 100),
         offsetX: Number(theme.backgroundImageSettings.offsetX ?? 0),
         offsetY: Number(theme.backgroundImageSettings.offsetY ?? 0)
       } : defTheme.backgroundImageSettings
@@ -195,9 +195,10 @@ function migrateV2ToV3(oldConfig) {
   const cloned = JSON.parse(JSON.stringify(oldConfig));
 
   // 处理 backgroundImageSettings.scale -> scaleX / scaleY
+  // 旧版 scale 为倍数（1 = 100%），新版 scaleX/scaleY 为百分比数值
   const bgSettings = cloned.theme?.backgroundImageSettings;
   if (bgSettings && typeof bgSettings === 'object' && bgSettings.scale !== undefined) {
-    const scaleValue = Number(bgSettings.scale) || 1;
+    const scaleValue = (Number(bgSettings.scale) || 1) * 100;
     if (bgSettings.scaleX === undefined) bgSettings.scaleX = scaleValue;
     if (bgSettings.scaleY === undefined) bgSettings.scaleY = scaleValue;
     delete bgSettings.scale;
