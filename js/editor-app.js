@@ -130,38 +130,36 @@ function applyStatusBarToPreview(statusBar = {}) {
 function applyBackgroundToPreview(theme = {}) {
   const preview = document.getElementById('timerPreview');
   if (!preview) return;
+  const bgLayer = preview.querySelector('.bg-layer');
   const bgType = theme.backgroundType || 'color';
   const bgImageSettings = theme.backgroundImageSettings || defaultBackgroundImageSettings();
 
   // 将背景设置在 timerPreview 上（最外层 .timer-shell），并确保子元素透明
   preview.style.background = 'transparent';
+  preview.style.opacity = 1;
 
-  if (bgType === 'image' && theme.backgroundImage) {
-    preview.style.backgroundImage = `url(${theme.backgroundImage})`;
-    preview.style.backgroundSize = `${bgImageSettings.scaleX || bgImageSettings.scale || 100}% ${bgImageSettings.scaleY || bgImageSettings.scale || 100}%`;
-    preview.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX || 0}%) calc(50% + ${bgImageSettings.offsetY || 0}%)`;
-    preview.style.backgroundRepeat = 'no-repeat';
-    preview.style.backgroundColor = theme.backgroundColor || '#1a1a1a';
-  } else if (bgType === 'gradient' && theme.backgroundGradient) {
+  if (bgType === 'image' && theme.backgroundImage && bgLayer) {
+    bgLayer.style.backgroundImage = `url(${theme.backgroundImage})`;
+    bgLayer.style.backgroundSize = `${bgImageSettings.scaleX || 100}% ${bgImageSettings.scaleY || 100}%`;
+    bgLayer.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX || 0}%) calc(50% + ${bgImageSettings.offsetY || 0}%)`;
+    bgLayer.style.backgroundRepeat = 'no-repeat';
+    bgLayer.style.backgroundColor = theme.backgroundColor || '#1a1a1a';
+    bgLayer.style.opacity = bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1;
+  } else if (bgType === 'gradient' && theme.backgroundGradient && bgLayer) {
     const grad = theme.backgroundGradient;
-    preview.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
-    preview.style.backgroundSize = '';
-    preview.style.backgroundPosition = '';
-    preview.style.backgroundRepeat = '';
-    preview.style.backgroundColor = '';
-  } else {
-    preview.style.backgroundImage = '';
-    preview.style.background = theme.backgroundColor || '#1a1a1a';
-    preview.style.backgroundSize = '';
-    preview.style.backgroundPosition = '';
-    preview.style.backgroundRepeat = '';
-  }
-
-  // 图片透明度通过 timerPreview 的 opacity 实现
-  if (bgType === 'image') {
-    preview.style.opacity = bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1;
-  } else {
-    preview.style.opacity = 1;
+    bgLayer.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
+    bgLayer.style.backgroundSize = '';
+    bgLayer.style.backgroundPosition = '';
+    bgLayer.style.backgroundRepeat = '';
+    bgLayer.style.backgroundColor = '';
+    bgLayer.style.opacity = 1;
+  } else if (bgLayer) {
+    bgLayer.style.backgroundImage = '';
+    bgLayer.style.background = theme.backgroundColor || '#1a1a1a';
+    bgLayer.style.backgroundSize = '';
+    bgLayer.style.backgroundPosition = '';
+    bgLayer.style.backgroundRepeat = '';
+    bgLayer.style.opacity = 1;
   }
 }
 
@@ -212,8 +210,8 @@ function fillEditorUI(config) {
     document.getElementById('toolbarBgGradientAngle').value = theme.backgroundGradient.angle || 135;
   }
   document.getElementById('toolbarBgImageOpacity').value = Math.round((bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1) * 100);
-  document.getElementById('toolbarBgImageScaleX').value = bgImageSettings.scaleX || bgImageSettings.scale || 100;
-  document.getElementById('toolbarBgImageScaleY').value = bgImageSettings.scaleY || bgImageSettings.scale || 100;
+  document.getElementById('toolbarBgImageScaleX').value = bgImageSettings.scaleX || 100;
+  document.getElementById('toolbarBgImageScaleY').value = bgImageSettings.scaleY || 100;
   document.getElementById('toolbarBgImageOffsetX').value = bgImageSettings.offsetX || 0;
   document.getElementById('toolbarBgImageOffsetY').value = bgImageSettings.offsetY || 0;
   
@@ -229,6 +227,29 @@ function fillEditorUI(config) {
 async function loadConfig() {
   const config = await window.electronAPI.loadConfig();
   fillEditorUI(config);
+}
+
+async function showMigrationNoticeIfNeeded() {
+  if (!window.electronAPI?.consumeMigrationInfo) return;
+  try {
+    const info = await window.electronAPI.consumeMigrationInfo();
+    if (!info) return;
+    const notification = document.getElementById('migrationNotification');
+    const backupPathEl = document.getElementById('migrationBackupPath');
+    if (!notification) return;
+    if (backupPathEl && info.backupPath) {
+      backupPathEl.textContent = info.backupPath;
+    }
+    notification.style.display = 'block';
+    log('info', `已展示配置迁移提示：从版本 ${info.fromVersion ?? 'none'} 迁移`);
+  } catch (e) {
+    log('error', `获取迁移信息失败: ${e.message}`);
+  }
+}
+
+function hideMigrationNotification() {
+  const notification = document.getElementById('migrationNotification');
+  if (notification) notification.style.display = 'none';
 }
 
 async function loadConfigFromImport(config) {
@@ -1310,7 +1331,7 @@ function bindToolbarDrag(toolbarId, headerSelector) {
 
 // ==================== 初始化绑定 ====================
 renderFonts();
-loadConfig();
+loadConfig().then(showMigrationNoticeIfNeeded);
 bindSegmentActions();
 bindSegmentNavDragDrop();
 bindTextDragAndEdit();
@@ -1326,6 +1347,7 @@ bindToolbarDrag('backgroundToolbar', '.toolbar-header');
 document.getElementById('textToolbarClose')?.addEventListener('click', hideTextToolbar);
 document.getElementById('statusBarToolbarClose')?.addEventListener('click', hideStatusBarToolbar);
 document.getElementById('bgToolbarClose')?.addEventListener('click', hideBackgroundToolbar);
+document.getElementById('migrationCloseBtn')?.addEventListener('click', hideMigrationNotification);
 
 // 工具栏输入事件
 document.getElementById('toolbarTextContent')?.addEventListener('input', updateTextToolbar);
@@ -1440,7 +1462,17 @@ document.getElementById('exportTimerBtn').addEventListener('click', async () => 
     const result = await window.electronAPI.exportStandalone(gatherConfig());
     if (result?.ok) {
       log('info', `独立计时器已导出: ${result.path}`);
-      alert(`独立计时器已导出到：${result.path}\n说明：这是一个 NSIS 安装程序，运行后会在本地安装并创建桌面和开始菜单快捷方式。`);
+      let changelogLine = '';
+      try {
+        const summary = await window.electronAPI.getLatestChangelog();
+        if (summary) {
+          const firstLine = summary.split(/\r?\n/)[0] || '';
+          changelogLine = `\n\n最新更新日志：${firstLine}（可在顶部更新提示中查看完整摘要）`;
+        }
+      } catch (e) {
+        log('warn', `获取最新更新日志失败: ${e.message}`);
+      }
+      alert(`独立计时器已导出到：${result.path}\n说明：这是一个 NSIS 安装程序，运行后会在本地安装并创建桌面和开始菜单快捷方式。${changelogLine}`);
     } else {
       log('error', `导出独立计时器失败: ${result?.error || '未知错误'}`);
       alert(`导出失败：${result?.error || '未知错误'}`);
@@ -1459,3 +1491,158 @@ document.getElementById('addNeutralBtn').addEventListener('click', () => addSegm
 document.getElementById('addDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '对辩', 120, 'affirmative'));
 document.getElementById('addFreeDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '自由辩论', 240, 'affirmative'));
 document.getElementById('openTimerBtn').addEventListener('click', () => window.electronAPI.openTimer());
+
+const aboutOverlay = document.getElementById('aboutOverlay');
+const aboutVersion = document.getElementById('aboutVersion');
+const aboutCloseBtn = document.getElementById('aboutCloseBtn');
+const aboutBtn = document.getElementById('aboutBtn');
+
+async function showAbout() {
+  if (!aboutOverlay || !aboutVersion) return;
+  try {
+    const version = await window.electronAPI.getAppVersion();
+    aboutVersion.textContent = `版本号：${version}`;
+  } catch (e) {
+    aboutVersion.textContent = '版本号：未知';
+  }
+  aboutOverlay.classList.add('active');
+}
+
+function hideAbout() {
+  if (aboutOverlay) aboutOverlay.classList.remove('active');
+}
+
+aboutBtn?.addEventListener('click', showAbout);
+aboutCloseBtn?.addEventListener('click', hideAbout);
+aboutOverlay?.addEventListener('click', (e) => {
+  if (e.target === aboutOverlay) hideAbout();
+});
+
+// ==================== 自动更新提示 ====================
+const updateNotification = document.getElementById('updateNotification');
+const updateVersion = document.getElementById('updateVersion');
+const updateChangelog = document.getElementById('updateChangelog');
+const updateDownloadBtn = document.getElementById('updateDownloadBtn');
+const updateRestartBtn = document.getElementById('updateRestartBtn');
+const updateLaterBtn = document.getElementById('updateLaterBtn');
+const updateSkipBtn = document.getElementById('updateSkipBtn');
+const updateErrorText = document.getElementById('updateErrorText');
+
+let pendingUpdateVersion = null;
+
+function renderMarkdownToHtml(markdown) {
+  if (!markdown) return '';
+  const lines = markdown.trim().split(/\r?\n/);
+  const out = [];
+  let listItems = [];
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    out.push(`<ul style="margin:0;padding-left:16px;">${listItems.join('')}</ul>`);
+    listItems = [];
+  }
+
+  for (const line of lines) {
+    if (line.startsWith('- ')) {
+      listItems.push(`<li>${line.slice(2).trim()}</li>`);
+      continue;
+    }
+    flushList();
+    if (line.startsWith('### ')) {
+      out.push(`<strong>${line.slice(4).trim()}</strong>`);
+    } else if (line.trim() === '') {
+      out.push('<br>');
+    } else {
+      out.push(line);
+    }
+  }
+  flushList();
+  return out.join('<br>');
+}
+
+function showUpdateNotification(version) {
+  if (!updateNotification || !updateVersion) return;
+  pendingUpdateVersion = version;
+  updateVersion.textContent = version;
+  if (updateChangelog) updateChangelog.innerHTML = '正在加载更新日志...';
+  if (updateErrorText) updateErrorText.textContent = '';
+  if (updateDownloadBtn) {
+    updateDownloadBtn.style.display = '';
+    updateDownloadBtn.textContent = '立即更新';
+    updateDownloadBtn.disabled = false;
+  }
+  if (updateLaterBtn) updateLaterBtn.style.display = '';
+  if (updateRestartBtn) updateRestartBtn.style.display = 'none';
+  if (updateSkipBtn) updateSkipBtn.style.display = '';
+  updateNotification.style.display = 'block';
+
+  if (window.electronAPI?.getLatestChangelog) {
+    window.electronAPI.getLatestChangelog().then((summary) => {
+      if (updateChangelog) {
+        updateChangelog.innerHTML = summary ? renderMarkdownToHtml(summary) : '暂无更新日志摘要';
+      }
+    }).catch((e) => {
+      log('error', `获取更新日志失败: ${e.message}`);
+      if (updateChangelog) updateChangelog.textContent = '更新日志加载失败';
+    });
+  }
+}
+
+function hideUpdateNotification() {
+  if (updateNotification) updateNotification.style.display = 'none';
+}
+
+if (window.electronAPI?.onUpdateAvailable) {
+  window.electronAPI.onUpdateAvailable(({ version }) => {
+    log('info', `收到可用更新: ${version}`);
+    showUpdateNotification(version);
+  });
+}
+
+if (window.electronAPI?.onUpdateDownloaded) {
+  window.electronAPI.onUpdateDownloaded(() => {
+    log('info', '更新已下载');
+    if (updateDownloadBtn) updateDownloadBtn.style.display = 'none';
+    if (updateLaterBtn) updateLaterBtn.style.display = 'none';
+    if (updateSkipBtn) updateSkipBtn.style.display = 'none';
+    if (updateRestartBtn) updateRestartBtn.style.display = '';
+    if (updateErrorText) updateErrorText.textContent = '更新已下载，重启后安装';
+  });
+}
+
+if (window.electronAPI?.onUpdateError) {
+  window.electronAPI.onUpdateError(({ message }) => {
+    log('error', `更新错误: ${message}`);
+    if (updateErrorText) updateErrorText.textContent = `更新检查失败：${message}`;
+  });
+}
+
+updateDownloadBtn?.addEventListener('click', async () => {
+  if (!window.electronAPI?.startDownloadUpdate) return;
+  updateDownloadBtn.textContent = '下载中...';
+  updateDownloadBtn.disabled = true;
+  try {
+    await window.electronAPI.startDownloadUpdate();
+  } catch (e) {
+    log('error', `开始下载更新失败: ${e.message}`);
+    if (updateErrorText) updateErrorText.textContent = `开始下载失败：${e.message}`;
+    updateDownloadBtn.textContent = '立即更新';
+    updateDownloadBtn.disabled = false;
+  }
+});
+
+updateRestartBtn?.addEventListener('click', () => {
+  if (!window.electronAPI?.quitAndInstall) return;
+  window.electronAPI.quitAndInstall();
+});
+
+updateLaterBtn?.addEventListener('click', () => {
+  hideUpdateNotification();
+});
+
+updateSkipBtn?.addEventListener('click', () => {
+  if (window.electronAPI?.skipUpdate && pendingUpdateVersion) {
+    window.electronAPI.skipUpdate(pendingUpdateVersion);
+  }
+  hideUpdateNotification();
+});

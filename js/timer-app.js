@@ -43,30 +43,37 @@ function applyTheme(theme = config.theme || {}) {
   const bgType = theme.backgroundType || 'color';
   const bgImageSettings = theme.backgroundImageSettings || { opacity: 1, scaleX: 100, scaleY: 100, offsetX: 0, offsetY: 0 };
 
-  if (bgType === 'image' && theme.backgroundImage) {
-    document.body.style.backgroundImage = `url(${theme.backgroundImage})`;
-    document.body.style.backgroundSize = `${bgImageSettings.scaleX || bgImageSettings.scale || 100}% ${bgImageSettings.scaleY || bgImageSettings.scale || 100}%`;
-    document.body.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX || 0}%) calc(50% + ${bgImageSettings.offsetY || 0}%)`;
-    document.body.style.backgroundRepeat = 'no-repeat';
-    document.body.style.backgroundColor = theme.backgroundColor || '#0b0e14';
-  } else if (bgType === 'gradient' && theme.backgroundGradient) {
-    const grad = theme.backgroundGradient;
-    document.body.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
-    document.body.style.backgroundSize = '';
-    document.body.style.backgroundPosition = '';
-    document.body.style.backgroundRepeat = '';
-  } else {
-    document.body.style.backgroundImage = 'none';
-    document.body.style.background = theme.backgroundColor || '#0b0e14';
-    document.body.style.backgroundSize = '';
-    document.body.style.backgroundPosition = '';
-    document.body.style.backgroundRepeat = '';
-  }
-
-  // 清除 .timer-shell 的背景，避免覆盖 body 的背景图片/渐变
   const timerShell = document.querySelector('.timer-shell');
+  const bgLayer = timerShell ? timerShell.querySelector('.bg-layer') : null;
+
+  // 清除 body 和 .timer-shell 的背景，由独立背景层渲染
+  document.body.style.background = 'transparent';
   if (timerShell) {
     timerShell.style.background = 'transparent';
+  }
+
+  if (bgType === 'image' && theme.backgroundImage && bgLayer) {
+    bgLayer.style.backgroundImage = `url(${theme.backgroundImage})`;
+    bgLayer.style.backgroundSize = `${bgImageSettings.scaleX || 100}% ${bgImageSettings.scaleY || 100}%`;
+    bgLayer.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX || 0}%) calc(50% + ${bgImageSettings.offsetY || 0}%)`;
+    bgLayer.style.backgroundRepeat = 'no-repeat';
+    bgLayer.style.backgroundColor = theme.backgroundColor || '#0b0e14';
+    bgLayer.style.opacity = bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1;
+  } else if (bgType === 'gradient' && theme.backgroundGradient && bgLayer) {
+    const grad = theme.backgroundGradient;
+    bgLayer.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
+    bgLayer.style.backgroundSize = '';
+    bgLayer.style.backgroundPosition = '';
+    bgLayer.style.backgroundRepeat = '';
+    bgLayer.style.backgroundColor = '';
+    bgLayer.style.opacity = 1;
+  } else if (bgLayer) {
+    bgLayer.style.backgroundImage = 'none';
+    bgLayer.style.background = theme.backgroundColor || '#0b0e14';
+    bgLayer.style.backgroundSize = '';
+    bgLayer.style.backgroundPosition = '';
+    bgLayer.style.backgroundRepeat = '';
+    bgLayer.style.opacity = 1;
   }
 
   const baseFont = theme.fontFamily || 'system-ui';

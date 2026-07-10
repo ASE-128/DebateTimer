@@ -30,6 +30,16 @@ body {
   position: relative;
 }
 
+.timer-shell .bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
 /* 编辑预览模式：timer-shell 透明以显示背景图片/渐变 */
 .editor-preview-wrapper .timer-shell {
   background-color: transparent !important;

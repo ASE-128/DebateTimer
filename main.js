@@ -1,8 +1,10 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
 const embeddedBinaries = require('./vendor/embedded-binaries');
+const pkg = require('./package.json');
 
 const isElectron = !!(process.versions && process.versions.electron);
 
@@ -51,7 +53,7 @@ function log(level, message) {
 const configPath = path.join(userDataPath, 'config.json');
 
 function ensureUserDataDir() {
-  for (const target of [userDataPath, path.join(userDataPath, 'cache'), path.join(userDataPath, 'temp')]) {
+  for (const target of [userDataPath, path.join(userDataPath, 'cache'), path.join(userDataPath, 'temp'), path.join(userDataPath, 'logs')]) {
     if (!fs.existsSync(target)) {
       fs.mkdirSync(target, { recursive: true });
     }
@@ -60,6 +62,7 @@ function ensureUserDataDir() {
 
 function defaultConfig() {
   return {
+    version: 3,
     eventName: '新建辩论赛事',
     teams: { affirmative: '正方', negative: '反方' },
     topics: { affirmative: '正方辩题', negative: '反方辩题' },
@@ -87,7 +90,8 @@ function defaultConfig() {
       },
       backgroundImageSettings: {
         opacity: 1,
-        scale: 1,
+        scaleX: 1,
+        scaleY: 1,
         offsetX: 0,
         offsetY: 0
       }
@@ -117,6 +121,7 @@ function validateConfig(input) {
   const theme = input.theme || {};
   const defTheme = def.theme;
   return {
+    version: 3,
     eventName: String(input.eventName || def.eventName),
     teams: {
       affirmative: String(input.teams?.affirmative || def.teams.affirmative),
@@ -154,7 +159,8 @@ function validateConfig(input) {
       } : defTheme.statusBar,
       backgroundImageSettings: theme.backgroundImageSettings && typeof theme.backgroundImageSettings === 'object' ? {
         opacity: Number(theme.backgroundImageSettings.opacity ?? 1),
-        scale: Number(theme.backgroundImageSettings.scale ?? 1),
+        scaleX: Number(theme.backgroundImageSettings.scaleX ?? 1),
+        scaleY: Number(theme.backgroundImageSettings.scaleY ?? 1),
         offsetX: Number(theme.backgroundImageSettings.offsetX ?? 0),
         offsetY: Number(theme.backgroundImageSettings.offsetY ?? 0)
       } : defTheme.backgroundImageSettings
@@ -178,13 +184,60 @@ function validateConfig(input) {
   };
 }
 
+let lastMigrationInfo = null;
+
+function migrateV2ToV3(oldConfig) {
+  if (!oldConfig || typeof oldConfig !== 'object') {
+    return defaultConfig();
+  }
+
+  // 深拷贝，避免修改原始对象
+  const cloned = JSON.parse(JSON.stringify(oldConfig));
+
+  // 处理 backgroundImageSettings.scale -> scaleX / scaleY
+  const bgSettings = cloned.theme?.backgroundImageSettings;
+  if (bgSettings && typeof bgSettings === 'object' && bgSettings.scale !== undefined) {
+    const scaleValue = Number(bgSettings.scale) || 1;
+    if (bgSettings.scaleX === undefined) bgSettings.scaleX = scaleValue;
+    if (bgSettings.scaleY === undefined) bgSettings.scaleY = scaleValue;
+    delete bgSettings.scale;
+  }
+
+  // 移除 2.x 废弃的 SFX 相关字段（如果存在）
+  const deprecatedFields = ['sfxEnabled', 'sfxScript', 'sfxConfig', 'useSfx', 'winrarSfx', 'standaloneSfx'];
+  for (const field of deprecatedFields) {
+    if (cloned[field] !== undefined) {
+      delete cloned[field];
+    }
+  }
+
+  cloned.version = 3;
+  return validateConfig(cloned);
+}
+
 function readConfig() {
   ensureUserDataDir();
+  let migrated = false;
   if (!fs.existsSync(configPath)) {
     fs.writeFileSync(configPath, JSON.stringify(defaultConfig(), null, 2));
     log('info', '创建默认配置文件');
+  } else {
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (!raw.version || raw.version < 3) {
+      const backupPath = `${configPath}.v2.bak`;
+      fs.writeFileSync(backupPath, JSON.stringify(raw, null, 2));
+      log('info', `检测到旧版配置 (version=${raw.version ?? 'none'})，已备份到 ${backupPath}`);
+      const migratedConfig = migrateV2ToV3(raw);
+      fs.writeFileSync(configPath, JSON.stringify(migratedConfig, null, 2));
+      log('info', '配置已迁移到 3.0 格式');
+      lastMigrationInfo = { fromVersion: raw.version ?? null, backupPath };
+      migrated = true;
+    }
   }
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const config = validateConfig(JSON.parse(fs.readFileSync(configPath, 'utf8')));
+  if (!migrated) {
+    lastMigrationInfo = null;
+  }
   log('info', '配置已加载');
   return config;
 }
@@ -198,6 +251,35 @@ function writeConfig(data) {
 
 function readAsset(...segments) {
   return fs.readFileSync(path.join(__dirname, ...segments), 'utf8');
+}
+
+function getLatestChangelog() {
+  const changelogPath = path.join(__dirname, 'CHANGELOG.md');
+  try {
+    const content = fs.readFileSync(changelogPath, 'utf8');
+    const lines = content.split(/\r?\n/);
+    let start = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^##\s*\[\d+\.\d+\.\d+\]/.test(lines[i])) {
+        start = i;
+        break;
+      }
+    }
+    if (start === -1) return '';
+
+    let end = lines.length;
+    for (let i = start + 1; i < lines.length; i++) {
+      if (/^##\s*\[\d+\.\d+\.\d+\]/.test(lines[i])) {
+        end = i;
+        break;
+      }
+    }
+
+    return lines.slice(start, end).join('\n').trim();
+  } catch (e) {
+    log('error', `读取 CHANGELOG.md 失败: ${e.message}`);
+    return '';
+  }
 }
 
 function extractBody(html) {
@@ -228,7 +310,7 @@ function generateStandaloneAppFiles(config, appDir) {
 
   fs.writeFileSync(path.join(appDir, 'package.json'), JSON.stringify({
     name: 'debate-timer-standalone',
-    version: '1.0.0',
+    version: pkg.version || '1.0.0',
     main: 'main.js'
   }, null, 2));
 
@@ -257,13 +339,15 @@ function generateStandaloneAppFiles(config, appDir) {
       .replace(/"/g, '&quot;');
   }
 
+  const standaloneProductName = pkg.productName || pkg.name || 'DebateTimer';
+  const standaloneAuthor = pkg.author || 'DebateTimer';
   const standaloneTimerHtml = '<!doctype html>\n' +
     '<html lang="zh-CN">\n' +
     '<head>\n' +
     '  <meta charset="UTF-8">\n' +
     '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-    '  <meta name="author" content="Chen Yu">\n' +
-    '  <title>辩论赛计时器</title>\n' +
+    '  <meta name="author" content="' + standaloneAuthor + '">\n' +
+    '  <title>' + standaloneProductName + '</title>\n' +
     '  <link rel="stylesheet" href="styles/variables.css">\n' +
     '  <link rel="stylesheet" href="styles/timer.css">\n' +
     '</head>\n' +
@@ -344,30 +428,38 @@ function findMakensis(tempBase) {
   throw new Error('未找到 makensis.exe。推荐将完整 NSIS 目录复制到 vendor/nsis/，或放置 makensis.exe 于 vendor/makensis.exe，或安装 NSIS 并加入 PATH，亦或在 vendor/embedded-binaries.js 中提供 makensisBase64。');
 }
 
+function toVersionQuad(version) {
+  const parts = String(version || '0.0.0').split('.').map((p) => parseInt(p, 10) || 0);
+  while (parts.length < 4) parts.push(0);
+  return parts.slice(0, 4).join('.');
+}
+
 function generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName) {
   const packageName = path.basename(packageDir);
-  const appVersion = '1.0.0';
+  const appVersion = pkg.version || '1.0.0';
+  const displayName = appName || pkg.productName || pkg.name || 'DebateTimer';
+  const authorName = pkg.author || 'DebateTimer';
   const script =
     '; 本安装程序由 DebateTimer 动态生成\n' +
     'Unicode true\n' +
     'SetCompressor /SOLID zlib\n' +
     '\n' +
-    '!define APP_NAME "' + appName + '"\n' +
+    '!define APP_NAME "' + displayName + '"\n' +
     '!define APP_EXE "' + appExeName + '"\n' +
     '!define ICON_NAME "' + iconName + '"\n' +
     '\n' +
     'Name "${APP_NAME}"\n' +
-    'OutFile "' + appName + '-Setup.exe"\n' +
-    'InstallDir "$LOCALAPPDATA\\' + appName + '-Standalone"\n' +
+    'OutFile "' + displayName + '-' + appVersion + '-Setup.exe"\n' +
+    'InstallDir "$LOCALAPPDATA\\' + displayName + '-Standalone"\n' +
     'RequestExecutionLevel user\n' +
     '\n' +
     '; 版本信息\n' +
-    'VIProductVersion "' + appVersion + '.0"\n' +
+    'VIProductVersion "' + toVersionQuad(appVersion) + '"\n' +
     'VIAddVersionKey "ProductName" "${APP_NAME}"\n' +
     'VIAddVersionKey "ProductVersion" "' + appVersion + '"\n' +
     'VIAddVersionKey "FileVersion" "' + appVersion + '"\n' +
     'VIAddVersionKey "FileDescription" "${APP_NAME}安装程序"\n' +
-    'VIAddVersionKey "LegalCopyright" "© Chen Yu 2026"\n' +
+    'VIAddVersionKey "LegalCopyright" "© ' + authorName + ' 2026"\n' +
     '\n' +
     '!include "MUI2.nsh"\n' +
     '!define MUI_ICON "${ICON_NAME}"\n' +
@@ -437,8 +529,17 @@ function trimElectronRuntime(packageDir) {
     }
   }
 
-  // 移除 WebGL/swiftshader 相关文件（计时器无需 WebGL）
-  const itemsToRemove = ['swiftshader', 'vk_swiftshader.dll', 'vk_swiftshader_icd.json'];
+  // 移除 GPU/媒体相关文件（独立计时器已禁用硬件加速，且仅使用 Web Audio 播放提示音，
+  // 无需 HTML 媒体播放、D3D12/Vulkan 图形 API）
+  const itemsToRemove = [
+    'swiftshader',
+    'vk_swiftshader.dll',
+    'vk_swiftshader_icd.json',
+    'ffmpeg.dll',
+    'dxcompiler.dll',
+    'dxil.dll',
+    'vulkan-1.dll'
+  ];
   for (const item of itemsToRemove) {
     const itemPath = path.join(packageDir, item);
     if (fs.existsSync(itemPath)) {
@@ -501,7 +602,8 @@ function generateStandaloneExe(config, savePath, onProgress = () => {}) {
     let tempBase = null;
     try {
       onProgress(2, '准备临时目录...');
-      tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+      const appVersion = pkg.version || '1.0.0';
+      tempBase = path.join(app.getPath('temp'), `DebateTimer-standalone-${appVersion}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
       fs.mkdirSync(tempBase, { recursive: true });
       log('info', `创建临时目录: ${tempBase}`);
 
@@ -551,14 +653,14 @@ function generateStandaloneExe(config, savePath, onProgress = () => {}) {
 
       // 6. 生成 .nsi 脚本
       onProgress(60, '生成安装脚本...');
-      const appName = '辩论赛计时器';
+      const appName = pkg.productName || pkg.name || 'DebateTimer';
       const nsiPath = path.join(tempBase, 'installer.nsi');
       generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName);
       log('info', `NSIS 脚本生成完成: ${nsiPath}`);
 
       // 7. 调用 makensis.exe 编译安装程序
       onProgress(65, '编译安装程序（耗时较长）...');
-      const tmpExe = path.join(tempBase, `${appName}-Setup.exe`);
+      const tmpExe = path.join(tempBase, `${appName}-${appVersion}-Setup.exe`);
       const child = childProcess.spawn(makensisExe, ['/INPUTCHARSET', 'UTF8', nsiPath], { cwd: tempBase, windowsHide: true });
 
       let stdout = '';
@@ -673,6 +775,13 @@ if (isElectron) {
     createEditorWindow();
 
     ipcMain.handle('load-config', () => readConfig());
+    ipcMain.handle('get-app-version', () => pkg.version || '0.0.0');
+    ipcMain.handle('get-latest-changelog', () => getLatestChangelog());
+    ipcMain.handle('consume-migration-info', () => {
+      const info = lastMigrationInfo;
+      lastMigrationInfo = null;
+      return info;
+    });
     ipcMain.handle('log', (_event, level, message) => {
       log(level, message);
     });
@@ -765,7 +874,7 @@ if (isElectron) {
       try {
         const { filePath } = await dialog.showSaveDialog(editorWindow, {
           title: '导出独立计时器',
-          defaultPath: 'debate-timer.exe',
+          defaultPath: `DebateTimer-standalone-${pkg.version || '1.0.0'}.exe`,
           filters: [{ name: '可执行文件', extensions: ['exe'] }]
         });
         if (!filePath) {
@@ -797,6 +906,54 @@ if (isElectron) {
       return { ok: false, fullscreen: false };
     });
 
+    // 自动更新
+    let skippedVersion = null;
+    function sendToEditor(channel, ...args) {
+      if (editorWindow && !editorWindow.isDestroyed()) {
+        editorWindow.webContents.send(channel, ...args);
+      }
+    }
+
+    autoUpdater.on('update-available', (info) => {
+      if (skippedVersion === info.version) {
+        log('info', `用户已跳过版本 ${info.version}，不提示更新`);
+        return;
+      }
+      log('info', `发现新版本: ${info.version}`);
+      sendToEditor('update-available', { version: info.version });
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+      log('info', '更新已下载');
+      sendToEditor('update-downloaded');
+    });
+
+    autoUpdater.on('error', (err) => {
+      log('error', `自动更新错误: ${err.message}`);
+      sendToEditor('update-error', { message: err.message });
+    });
+
+    ipcMain.handle('start-download-update', () => {
+      log('info', '用户开始下载更新');
+      return autoUpdater.downloadUpdate();
+    });
+
+    ipcMain.handle('quit-and-install', () => {
+      log('info', '用户退出并安装更新');
+      autoUpdater.quitAndInstall();
+    });
+
+    ipcMain.handle('skip-update', (_event, version) => {
+      skippedVersion = version;
+      log('info', `用户跳过版本 ${version}`);
+    });
+
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        log('error', `检查更新失败: ${err.message}`);
+      });
+    }, 3000);
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createEditorWindow();
     });
@@ -807,4 +964,4 @@ if (isElectron) {
   });
 }
 
-module.exports = { defaultConfig, readConfig, writeConfig, validateConfig, generateStandaloneExe, generateStandaloneAppFiles, generateNsisScript, readAsset, extractBody, copyDir };
+module.exports = { defaultConfig, readConfig, writeConfig, validateConfig, migrateV2ToV3, generateStandaloneExe, generateStandaloneAppFiles, generateNsisScript, readAsset, extractBody, copyDir };

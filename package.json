@@ -1,6 +1,6 @@
 {
   "name": "debate-timer-electron",
-  "version": "2.11.3",
+  "version": "3.0.0",
   "description": "一款桌面辩论赛计时器",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "com.ase128.debatetimer",
+    "appId": "com.debate-timer.app",
     "productName": "DebateTimer",
     "directories": {
       "output": "dist"
@@ -43,6 +43,12 @@
         }
       ]
     },
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage"]
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
@@ -58,6 +64,13 @@
   ],
   "author": "Chen Yu",
   "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ASE-128/DebateTimer.git"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
+  },
   "devDependencies": {
     "electron": "^42.4.1",
     "electron-builder": "^26.15.3"
