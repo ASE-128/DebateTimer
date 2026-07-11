@@ -44,7 +44,7 @@ function defaultLayout() {
     eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
-    watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
     designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
   };
 }
@@ -193,6 +193,7 @@ function fillEditorUI(config) {
   document.getElementById('previewNegativeTeamName').textContent = config.teams?.negative || '反方队';
   document.getElementById('previewAffirmativeTopic').textContent = config.topics?.affirmative || '正方辩题';
   document.getElementById('previewNegativeTopic').textContent = config.topics?.negative || '反方辩题';
+  document.getElementById('previewWatermark').textContent = config.layout?.watermark?.text || '辩论计时器';
 
   // 应用主题
   applyThemeToPreview(config.theme || {});
@@ -765,6 +766,9 @@ function gatherConfig() {
       if (fontSize > 0) layout[key].fontSize = fontSize;
       if (el.style.fontFamily) layout[key].fontFamily = el.style.fontFamily;
       if (el.style.color) layout[key].color = el.style.color;
+      if (key === 'watermark') {
+        layout[key].text = el.textContent || '';
+      }
     });
   }
 

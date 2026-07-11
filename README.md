@@ -1,6 +1,6 @@
 # 辩论赛计时器（DebateTimer）
 
-**版本：3.0.1** | 作者：Chen Yu | 许可证：GPL-3.0
+**版本：3.0.2** | 作者：Chen Yu | 许可证：GPL-3.0
 
 DebateTimer 是一款基于 Electron 的离线桌面辩论赛计时器，提供编辑器与计时两种视图，支持导出为独立 Windows 安装程序以便比赛现场脱机使用。
 
@@ -134,8 +134,8 @@ DebateTimer 3.0.0 集成 `electron-updater`，启动时会检查 GitHub Releases
 通过推送符合 `v*` 格式的 Git 标签触发 GitHub Actions 自动发布：
 
 ```bash
-git tag v3.0.1
-git push origin v3.0.1
+git tag v3.0.2
+git push origin v3.0.2
 ```
 
 工作流 `.github/workflows/release.yml` 会自动执行 `npm ci` 与 `npm run dist`，并将 `dist/` 下的 `.exe`、`.blockmap`、`.yml`、`.zip` 文件上传到对应版本的 GitHub Release 中。

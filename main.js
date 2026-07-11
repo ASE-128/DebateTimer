@@ -7,6 +7,7 @@ const embeddedBinaries = require('./vendor/embedded-binaries');
 const pkg = require('./package.json');
 
 const isElectron = !!(process.versions && process.versions.electron);
+const isMainApp = isElectron && process.env.DEBATE_TIMER_TEST_MODE !== 'export';
 
 const appDataRoot = isElectron ? path.join(app.getPath('appData'), 'DebateTimer') : path.join(require('os').homedir(), 'AppData', 'Roaming', 'DebateTimer');
 if (isElectron) {
@@ -104,7 +105,7 @@ function defaultConfig() {
       eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
-      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
       designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
     },
     segments: [
@@ -171,7 +172,8 @@ function validateConfig(input) {
         y: Number(val?.y || 0),
         fontSize: Number(val?.fontSize || 0),
         fontFamily: String(val?.fontFamily || ''),
-        color: String(val?.color || '')
+        color: String(val?.color || ''),
+        text: String(val?.text || '')
       }])
     ) : def.layout,
     segments: Array.isArray(input.segments) ? input.segments.map((seg, i) => ({
@@ -297,7 +299,7 @@ function copyDir(src, dest) {
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
       copyDir(srcPath, destPath);
-    } else if (entry.name.endsWith('.asar')) {
+    } else if (entry.name.toLowerCase() === 'default_app.asar') {
       continue;
     } else {
       fs.copyFileSync(srcPath, destPath);
@@ -315,7 +317,7 @@ function generateStandaloneAppFiles(config, appDir) {
     main: 'main.js'
   }, null, 2));
 
-  const mainJs = `const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\n\napp.disableHardwareAcceleration();\n\nfunction createWindow() {\n  const win = new BrowserWindow({\n    width: 1500,\n    height: 950,\n    fullscreen: false,\n    autoHideMenuBar: true,\n    webPreferences: {\n      preload: path.join(__dirname, 'preload.js'),\n      contextIsolation: true,\n      nodeIntegration: false\n    }\n  });\n  win.loadFile(path.join(__dirname, 'timer.html'));\n}\n\napp.whenReady().then(() => {\n  createWindow();\n  ipcMain.handle('toggle-fullscreen', () => {\n    const win = BrowserWindow.getFocusedWindow();\n    if (win) win.setFullScreen(!win.isFullScreen());\n  });\n});\n\napp.on('window-all-closed', () => {\n  if (process.platform !== 'darwin') app.quit();\n});\n`;
+  const mainJs = `const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\nconst fs = require('fs');\nconst url = require('url');\n\napp.disableHardwareAcceleration();\napp.commandLine.appendSwitch('disable-gpu');\napp.commandLine.appendSwitch('disable-software-rasterizer');\napp.commandLine.appendSwitch('disable-gpu-compositing');\napp.commandLine.appendSwitch('disable-gpu-rasterization');\napp.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');\n\nconst userDataRoot = path.join(app.getPath('appData'), 'DebateTimerStandalone');\nconst cacheRoot = path.join(userDataRoot, 'Cache');\n\nfunction ensureDir(dir) {\n  try {\n    fs.mkdirSync(dir, { recursive: true });\n  } catch (e) {\n    console.error('Failed to create directory:', dir, e.message);\n  }\n}\n\nensureDir(userDataRoot);\nensureDir(cacheRoot);\napp.setPath('userData', userDataRoot);\napp.setPath('cache', cacheRoot);\napp.setAppUserModelId('DebateTimerStandalone');\n\nconsole.log('Standalone userData:', userDataRoot);\nconsole.log('Standalone cache:', cacheRoot);\n\nfunction createWindow() {\n  const timerHtmlPath = path.join(__dirname, 'timer.html');\n  if (!fs.existsSync(timerHtmlPath)) {\n    console.error('timer.html not found:', timerHtmlPath);\n  }\n\n  const win = new BrowserWindow({\n    width: 1500,\n    height: 950,\n    fullscreen: false,\n    autoHideMenuBar: true,\n    show: false,\n    icon: path.join(__dirname, 'electron-icon.ico'),\n    webPreferences: {\n      preload: path.join(__dirname, 'preload.js'),\n      contextIsolation: true,\n      nodeIntegration: false,\n      sandbox: false,\n      webSecurity: false,\n      allowRunningInsecureContent: true\n    }\n  });\n\n  win.once('ready-to-show', () => win.show());\n\n  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {\n    console.error('Page load failed:', errorCode, errorDescription);\n  });\n\n  win.webContents.on('render-process-gone', (event, details) => {\n    console.error('Renderer process gone:', details);\n  });\n\n  win.webContents.on('crashed', (event, killed) => {\n    console.error('Renderer crashed, killed:', killed);\n  });\n\n  const fileUrl = url.pathToFileURL(timerHtmlPath).href;\n  console.log('Loading URL:', fileUrl);\n  win.loadURL(fileUrl).catch((err) => {\n    console.error('loadURL failed:', err.message);\n  });\n\n  if (process.env.DEBATE_TIMER_DEVTOOLS === '1') {\n    win.webContents.openDevTools();\n  }\n}\n\napp.whenReady().then(() => {\n  ipcMain.handle('toggle-fullscreen', () => {\n    const win = BrowserWindow.getFocusedWindow();\n    if (win) win.setFullScreen(!win.isFullScreen());\n  });\n  createWindow();\n});\n\nprocess.on('uncaughtException', (err) => {\n  console.error('Uncaught exception:', err);\n});\n\napp.on('window-all-closed', () => {\n  if (process.platform !== 'darwin') app.quit();\n});\n`;
   fs.writeFileSync(path.join(appDir, 'main.js'), mainJs);
 
   const preloadJs = 'const { contextBridge, ipcRenderer } = require(\'electron\');\n' +
@@ -369,7 +371,6 @@ function generateStandaloneAppFiles(config, appDir) {
     '  <script src="js/audio.js"></script>\n' +
     '  <script src="js/timer-core.js"></script>\n' +
     '  <script src="js/timer-app.js"></script>\n' +
-    '  <script>initTimerApp();</script>\n' +
     '</body>\n' +
     '</html>';
 
@@ -393,17 +394,19 @@ function cleanupTemp(dir) {
 
 function findMakensis(tempBase) {
   // 1. 优先使用 vendor/nsis/makensis.exe（完整 NSIS 目录，推荐）
-  const vendorNsisPath = path.join(__dirname, 'vendor', 'nsis', 'makensis.exe');
-  if (fs.existsSync(vendorNsisPath)) {
-    log('info', `使用 vendor/nsis 目录下的 makensis.exe: ${vendorNsisPath}`);
-    return vendorNsisPath;
+  // 打包环境下 vendor 已被 asarUnpack 释放到 app.asar.unpacked
+  const candidates = [];
+  if (app && app.isPackaged) {
+    candidates.push(path.join(process.resourcesPath, 'app.asar.unpacked', 'vendor', 'nsis', 'makensis.exe'));
   }
+  candidates.push(path.join(__dirname, 'vendor', 'nsis', 'makensis.exe'));
+  candidates.push(path.join(__dirname, 'vendor', 'makensis.exe'));
 
-  // 2. 使用 vendor/makensis.exe
-  const vendorPath = path.join(__dirname, 'vendor', 'makensis.exe');
-  if (fs.existsSync(vendorPath)) {
-    log('info', `使用 vendor 目录下的 makensis.exe: ${vendorPath}`);
-    return vendorPath;
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      log('info', `使用 vendor/nsis 目录下的 makensis.exe: ${p}`);
+      return p;
+    }
   }
 
   // 4. 从 PATH 环境变量中查找
@@ -438,10 +441,11 @@ function toVersionQuad(version) {
 function generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName) {
   const packageName = path.basename(packageDir);
   const appVersion = pkg.version || '1.0.0';
-  const displayName = appName || pkg.productName || pkg.name || 'DebateTimer';
+  const displayName = '辩论赛计时器';
+  const installDirName = 'DebateTimer-Standalone';
   const authorName = pkg.author || 'DebateTimer';
   const script =
-    '; 本安装程序由 DebateTimer 动态生成\n' +
+    '; NSIS installer generated by DebateTimer\n' +
     'Unicode true\n' +
     'SetCompressor /SOLID zlib\n' +
     '\n' +
@@ -450,8 +454,8 @@ function generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName) 
     '!define ICON_NAME "' + iconName + '"\n' +
     '\n' +
     'Name "${APP_NAME}"\n' +
-    'OutFile "' + displayName + '-' + appVersion + '-Setup.exe"\n' +
-    'InstallDir "$LOCALAPPDATA\\' + displayName + '-Standalone"\n' +
+    'OutFile "' + displayName + '-Setup.exe"\n' +
+    'InstallDir "$LOCALAPPDATA\\' + installDirName + '"\n' +
     'RequestExecutionLevel user\n' +
     '\n' +
     '; 版本信息\n' +
@@ -530,13 +534,12 @@ function trimElectronRuntime(packageDir) {
     }
   }
 
-  // 移除 GPU/媒体相关文件（独立计时器已禁用硬件加速，且仅使用 Web Audio 播放提示音，
-  // 无需 HTML 媒体播放、D3D12/Vulkan 图形 API）
+  // 移除 GPU/媒体相关文件（独立计时器已禁用硬件加速，无需 D3D12/Vulkan 图形 API）
+  // 注意：ffmpeg.dll 保留，Chromium 渲染进程初始化仍依赖它
   const itemsToRemove = [
     'swiftshader',
     'vk_swiftshader.dll',
     'vk_swiftshader_icd.json',
-    'ffmpeg.dll',
     'dxcompiler.dll',
     'dxil.dll',
     'vulkan-1.dll'
@@ -579,10 +582,13 @@ function writeIconToTemp(tempBase) {
       candidates.push(path.join(execDir, path.basename(process.execPath, '.exe') + '.ico'));
       candidates.push(path.join(execDir, 'icon.ico'));
       candidates.push(path.join(execDir, 'resources', 'electron-icon.ico'));
-    } else {
-      candidates.push(path.join(__dirname, 'electron-icon.ico'));
-      candidates.push(path.join(__dirname, 'resources', 'electron-icon.ico'));
+      candidates.push(path.join(execDir, 'resources', 'app.asar.unpacked', 'icon.ico'));
+      candidates.push(path.join(__dirname, 'icon.ico'));
     }
+    candidates.push(path.join(__dirname, 'icon.ico'));
+    candidates.push(path.join(__dirname, 'electron-icon.ico'));
+    candidates.push(path.join(__dirname, 'resources', 'electron-icon.ico'));
+    candidates.push(path.join(__dirname, 'resources', 'app.asar.unpacked', 'icon.ico'));
     for (const c of candidates) {
       if (fs.existsSync(c)) { sourceIcon = c; break; }
     }
@@ -661,7 +667,7 @@ function generateStandaloneExe(config, savePath, onProgress = () => {}) {
 
       // 7. 调用 makensis.exe 编译安装程序
       onProgress(65, '编译安装程序（耗时较长）...');
-      const tmpExe = path.join(tempBase, `${appName}-${appVersion}-Setup.exe`);
+      const tmpExe = path.join(tempBase, '辩论赛计时器-Setup.exe');
       const child = childProcess.spawn(makensisExe, ['/INPUTCHARSET', 'UTF8', nsiPath], { cwd: tempBase, windowsHide: true });
 
       let stdout = '';
@@ -769,7 +775,7 @@ function createTimerWindow() {
   timerWindow.loadFile('timer.html');
 }
 
-if (isElectron) {
+if (isMainApp) {
   app.whenReady().then(() => {
     log('info', '应用启动');
     ensureUserDataDir();
@@ -875,7 +881,7 @@ if (isElectron) {
       try {
         const { filePath } = await dialog.showSaveDialog(editorWindow, {
           title: '导出独立计时器',
-          defaultPath: `DebateTimer-standalone-${pkg.version || '1.0.0'}.exe`,
+          defaultPath: '辩论赛计时器-Setup.exe',
           filters: [{ name: '可执行文件', extensions: ['exe'] }]
         });
         if (!filePath) {

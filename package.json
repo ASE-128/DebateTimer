@@ -1,6 +1,6 @@
 {
   "name": "debate-timer-electron",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "一款桌面辩论赛计时器",
   "main": "main.js",
   "scripts": {
@@ -21,13 +21,18 @@
       "js/**/*",
       "styles/**/*",
       "vendor/**/*",
+      "icon.ico",
+      "icon.svg",
       "LICENSE",
       "README.md"
     ],
     "asarUnpack": [
-      "vendor/**/*"
+      "vendor/**/*",
+      "icon.ico"
     ],
+    "icon": "icon.ico",
     "win": {
+      "icon": "icon.ico",
       "target": [
         {
           "target": "nsis",

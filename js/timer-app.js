@@ -130,6 +130,9 @@ function applyTheme(theme = config.theme || {}) {
         } else {
           el.style.color = '';
         }
+        if (key === 'watermark' && settings.text) {
+          el.textContent = settings.text;
+        }
       }
     });
   }
