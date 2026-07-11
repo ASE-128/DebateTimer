@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.3] - 2026-07-11
+
+### Fixed
+- 修复 GitHub Actions Release 工作流因 electron-builder 默认发布行为缺少 `GH_TOKEN` 而失败的问题
+- CI 构建命令增加 `--publish never`，由 `action-gh-release` 统一上传产物
+- CI Node.js 版本升级到 22.x，消除依赖包引擎版本不匹配的警告
+
 ## [3.0.2] - 2026-07-11
 
 ### Fixed
