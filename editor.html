@@ -71,6 +71,9 @@
           <div class="editor-panel active" id="panel-editor">
             <div class="editor-preview-toolbar">
               <button id="editBackgroundBtn" class="btn btn-accent">修改背景相关设置</button>
+              <div class="editor-preview-segment">
+                <label>预览环节<select id="previewSegmentSelect"></select></label>
+              </div>
               <span class="editor-hint">提示：点击文本元素可编辑内容、字体、大小和颜色；拖动可调整位置</span>
             </div>
             <div class="editor-preview-wrapper" id="editorPreviewWrapper">
@@ -95,6 +98,16 @@
                   <div class="segment-name" id="previewSegmentName" data-editable="text" data-layout-key="segmentName">中立计时</div>
                   <div class="timer-display" id="previewTimerDisplay">
                     <div class="single-timer neutral" id="previewSingleTimer">03:00</div>
+                    <div class="dual-timer" id="previewDualTimer" style="display: none;">
+                      <div class="dual-side affirmative">
+                        <span class="dual-label">正方</span>
+                        <span class="dual-time" id="previewAffirmativeTime">03:00</span>
+                      </div>
+                      <div class="dual-side negative">
+                        <span class="dual-label">反方</span>
+                        <span class="dual-time" id="previewNegativeTime">03:00</span>
+                      </div>
+                    </div>
                     <div class="timer-progress" id="previewTimerProgress">
                       <div class="timer-progress-bar" id="previewTimerProgressBar" style="width: 60%;"></div>
                     </div>
@@ -104,6 +117,63 @@
 
                 <footer class="watermark" id="previewWatermark" data-editable="text" data-layout-key="watermark">辩论计时器</footer>
                 <div class="design-by" id="previewDesignBy" data-editable="text" data-layout-key="designBy">© Chen Yu 2026<br> All rights reserved.</div>
+
+                <aside class="control-panel preview-control-panel" id="previewControlPanel">
+                  <div class="control-group">
+                    <button id="previewStartBtn" type="button">
+                      <span class="btn-label">启动</span>
+                      <span class="btn-key">Space</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewStopBtn" type="button">
+                      <span class="btn-label">停止</span>
+                    </button>
+                    <button id="previewResetBtn" type="button">
+                      <span class="btn-label">重置</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewPrevBtn" type="button">
+                      <span class="btn-label">◀</span>
+                    </button>
+                    <button id="previewNextBtn" type="button">
+                      <span class="btn-label">▶</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewJumpBtn" type="button">
+                      <span class="btn-label">跳转</span>
+                    </button>
+                    <button id="previewSetTimeBtn" type="button">
+                      <span class="btn-label">设时</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewTest30Btn" type="button">
+                      <span class="btn-label">30s</span>
+                      <span class="btn-key">Q</span>
+                    </button>
+                    <button id="previewTest5Btn" type="button">
+                      <span class="btn-label">5s</span>
+                      <span class="btn-key">W</span>
+                    </button>
+                    <button id="previewTestEndBtn" type="button">
+                      <span class="btn-label">结束</span>
+                      <span class="btn-key">E</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewFullscreenBtn" type="button">
+                      <span class="btn-label">全屏</span>
+                      <span class="btn-key">F</span>
+                    </button>
+                    <button id="previewBackBtn" type="button">
+                      <span class="btn-label">返回</span>
+                      <span class="btn-key">B</span>
+                    </button>
+                  </div>
+                </aside>
               </div>
             </div>
           </div>

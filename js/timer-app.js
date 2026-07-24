@@ -154,6 +154,31 @@ let lastRenderCache = {
   progressClass: null
 };
 
+// 渲染写入队列：将 render() 中所有 DOM 写操作收集到同一帧末尾批量执行，
+// 避免读-写-读交替导致的 forced synchronous layout。
+let renderWriteQueue = [];
+let renderFlushScheduled = false;
+
+function queueRenderWrite(writeFn) {
+  renderWriteQueue.push(writeFn);
+  scheduleRenderFlush();
+}
+
+function scheduleRenderFlush() {
+  if (renderFlushScheduled) return;
+  renderFlushScheduled = true;
+  requestAnimationFrame(() => {
+    renderFlushScheduled = false;
+    flushRenderWritesSync();
+  });
+}
+
+function flushRenderWritesSync() {
+  const queue = renderWriteQueue;
+  renderWriteQueue = [];
+  queue.forEach((fn) => fn());
+}
+
 function applyCustomFont(theme) {
   const customFontUrl = theme?.customFont;
   const customFontName = theme?.customFontName || 'CustomFont';
@@ -175,24 +200,22 @@ function applyCustomFont(theme) {
 
 function updateControlLabel(state) {
   const btnLabel = startBtnEl.querySelector('.btn-label');
+  const label = state.isRunning ? '暂停' : '启动';
   if (!btnLabel) {
-    startBtnEl.textContent = state.isRunning ? '暂停' : '启动';
+    queueRenderWrite(() => { startBtnEl.textContent = label; });
     return;
   }
-  const segType = config?.segments?.[engine?.currentIndex]?.type;
-  if (segType === 'dual_debate') {
-    btnLabel.textContent = state.isRunning ? '切换' : '开始';
-  } else {
-    btnLabel.textContent = state.isRunning ? '暂停' : '启动';
-  }
+  queueRenderWrite(() => { btnLabel.textContent = label; });
 }
 
 function updateTeamDisplay(state) {
-  affirmativeTeamNameEl.textContent = config?.teams?.affirmative || '正方队';
-  negativeTeamNameEl.textContent = config?.teams?.negative || '反方队';
-  affirmativeTopicEl.textContent = config?.topics?.affirmative || '正方辩题';
-  negativeTopicEl.textContent = config?.topics?.negative || '反方辩题';
-  if (eventNameEl) eventNameEl.textContent = config.eventName || '赛事名称';
+  queueRenderWrite(() => {
+    affirmativeTeamNameEl.textContent = config?.teams?.affirmative || '正方队';
+    negativeTeamNameEl.textContent = config?.teams?.negative || '反方队';
+    affirmativeTopicEl.textContent = config?.topics?.affirmative || '正方辩题';
+    negativeTopicEl.textContent = config?.topics?.negative || '反方辩题';
+    if (eventNameEl) eventNameEl.textContent = config.eventName || '赛事名称';
+  });
 }
 
 function updateProgress(state) {
@@ -200,16 +223,14 @@ function updateProgress(state) {
   const segment = state.currentSegment || {};
   const isNoTimer = segment.type === 'none';
   if (isNoTimer) {
-    timerProgressEl.style.display = 'none';
+    queueRenderWrite(() => { timerProgressEl.style.display = 'none'; });
     return;
   }
-  timerProgressEl.style.display = '';
   const totalDuration = Number(segment.duration || 0);
   if (totalDuration <= 0) {
-    timerProgressEl.style.display = 'none';
+    queueRenderWrite(() => { timerProgressEl.style.display = 'none'; });
     return;
   }
-  timerProgressEl.style.display = '';
   let remaining = 0;
   if (segment.type === 'dual_debate') {
     remaining = state.activeSide === 'affirmative' ? state.remaining : state.remainingOpposite;
@@ -217,13 +238,13 @@ function updateProgress(state) {
     remaining = state.remaining;
   }
   const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
-  timerProgressBarEl.style.width = `${pct}%`;
-  timerProgressBarEl.classList.remove('urgent', 'critical');
-  if (remaining <= 5) {
-    timerProgressBarEl.classList.add('critical');
-  } else if (remaining <= 30) {
-    timerProgressBarEl.classList.add('urgent');
-  }
+  const progressClass = remaining <= 5 ? 'critical' : (remaining <= 30 ? 'urgent' : null);
+  queueRenderWrite(() => {
+    timerProgressEl.style.display = '';
+    timerProgressBarEl.style.width = `${pct}%`;
+    timerProgressBarEl.classList.remove('urgent', 'critical');
+    if (progressClass) timerProgressBarEl.classList.add(progressClass);
+  });
 }
 
 function adjustSegmentNameFontSize() {
@@ -271,43 +292,41 @@ function render(state) {
   const isNoTimer = segment.type === 'none';
   const eventName = config.eventName || '赛事名称';
   if (lastRenderCache.eventName !== eventName) {
-    eventNameEl.textContent = eventName;
+    queueRenderWrite(() => { eventNameEl.textContent = eventName; });
     lastRenderCache.eventName = eventName;
   }
   const segmentName = segment.name || '开场';
   if (lastRenderCache.segmentName !== segmentName) {
-    segmentNameEl.textContent = segmentName;
+    queueRenderWrite(() => { segmentNameEl.textContent = segmentName; });
     lastRenderCache.segmentName = segmentName;
   }
   if (lastRenderCache.isNoTimer !== isNoTimer) {
-    segmentNameEl.classList.toggle('segment-name-large', isNoTimer);
-    if (!isNoTimer) {
-      segmentNameEl.style.fontSize = '';
-    }
+    queueRenderWrite(() => {
+      segmentNameEl.classList.toggle('segment-name-large', isNoTimer);
+      if (!isNoTimer) segmentNameEl.style.fontSize = '';
+    });
     lastRenderCache.isNoTimer = isNoTimer;
   }
-  if (isNoTimer) {
-    adjustSegmentNameFontSize();
-  }
+  // 无计时环节的字体缩放已由 CSS clamp() 处理，不再在 render() 中执行二分查找。
   const sideLabelText = isNoTimer ? '' : (state.activeSide === 'neutral' ? '中立计时中' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中'));
   if (sideLabelEl.textContent !== sideLabelText) {
-    sideLabelEl.textContent = sideLabelText;
+    queueRenderWrite(() => { sideLabelEl.textContent = sideLabelText; });
   }
   const sideLabelAffirmative = !isNoTimer && state.activeSide === 'affirmative';
   const sideLabelNegative = !isNoTimer && state.activeSide === 'negative';
   const sideLabelNeutral = !isNoTimer && state.activeSide === 'neutral';
   if (sideLabelEl.classList.contains('affirmative') !== sideLabelAffirmative) {
-    sideLabelEl.classList.toggle('affirmative', sideLabelAffirmative);
+    queueRenderWrite(() => { sideLabelEl.classList.toggle('affirmative', sideLabelAffirmative); });
   }
   if (sideLabelEl.classList.contains('negative') !== sideLabelNegative) {
-    sideLabelEl.classList.toggle('negative', sideLabelNegative);
+    queueRenderWrite(() => { sideLabelEl.classList.toggle('negative', sideLabelNegative); });
   }
   if (sideLabelEl.classList.contains('neutral') !== sideLabelNeutral) {
-    sideLabelEl.classList.toggle('neutral', sideLabelNeutral);
+    queueRenderWrite(() => { sideLabelEl.classList.toggle('neutral', sideLabelNeutral); });
   }
   const sideLabelDisplay = isNoTimer ? 'none' : '';
   if (sideLabelEl.style.display !== sideLabelDisplay) {
-    sideLabelEl.style.display = sideLabelDisplay;
+    queueRenderWrite(() => { sideLabelEl.style.display = sideLabelDisplay; });
   }
   updateControlLabel(state);
   updateTeamDisplay(state);
@@ -315,56 +334,64 @@ function render(state) {
 
   if (isNoTimer) {
     if (lastRenderCache.segmentType !== 'none') {
-      singleTimerEl.style.display = 'none';
-      dualTimerEl.style.display = 'none';
-      timerDisplayEl.style.display = 'none';
+      queueRenderWrite(() => {
+        singleTimerEl.style.display = 'none';
+        dualTimerEl.style.display = 'none';
+        timerDisplayEl.style.display = 'none';
+      });
       lastRenderCache.segmentType = 'none';
     }
+    flushRenderWritesSync();
     return;
   }
 
-  timerDisplayEl.style.display = '';
+  queueRenderWrite(() => { timerDisplayEl.style.display = ''; });
   if (segment.type === 'dual_debate') {
     if (lastRenderCache.segmentType !== 'dual_debate') {
-      singleTimerEl.style.display = 'none';
-      dualTimerEl.style.display = 'flex';
-      singleTimerEl.classList.remove('affirmative', 'negative');
+      queueRenderWrite(() => {
+        singleTimerEl.style.display = 'none';
+        dualTimerEl.style.display = 'flex';
+        singleTimerEl.classList.remove('affirmative', 'negative');
+      });
       lastRenderCache.segmentType = 'dual_debate';
     }
     const affTime = formatTime(state.remaining);
     const negTime = formatTime(state.remainingOpposite);
     if (lastRenderCache.affirmativeTimeText !== affTime) {
-      affirmativeTimeEl.textContent = affTime;
+      queueRenderWrite(() => { affirmativeTimeEl.textContent = affTime; });
       lastRenderCache.affirmativeTimeText = affTime;
     }
     if (lastRenderCache.negativeTimeText !== negTime) {
-      negativeTimeEl.textContent = negTime;
+      queueRenderWrite(() => { negativeTimeEl.textContent = negTime; });
       lastRenderCache.negativeTimeText = negTime;
     }
   } else {
     if (lastRenderCache.segmentType !== 'single') {
-      singleTimerEl.style.display = '';
-      dualTimerEl.style.display = 'none';
+      queueRenderWrite(() => {
+        singleTimerEl.style.display = '';
+        dualTimerEl.style.display = 'none';
+      });
       lastRenderCache.segmentType = 'single';
     }
     const timerText = formatTime(state.remaining);
     if (lastRenderCache.singleTimerText !== timerText) {
-      singleTimerEl.textContent = timerText;
+      queueRenderWrite(() => { singleTimerEl.textContent = timerText; });
       lastRenderCache.singleTimerText = timerText;
     }
     const singleAffirmative = state.activeSide === 'affirmative';
     const singleNegative = state.activeSide === 'negative';
     const singleNeutral = state.activeSide === 'neutral';
     if (singleTimerEl.classList.contains('affirmative') !== singleAffirmative) {
-      singleTimerEl.classList.toggle('affirmative', singleAffirmative);
+      queueRenderWrite(() => { singleTimerEl.classList.toggle('affirmative', singleAffirmative); });
     }
     if (singleTimerEl.classList.contains('negative') !== singleNegative) {
-      singleTimerEl.classList.toggle('negative', singleNegative);
+      queueRenderWrite(() => { singleTimerEl.classList.toggle('negative', singleNegative); });
     }
     if (singleTimerEl.classList.contains('neutral') !== singleNeutral) {
-      singleTimerEl.classList.toggle('neutral', singleNeutral);
+      queueRenderWrite(() => { singleTimerEl.classList.toggle('neutral', singleNeutral); });
     }
   }
+  flushRenderWritesSync();
 }
 
 async function initTimerApp() {
@@ -464,13 +491,9 @@ function bindControlButtons() {
     if (!engine) return;
     const wasRunning = engine.isRunning;
     const isDual = config?.segments?.[engine.currentIndex]?.type === 'dual_debate';
-    log('info', `点击启动按钮，${isDual ? '双边模式' : '单边模式'}，${wasRunning ? '切换' : '启动'}`);
+    log('info', `点击启动按钮，${isDual ? '双边模式' : '单边模式'}，${wasRunning ? '暂停' : '启动'}`);
     engine.toggle();
-    if (isDual) {
-      syncUi(wasRunning ? '已切换发言方' : '计时已开始');
-    } else {
-      syncUi(engine.isRunning ? '计时已启动' : '计时已暂停');
-    }
+    syncUi(engine.isRunning ? '计时已开始' : '计时已暂停');
     startBtnEl.classList.add('pulse');
     setTimeout(() => startBtnEl.classList.remove('pulse'), 180);
   });
@@ -582,12 +605,10 @@ function closeSetTimeModal() {
 }
 
 if (window.__STANDALONE_CONFIG__) {
-  // 独立模式：直接初始化
   initTimerApp().catch((error) => {
     log('error', `计时页初始化失败: ${error.message}`);
   });
 } else {
-  // 编辑页模式：等待主进程发送配置
   initTimerApp().catch((error) => {
     log('error', `计时页初始化失败: ${error.message}`);
   });

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   loadConfig: () => ipcRenderer.invoke('load-config'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getTimerBaseSize: () => ipcRenderer.invoke('get-timer-base-size'),
   getLatestChangelog: () => ipcRenderer.invoke('get-latest-changelog'),
   consumeMigrationInfo: () => ipcRenderer.invoke('consume-migration-info'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),

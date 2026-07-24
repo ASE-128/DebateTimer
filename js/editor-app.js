@@ -19,6 +19,98 @@ let isResizingStatusBar = false;
 let statusBarStartHeight = 0;
 let resizeStartY = 0;
 
+// 预览区缩放与环节切换状态
+let previewScale = 1;
+let timerBaseSize = { width: 1600, height: 900 };
+let currentPreviewSegmentIndex = 0;
+
+// 高频 DOM 引用缓存，避免在 renderSegments / renderSegmentNav 等热路径中反复查询
+const dom = {};
+
+function cacheDom() {
+  dom.editorPreviewWrapper = document.getElementById('editorPreviewWrapper');
+  dom.timerPreview = document.getElementById('timerPreview');
+  dom.previewSegmentName = document.getElementById('previewSegmentName');
+  dom.previewTimerDisplay = document.getElementById('previewTimerDisplay');
+  dom.previewSingleTimer = document.getElementById('previewSingleTimer');
+  dom.previewDualTimer = document.getElementById('previewDualTimer');
+  dom.previewSideLabel = document.getElementById('previewSideLabel');
+  dom.previewAffirmativeTime = document.getElementById('previewAffirmativeTime');
+  dom.previewNegativeTime = document.getElementById('previewNegativeTime');
+  dom.previewTimerProgressBar = document.getElementById('previewTimerProgressBar');
+  dom.previewEventName = document.getElementById('previewEventName');
+  dom.previewAffirmativeTeamName = document.getElementById('previewAffirmativeTeamName');
+  dom.previewNegativeTeamName = document.getElementById('previewNegativeTeamName');
+  dom.previewAffirmativeTopic = document.getElementById('previewAffirmativeTopic');
+  dom.previewNegativeTopic = document.getElementById('previewNegativeTopic');
+  dom.previewWatermark = document.getElementById('previewWatermark');
+  dom.previewTopBand = document.getElementById('previewTopBand');
+  dom.previewSegmentSelect = document.getElementById('previewSegmentSelect');
+  dom.segmentsRoot = document.getElementById('segments');
+  dom.segmentNav = document.getElementById('segmentNav');
+  dom.textEditToolbar = document.getElementById('textEditToolbar');
+  dom.statusBarToolbar = document.getElementById('statusBarToolbar');
+  dom.backgroundToolbar = document.getElementById('backgroundToolbar');
+  dom.topBandResizeHandle = document.getElementById('topBandResizeHandle');
+  dom.editBackgroundBtn = document.getElementById('editBackgroundBtn');
+  dom.saveBtn = document.getElementById('saveBtn');
+  dom.resetBtn = document.getElementById('resetBtn');
+  dom.importConfigBtn = document.getElementById('importConfigBtn');
+  dom.exportConfigBtn = document.getElementById('exportConfigBtn');
+  dom.exportTimerBtn = document.getElementById('exportTimerBtn');
+  dom.openTimerBtn = document.getElementById('openTimerBtn');
+  dom.addNoneBtn = document.getElementById('addNoneBtn');
+  dom.addSpeechBtn = document.getElementById('addSpeechBtn');
+  dom.addQuestionBtn = document.getElementById('addQuestionBtn');
+  dom.addNeutralBtn = document.getElementById('addNeutralBtn');
+  dom.addDebateBtn = document.getElementById('addDebateBtn');
+  dom.addFreeDebateBtn = document.getElementById('addFreeDebateBtn');
+  dom.migrationNotification = document.getElementById('migrationNotification');
+  dom.migrationBackupPath = document.getElementById('migrationBackupPath');
+  dom.migrationCloseBtn = document.getElementById('migrationCloseBtn');
+  dom.exportProgressOverlay = document.getElementById('exportProgressOverlay');
+  dom.exportProgressBar = document.getElementById('exportProgressBar');
+  dom.exportProgressText = document.getElementById('exportProgressText');
+  dom.aboutOverlay = document.getElementById('aboutOverlay');
+  dom.aboutVersion = document.getElementById('aboutVersion');
+  dom.aboutCloseBtn = document.getElementById('aboutCloseBtn');
+  dom.aboutBtn = document.getElementById('aboutBtn');
+  dom.updateNotification = document.getElementById('updateNotification');
+  dom.updateVersion = document.getElementById('updateVersion');
+  dom.updateChangelog = document.getElementById('updateChangelog');
+  dom.updateDownloadBtn = document.getElementById('updateDownloadBtn');
+  dom.updateRestartBtn = document.getElementById('updateRestartBtn');
+  dom.updateLaterBtn = document.getElementById('updateLaterBtn');
+  dom.updateSkipBtn = document.getElementById('updateSkipBtn');
+  dom.updateErrorText = document.getElementById('updateErrorText');
+  dom.toolbarTextContent = document.getElementById('toolbarTextContent');
+  dom.toolbarFontFamily = document.getElementById('toolbarFontFamily');
+  dom.toolbarFontSize = document.getElementById('toolbarFontSize');
+  dom.toolbarTextColor = document.getElementById('toolbarTextColor');
+  dom.toolbarStatusBarColor = document.getElementById('toolbarStatusBarColor');
+  dom.toolbarStatusBarOpacity = document.getElementById('toolbarStatusBarOpacity');
+  dom.toolbarStatusBarColor2 = document.getElementById('toolbarStatusBarColor2');
+  dom.toolbarStatusBarGradient = document.getElementById('toolbarStatusBarGradient');
+  dom.toolbarBgType = document.getElementById('toolbarBgType');
+  dom.toolbarBgColor = document.getElementById('toolbarBgColor');
+  dom.toolbarBgGradientStart = document.getElementById('toolbarBgGradientStart');
+  dom.toolbarBgGradientEnd = document.getElementById('toolbarBgGradientEnd');
+  dom.toolbarBgGradientAngle = document.getElementById('toolbarBgGradientAngle');
+  dom.toolbarBgImageOpacity = document.getElementById('toolbarBgImageOpacity');
+  dom.toolbarBgImageScaleX = document.getElementById('toolbarBgImageScaleX');
+  dom.toolbarBgImageScaleY = document.getElementById('toolbarBgImageScaleY');
+  dom.toolbarBgImageOffsetX = document.getElementById('toolbarBgImageOffsetX');
+  dom.toolbarBgImageOffsetY = document.getElementById('toolbarBgImageOffsetY');
+  dom.toolbarBgImage = document.getElementById('toolbarBgImage');
+  dom.bgColorPanel = document.getElementById('bgColorPanel');
+  dom.bgGradientPanel = document.getElementById('bgGradientPanel');
+  dom.bgImagePanel = document.getElementById('bgImagePanel');
+  dom.textToolbarClose = document.getElementById('textToolbarClose');
+  dom.statusBarToolbarClose = document.getElementById('statusBarToolbarClose');
+  dom.bgToolbarClose = document.getElementById('bgToolbarClose');
+  dom.previewCustomFontFace = document.getElementById('preview-custom-font-face');
+}
+
 function renderFonts() {
   const selects = document.querySelectorAll('#toolbarFontFamily, #fontFamily');
   selects.forEach((select) => {
@@ -82,7 +174,7 @@ function getSymmetricKey(key) {
 }
 
 function applyLayoutToPreview(layout = {}) {
-  const preview = document.getElementById('timerPreview');
+  const preview = dom.timerPreview;
   if (!preview) return;
   const elements = preview.querySelectorAll('[data-layout-key]');
   elements.forEach((el) => {
@@ -114,7 +206,7 @@ function applyLayoutToPreview(layout = {}) {
 }
 
 function applyStatusBarToPreview(statusBar = {}) {
-  const topBand = document.getElementById('previewTopBand');
+  const topBand = dom.previewTopBand;
   if (!topBand) return;
   if (statusBar.height && statusBar.height > 0) {
     topBand.style.height = `${statusBar.height}px`;
@@ -128,7 +220,7 @@ function applyStatusBarToPreview(statusBar = {}) {
 }
 
 function applyBackgroundToPreview(theme = {}) {
-  const preview = document.getElementById('timerPreview');
+  const preview = dom.timerPreview;
   if (!preview) return;
   const bgLayer = preview.querySelector('.bg-layer');
   const bgType = theme.backgroundType || 'color';
@@ -164,7 +256,7 @@ function applyBackgroundToPreview(theme = {}) {
 }
 
 function applyThemeToPreview(theme = {}) {
-  const preview = document.getElementById('timerPreview');
+  const preview = dom.timerPreview;
   if (!preview) return;
   const colors = theme.colors || {};
   const root = preview;
@@ -181,48 +273,241 @@ function applyThemeToPreview(theme = {}) {
   applyBackgroundToPreview(theme);
   applyStatusBarToPreview(theme.statusBar || defaultStatusBar());
   applyLayoutToPreview(currentConfig?.layout || defaultLayout());
+  applyCustomFontToPreview(theme);
+}
+
+function applyCustomFontToPreview(theme = {}) {
+  const preview = dom.timerPreview;
+  if (!preview) return;
+  const customFontUrl = theme?.customFont;
+  const customFontName = theme?.customFontName || 'CustomFont';
+  const baseFont = theme?.fontFamily || 'system-ui';
+
+  let style = dom.previewCustomFontFace;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'preview-custom-font-face';
+    document.head.appendChild(style);
+    dom.previewCustomFontFace = style;
+  }
+
+  if (customFontUrl) {
+    style.textContent = `@font-face { font-family: '${customFontName}'; src: url('${customFontUrl}'); }`;
+    preview.style.setProperty('--text-font-family', `'${customFontName}', ${baseFont}`);
+  } else {
+    style.textContent = '';
+    preview.style.setProperty('--text-font-family', baseFont);
+  }
+}
+
+function formatDuration(seconds) {
+  const total = Math.max(0, Math.floor(Number(seconds) || 0));
+  const m = Math.floor(total / 60).toString().padStart(2, '0');
+  const s = (total % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function initPreviewScale() {
+  const preview = dom.timerPreview;
+  const wrapper = dom.editorPreviewWrapper;
+  if (!preview || !wrapper) return;
+
+  window.electronAPI?.getTimerBaseSize?.().then((size) => {
+    if (size?.width && size?.height) {
+      timerBaseSize = size;
+      preview.style.width = `${timerBaseSize.width}px`;
+      preview.style.height = `${timerBaseSize.height}px`;
+      updatePreviewScale();
+    }
+  }).catch((err) => {
+    log('warn', `获取计时基准尺寸失败: ${err?.message || err}`);
+  });
+
+  preview.style.width = `${timerBaseSize.width}px`;
+  preview.style.height = `${timerBaseSize.height}px`;
+  preview.style.minHeight = 'auto';
+  updatePreviewScale();
+
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => updatePreviewScale()).observe(wrapper);
+  } else {
+    window.addEventListener('resize', updatePreviewScale);
+  }
+}
+
+function updatePreviewScale() {
+  const wrapper = dom.editorPreviewWrapper;
+  const preview = dom.timerPreview;
+  if (!wrapper || !preview) return;
+  const rect = wrapper.getBoundingClientRect();
+  const scale = Math.min(
+    rect.width / timerBaseSize.width,
+    rect.height / timerBaseSize.height,
+    1
+  );
+  previewScale = scale;
+  preview.style.setProperty('--preview-scale', scale);
+  preview.style.setProperty('--preview-base-width', `${timerBaseSize.width}px`);
+  preview.style.setProperty('--preview-base-height', `${timerBaseSize.height}px`);
+  preview.style.setProperty('--preview-visual-width', `${rect.width}px`);
+  preview.style.setProperty('--preview-visual-height', `${rect.height}px`);
+  preview.classList.toggle('preview-tablet', rect.width <= 1000);
+  preview.classList.toggle('preview-mobile', rect.width <= 768);
+}
+
+function updatePreviewSegmentSelect() {
+  const select = dom.previewSegmentSelect;
+  if (!select) return;
+  const segments = currentConfig?.segments || [];
+  select.innerHTML = '';
+  segments.forEach((segment, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.textContent = segment.name || `环节 ${index + 1}`;
+    select.appendChild(option);
+  });
+  if (currentPreviewSegmentIndex >= segments.length) {
+    currentPreviewSegmentIndex = Math.max(0, segments.length - 1);
+  }
+  select.value = currentPreviewSegmentIndex;
+  updatePreviewForSegment(currentPreviewSegmentIndex);
+}
+
+function isDualSegmentType(type) {
+  return type === 'dual_debate';
+}
+
+function isNoTimerSegmentType(type) {
+  return type === 'none';
+}
+
+function getSegmentActiveSide(segment) {
+  if (!segment) return 'affirmative';
+  if (segment.type === 'neutral_timer') return 'neutral';
+  if (segment.side) return segment.side;
+  return 'affirmative';
+}
+
+function updatePreviewForSegment(index) {
+  const segments = currentConfig?.segments || [];
+  const segment = segments[index];
+  if (!segment) return;
+  currentPreviewSegmentIndex = index;
+
+  const previewSegmentName = dom.previewSegmentName;
+  const timerDisplay = dom.previewTimerDisplay;
+  const singleTimer = dom.previewSingleTimer;
+  const dualTimer = dom.previewDualTimer;
+  const sideLabel = dom.previewSideLabel;
+  const affirmativeTime = dom.previewAffirmativeTime;
+  const negativeTime = dom.previewNegativeTime;
+  const progressBar = dom.previewTimerProgressBar;
+
+  const isNoTimer = isNoTimerSegmentType(segment.type);
+  const isDual = isDualSegmentType(segment.type);
+  const activeSide = getSegmentActiveSide(segment);
+
+  if (previewSegmentName) {
+    previewSegmentName.textContent = segment.name || '未命名环节';
+    previewSegmentName.classList.toggle('segment-name-large', isNoTimer);
+    if (isNoTimer) {
+      adjustPreviewSegmentNameFontSize();
+    } else {
+      previewSegmentName.style.fontSize = '';
+    }
+  }
+
+  if (timerDisplay) {
+    timerDisplay.style.display = isNoTimer ? 'none' : '';
+  }
+
+  if (singleTimer) {
+    singleTimer.style.display = isDual ? 'none' : '';
+    singleTimer.textContent = formatDuration(segment.duration);
+    singleTimer.classList.remove('affirmative', 'negative', 'neutral');
+    if (!isDual) {
+      singleTimer.classList.add(activeSide);
+    }
+  }
+
+  if (dualTimer) {
+    dualTimer.style.display = isDual ? 'flex' : 'none';
+  }
+
+  if (affirmativeTime) affirmativeTime.textContent = formatDuration(segment.duration);
+  if (negativeTime) negativeTime.textContent = formatDuration(segment.duration);
+
+  if (sideLabel) {
+    sideLabel.classList.remove('affirmative', 'negative', 'neutral');
+    sideLabel.style.display = isNoTimer ? 'none' : '';
+    if (!isNoTimer) {
+      sideLabel.classList.add(activeSide);
+      if (activeSide === 'neutral') {
+        sideLabel.textContent = '中立计时中';
+      } else if (activeSide === 'affirmative') {
+        sideLabel.textContent = '正方发言中';
+      } else {
+        sideLabel.textContent = '反方发言中';
+      }
+    }
+  }
+
+  if (progressBar) {
+    progressBar.style.width = isNoTimer ? '0%' : '60%';
+  }
+
+  const select = dom.previewSegmentSelect;
+  if (select) select.value = currentPreviewSegmentIndex;
+}
+
+function adjustPreviewSegmentNameFontSize() {
+  const el = dom.previewSegmentName;
+  if (!el || !el.classList.contains('segment-name-large')) {
+    if (el) el.style.fontSize = '';
+    return;
+  }
+  const baseWidth = timerBaseSize.width;
+  const maxFontSize = Math.min(Math.max(baseWidth * 0.14, 48), 180);
+  el.style.fontSize = `${maxFontSize}px`;
 }
 
 function fillEditorUI(config) {
   if (!config) return;
   currentConfig = config;
 
-  // 填充预览文本内容
-  document.getElementById('previewEventName').textContent = config.eventName || '赛事名称';
-  document.getElementById('previewAffirmativeTeamName').textContent = config.teams?.affirmative || '正方队';
-  document.getElementById('previewNegativeTeamName').textContent = config.teams?.negative || '反方队';
-  document.getElementById('previewAffirmativeTopic').textContent = config.topics?.affirmative || '正方辩题';
-  document.getElementById('previewNegativeTopic').textContent = config.topics?.negative || '反方辩题';
-  document.getElementById('previewWatermark').textContent = config.layout?.watermark?.text || '辩论计时器';
+  dom.previewEventName.textContent = config.eventName || '赛事名称';
+  dom.previewAffirmativeTeamName.textContent = config.teams?.affirmative || '正方队';
+  dom.previewNegativeTeamName.textContent = config.teams?.negative || '反方队';
+  dom.previewAffirmativeTopic.textContent = config.topics?.affirmative || '正方辩题';
+  dom.previewNegativeTopic.textContent = config.topics?.negative || '反方辩题';
+  dom.previewWatermark.textContent = config.layout?.watermark?.text || '辩论计时器';
 
-  // 应用主题
   applyThemeToPreview(config.theme || {});
   applyLayoutToPreview(config.layout || defaultLayout());
 
-  // 初始化背景工具栏值
   const theme = config.theme || {};
   const bgType = theme.backgroundType || 'color';
   const bgImageSettings = theme.backgroundImageSettings || defaultBackgroundImageSettings();
-  document.getElementById('toolbarBgType').value = bgType;
-  document.getElementById('toolbarBgColor').value = theme.backgroundColor || '#1a1a1a';
+  dom.toolbarBgType.value = bgType;
+  dom.toolbarBgColor.value = theme.backgroundColor || '#1a1a1a';
   if (theme.backgroundGradient) {
-    document.getElementById('toolbarBgGradientStart').value = theme.backgroundGradient.start || '#1a1a1a';
-    document.getElementById('toolbarBgGradientEnd').value = theme.backgroundGradient.end || '#0b0e14';
-    document.getElementById('toolbarBgGradientAngle').value = theme.backgroundGradient.angle || 135;
+    dom.toolbarBgGradientStart.value = theme.backgroundGradient.start || '#1a1a1a';
+    dom.toolbarBgGradientEnd.value = theme.backgroundGradient.end || '#0b0e14';
+    dom.toolbarBgGradientAngle.value = theme.backgroundGradient.angle || 135;
   }
-  document.getElementById('toolbarBgImageOpacity').value = Math.round((bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1) * 100);
-  document.getElementById('toolbarBgImageScaleX').value = bgImageSettings.scaleX || 100;
-  document.getElementById('toolbarBgImageScaleY').value = bgImageSettings.scaleY || 100;
-  document.getElementById('toolbarBgImageOffsetX').value = bgImageSettings.offsetX || 0;
-  document.getElementById('toolbarBgImageOffsetY').value = bgImageSettings.offsetY || 0;
-  
-  // 切换面板显示
-  document.getElementById('bgColorPanel').style.display = bgType === 'color' ? 'block' : 'none';
-  document.getElementById('bgGradientPanel').style.display = bgType === 'gradient' ? 'block' : 'none';
-  document.getElementById('bgImagePanel').style.display = bgType === 'image' ? 'block' : 'none';
+  dom.toolbarBgImageOpacity.value = Math.round((bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1) * 100);
+  dom.toolbarBgImageScaleX.value = bgImageSettings.scaleX || 100;
+  dom.toolbarBgImageScaleY.value = bgImageSettings.scaleY || 100;
+  dom.toolbarBgImageOffsetX.value = bgImageSettings.offsetX || 0;
+  dom.toolbarBgImageOffsetY.value = bgImageSettings.offsetY || 0;
+
+  dom.bgColorPanel.style.display = bgType === 'color' ? 'block' : 'none';
+  dom.bgGradientPanel.style.display = bgType === 'gradient' ? 'block' : 'none';
+  dom.bgImagePanel.style.display = bgType === 'image' ? 'block' : 'none';
 
   renderSegments(config.segments || []);
   renderSegmentNav();
+  updatePreviewSegmentSelect();
 }
 
 async function loadConfig() {
@@ -235,8 +520,8 @@ async function showMigrationNoticeIfNeeded() {
   try {
     const info = await window.electronAPI.consumeMigrationInfo();
     if (!info) return;
-    const notification = document.getElementById('migrationNotification');
-    const backupPathEl = document.getElementById('migrationBackupPath');
+    const notification = dom.migrationNotification;
+    const backupPathEl = dom.migrationBackupPath;
     if (!notification) return;
     if (backupPathEl && info.backupPath) {
       backupPathEl.textContent = info.backupPath;
@@ -249,7 +534,7 @@ async function showMigrationNoticeIfNeeded() {
 }
 
 function hideMigrationNotification() {
-  const notification = document.getElementById('migrationNotification');
+  const notification = dom.migrationNotification;
   if (notification) notification.style.display = 'none';
 }
 
@@ -273,7 +558,7 @@ function switchPanel(panelId) {
 }
 
 function renderSegments(segments) {
-  const root = document.getElementById('segments');
+  const root = dom.segmentsRoot;
   const existingCards = Array.from(root.children);
   const targetCount = segments.length;
   const existingCount = existingCards.length;
@@ -332,10 +617,12 @@ function renderSegments(segments) {
   for (let i = existingCount - 1; i >= targetCount; i--) {
     existingCards[i].remove();
   }
+
+  updatePreviewSegmentSelect();
 }
 
 function moveSegmentCard(index, direction) {
-  const root = document.getElementById('segments');
+  const root = dom.segmentsRoot;
   const cards = Array.from(root.children);
   if (direction === 'up' && index > 0) {
     root.insertBefore(cards[index], cards[index - 1]);
@@ -354,7 +641,7 @@ function updateCardIndices() {
 }
 
 function renderSegmentNav() {
-  const navContainer = document.getElementById('segmentNav');
+  const navContainer = dom.segmentNav;
   if (!navContainer) return;
   const cards = document.querySelectorAll('.segment-card');
   const existingItems = navContainer.querySelectorAll('.segment-nav-item');
@@ -386,7 +673,7 @@ function renderSegmentNav() {
 }
 
 function bindSegmentNavDragDrop() {
-  const navContainer = document.getElementById('segmentNav');
+  const navContainer = dom.segmentNav;
   if (!navContainer) return;
 
   let draggedItem = null;
@@ -520,7 +807,7 @@ function bindSegmentNavDragDrop() {
     }
 
     if (draggedIndex !== null && insertIndex !== draggedIndex) {
-      const root = document.getElementById('segments');
+      const root = dom.segmentsRoot;
       const cards = Array.from(root.children);
       const draggedCard = cards[draggedIndex];
       draggedCard.remove();
@@ -717,7 +1004,6 @@ function updateNameTemplateSelect(card, type) {
   option2Select.innerHTML = option2Options.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
   option2Select.value = '';
 
-  // 控制各 select 的显示/隐藏
   const show = (el, v) => { if (el) el.style.display = v ? '' : 'none'; };
   if (type === 'none') {
     show(sideSelect, false);
@@ -750,8 +1036,7 @@ function gatherConfig() {
   const bgImageSettings = currentConfig?.theme?.backgroundImageSettings ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundImageSettings)) : defaultBackgroundImageSettings();
   const bgGradient = currentConfig?.theme?.backgroundGradient ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundGradient)) : defaultBackgroundGradient();
 
-  // 从预览中收集最新布局数据
-  const preview = document.getElementById('timerPreview');
+  const preview = dom.timerPreview;
   if (preview) {
     preview.querySelectorAll('[data-layout-key]').forEach((el) => {
       const key = el.getAttribute('data-layout-key');
@@ -772,8 +1057,7 @@ function gatherConfig() {
     });
   }
 
-  // 收集状态栏高度
-  const topBand = document.getElementById('previewTopBand');
+  const topBand = dom.previewTopBand;
   if (topBand) {
     const h = parseFloat(topBand.style.height);
     if (h > 0) statusBar.height = h;
@@ -787,14 +1071,15 @@ function gatherConfig() {
   const bgImage = theme.backgroundImage || '';
 
   return {
-    eventName: document.getElementById('previewEventName')?.textContent || '新建辩论赛事',
+    version: 3,
+    eventName: dom.previewEventName?.textContent || '新建辩论赛事',
     teams: {
-      affirmative: document.getElementById('previewAffirmativeTeamName')?.textContent || '正方',
-      negative: document.getElementById('previewNegativeTeamName')?.textContent || '反方'
+      affirmative: dom.previewAffirmativeTeamName?.textContent || '正方',
+      negative: dom.previewNegativeTeamName?.textContent || '反方'
     },
     topics: {
-      affirmative: document.getElementById('previewAffirmativeTopic')?.textContent || '正方辩题',
-      negative: document.getElementById('previewNegativeTopic')?.textContent || '反方辩题'
+      affirmative: dom.previewAffirmativeTopic?.textContent || '正方辩题',
+      negative: dom.previewNegativeTopic?.textContent || '反方辩题'
     },
     theme: {
       preset: theme.preset || 'classic',
@@ -828,7 +1113,7 @@ function gatherConfig() {
 }
 
 async function saveConfig() {
-  const saveBtn = document.getElementById('saveBtn');
+  const saveBtn = dom.saveBtn;
   saveBtn.textContent = '保存中...';
   log('info', '保存配置');
   await window.electronAPI.saveConfig(gatherConfig());
@@ -844,7 +1129,7 @@ async function resetConfig() {
 }
 
 function bindSegmentActions() {
-  document.getElementById('segments').addEventListener('click', async (event) => {
+  dom.segmentsRoot.addEventListener('click', async (event) => {
     const action = event.target.getAttribute('data-action');
     if (!action) return;
     const cards = Array.from(document.querySelectorAll('.segment-card'));
@@ -901,7 +1186,7 @@ function bindSegmentActions() {
     }
   });
 
-  document.getElementById('segments').addEventListener('input', (event) => {
+  dom.segmentsRoot.addEventListener('input', (event) => {
     const card = event.target.closest('.segment-card');
     if (!card) return;
     if (event.target.matches('[data-field="type"]')) {
@@ -914,7 +1199,7 @@ function bindSegmentActions() {
 }
 
 function addSegmentPreset(type, name, duration, side) {
-  const root = document.getElementById('segments');
+  const root = dom.segmentsRoot;
   const card = document.createElement('article');
   card.className = 'segment-card';
   card.innerHTML = `
@@ -940,17 +1225,16 @@ function addSegmentPreset(type, name, duration, side) {
 
 // ==================== 文本编辑工具栏 ====================
 function showTextToolbar(element, layoutKey) {
-  const toolbar = document.getElementById('textEditToolbar');
+  const toolbar = dom.textEditToolbar;
   if (!toolbar) return;
 
   editingElement = element;
   editingLayoutKey = layoutKey;
 
-  // 填充当前值
-  const contentInput = document.getElementById('toolbarTextContent');
-  const fontSelect = document.getElementById('toolbarFontFamily');
-  const sizeInput = document.getElementById('toolbarFontSize');
-  const colorInput = document.getElementById('toolbarTextColor');
+  const contentInput = dom.toolbarTextContent;
+  const fontSelect = dom.toolbarFontFamily;
+  const sizeInput = dom.toolbarFontSize;
+  const colorInput = dom.toolbarTextColor;
 
   if (contentInput) contentInput.value = element.textContent || '';
   if (fontSelect) fontSelect.value = element.style.fontFamily || currentConfig?.theme?.fontFamily || 'system-ui';
@@ -962,17 +1246,26 @@ function showTextToolbar(element, layoutKey) {
   const hex = rgbToHex(rgb);
   if (colorInput) colorInput.value = hex;
 
-  // 定位工具栏
   const rect = element.getBoundingClientRect();
-  toolbar.style.left = `${rect.left}px`;
-  toolbar.style.top = `${rect.bottom + 8}px`;
   toolbar.style.display = 'block';
+  const toolbarWidth = toolbar.offsetWidth || 220;
+  const toolbarHeight = toolbar.offsetHeight || 180;
+  let left = rect.left;
+  let top = rect.bottom + 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (left + toolbarWidth > vw) left = vw - toolbarWidth - 8;
+  if (left < 8) left = 8;
+  if (top + toolbarHeight > vh) top = rect.top - toolbarHeight - 8;
+  if (top < 8) top = 8;
+  toolbar.style.left = `${left}px`;
+  toolbar.style.top = `${top}px`;
 
   element.classList.add('editing');
 }
 
 function hideTextToolbar() {
-  const toolbar = document.getElementById('textEditToolbar');
+  const toolbar = dom.textEditToolbar;
   if (toolbar) toolbar.style.display = 'none';
   if (editingElement) {
     editingElement.classList.remove('editing');
@@ -993,10 +1286,10 @@ function rgbToHex(rgb) {
 
 function updateTextToolbar() {
   if (!editingElement) return;
-  const content = document.getElementById('toolbarTextContent')?.value;
-  const font = document.getElementById('toolbarFontFamily')?.value;
-  const size = document.getElementById('toolbarFontSize')?.value;
-  const color = document.getElementById('toolbarTextColor')?.value;
+  const content = dom.toolbarTextContent?.value;
+  const font = dom.toolbarFontFamily?.value;
+  const size = dom.toolbarFontSize?.value;
+  const color = dom.toolbarTextColor?.value;
 
   if (content !== undefined && !editingElement.classList.contains('team-label')) {
     editingElement.textContent = content;
@@ -1019,29 +1312,39 @@ function updateTextToolbar() {
 
 // ==================== 状态栏工具栏 ====================
 function showStatusBarToolbar() {
-  const toolbar = document.getElementById('statusBarToolbar');
+  const toolbar = dom.statusBarToolbar;
   if (!toolbar) return;
-  const topBand = document.getElementById('previewTopBand');
+  const topBand = dom.previewTopBand;
   if (!topBand) return;
 
   const rect = topBand.getBoundingClientRect();
-  toolbar.style.left = `${rect.left + 20}px`;
-  toolbar.style.top = `${rect.bottom + 8}px`;
   toolbar.style.display = 'block';
+  const toolbarWidth = toolbar.offsetWidth || 220;
+  const toolbarHeight = toolbar.offsetHeight || 180;
+  let left = rect.left + 20;
+  let top = rect.bottom + 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (left + toolbarWidth > vw) left = vw - toolbarWidth - 8;
+  if (left < 8) left = 8;
+  if (top + toolbarHeight > vh) top = rect.top - toolbarHeight - 8;
+  if (top < 8) top = 8;
+  toolbar.style.left = `${left}px`;
+  toolbar.style.top = `${top}px`;
 }
 
 function hideStatusBarToolbar() {
-  const toolbar = document.getElementById('statusBarToolbar');
+  const toolbar = dom.statusBarToolbar;
   if (toolbar) toolbar.style.display = 'none';
 }
 
 function updateStatusBarToolbar() {
-  const topBand = document.getElementById('previewTopBand');
+  const topBand = dom.previewTopBand;
   if (!topBand) return;
-  const color = document.getElementById('toolbarStatusBarColor')?.value || '#e74c3c';
-  const color2 = document.getElementById('toolbarStatusBarColor2')?.value || '#3498db';
-  const opacity = document.getElementById('toolbarStatusBarOpacity')?.value || 25;
-  const useGradient = document.getElementById('toolbarStatusBarGradient')?.checked;
+  const color = dom.toolbarStatusBarColor?.value || '#e74c3c';
+  const color2 = dom.toolbarStatusBarColor2?.value || '#3498db';
+  const opacity = dom.toolbarStatusBarOpacity?.value || 25;
+  const useGradient = dom.toolbarStatusBarGradient?.checked;
 
   const alpha = opacity / 100;
   const hexToRgba = (hex, a) => {
@@ -1064,28 +1367,38 @@ function updateStatusBarToolbar() {
   if (!currentConfig.theme) currentConfig.theme = {};
   if (!currentConfig.theme.statusBar) currentConfig.theme.statusBar = {};
   currentConfig.theme.statusBar.background = background;
-  currentConfig.theme.statusBar.color = document.getElementById('toolbarStatusBarColor')?.value || '';
+  currentConfig.theme.statusBar.color = dom.toolbarStatusBarColor?.value || '';
 }
 
 // ==================== 背景工具栏 ====================
 function showBackgroundToolbar() {
-  const toolbar = document.getElementById('backgroundToolbar');
+  const toolbar = dom.backgroundToolbar;
   if (!toolbar) return;
-  toolbar.style.left = '20px';
-  toolbar.style.top = '80px';
   toolbar.style.display = 'block';
+  const toolbarWidth = toolbar.offsetWidth || 220;
+  const toolbarHeight = toolbar.offsetHeight || 240;
+  let left = 20;
+  let top = 80;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (left + toolbarWidth > vw) left = vw - toolbarWidth - 8;
+  if (left < 8) left = 8;
+  if (top + toolbarHeight > vh) top = vh - toolbarHeight - 8;
+  if (top < 8) top = 8;
+  toolbar.style.left = `${left}px`;
+  toolbar.style.top = `${top}px`;
 }
 
 function hideBackgroundToolbar() {
-  const toolbar = document.getElementById('backgroundToolbar');
+  const toolbar = dom.backgroundToolbar;
   if (toolbar) toolbar.style.display = 'none';
 }
 
 function updateBackgroundToolbar() {
-  const bgType = document.getElementById('toolbarBgType')?.value || 'color';
-  document.getElementById('bgColorPanel').style.display = bgType === 'color' ? 'block' : 'none';
-  document.getElementById('bgGradientPanel').style.display = bgType === 'gradient' ? 'block' : 'none';
-  document.getElementById('bgImagePanel').style.display = bgType === 'image' ? 'block' : 'none';
+  const bgType = dom.toolbarBgType?.value || 'color';
+  dom.bgColorPanel.style.display = bgType === 'color' ? 'block' : 'none';
+  dom.bgGradientPanel.style.display = bgType === 'gradient' ? 'block' : 'none';
+  dom.bgImagePanel.style.display = bgType === 'image' ? 'block' : 'none';
 
   if (!currentConfig) currentConfig = {};
   if (!currentConfig.theme) currentConfig.theme = {};
@@ -1093,19 +1406,19 @@ function updateBackgroundToolbar() {
   theme.backgroundType = bgType;
 
   if (bgType === 'color') {
-    theme.backgroundColor = document.getElementById('toolbarBgColor')?.value || '#1a1a1a';
+    theme.backgroundColor = dom.toolbarBgColor?.value || '#1a1a1a';
   } else if (bgType === 'gradient') {
     if (!theme.backgroundGradient) theme.backgroundGradient = {};
-    theme.backgroundGradient.start = document.getElementById('toolbarBgGradientStart')?.value || '#1a1a1a';
-    theme.backgroundGradient.end = document.getElementById('toolbarBgGradientEnd')?.value || '#0b0e14';
-    theme.backgroundGradient.angle = Number(document.getElementById('toolbarBgGradientAngle')?.value || 135);
+    theme.backgroundGradient.start = dom.toolbarBgGradientStart?.value || '#1a1a1a';
+    theme.backgroundGradient.end = dom.toolbarBgGradientEnd?.value || '#0b0e14';
+    theme.backgroundGradient.angle = Number(dom.toolbarBgGradientAngle?.value || 135);
   } else if (bgType === 'image') {
     if (!theme.backgroundImageSettings) theme.backgroundImageSettings = {};
-    theme.backgroundImageSettings.opacity = Number(document.getElementById('toolbarBgImageOpacity')?.value || 100) / 100;
-    theme.backgroundImageSettings.scaleX = Number(document.getElementById('toolbarBgImageScaleX')?.value || 100);
-    theme.backgroundImageSettings.scaleY = Number(document.getElementById('toolbarBgImageScaleY')?.value || 100);
-    theme.backgroundImageSettings.offsetX = Number(document.getElementById('toolbarBgImageOffsetX')?.value || 0);
-    theme.backgroundImageSettings.offsetY = Number(document.getElementById('toolbarBgImageOffsetY')?.value || 0);
+    theme.backgroundImageSettings.opacity = Number(dom.toolbarBgImageOpacity?.value || 100) / 100;
+    theme.backgroundImageSettings.scaleX = Number(dom.toolbarBgImageScaleX?.value || 100);
+    theme.backgroundImageSettings.scaleY = Number(dom.toolbarBgImageScaleY?.value || 100);
+    theme.backgroundImageSettings.offsetX = Number(dom.toolbarBgImageOffsetX?.value || 0);
+    theme.backgroundImageSettings.offsetY = Number(dom.toolbarBgImageOffsetY?.value || 0);
   }
 
   applyBackgroundToPreview(theme);
@@ -1113,7 +1426,7 @@ function updateBackgroundToolbar() {
 
 // ==================== 文本拖动 ====================
 function bindTextDragAndEdit() {
-  const preview = document.getElementById('timerPreview');
+  const preview = dom.timerPreview;
   if (!preview) return;
 
   let dragElement = null;
@@ -1166,33 +1479,31 @@ function bindTextDragAndEdit() {
         isClick = false;
       }
 
-      // 边界限制
-      const wrapper = document.getElementById('editorPreviewWrapper');
+      // 边界限制（按预览缩放比例折算为设计坐标）
+      const scale = previewScale || 1;
+      const wrapper = dom.editorPreviewWrapper;
       const wrapperRect = wrapper.getBoundingClientRect();
       const elRect = editable.getBoundingClientRect();
 
-      let newX = elStartX + dx;
-      let newY = elStartY + dy;
+      let newX = elStartX + dx / scale;
+      let newY = elStartY + dy / scale;
 
-      // 判断元素是否在状态栏内
-      const topBand = document.getElementById('previewTopBand');
+      const topBand = dom.previewTopBand;
       const isInStatusBar = topBand && topBand.contains(editable);
 
       if (isInStatusBar) {
-        // 状态栏内元素：限制在状态栏区域内
         const bandRect = topBand.getBoundingClientRect();
-        const minX = -elRect.left + bandRect.left + elStartX;
-        const maxX = bandRect.right - elRect.right + elStartX;
-        const minY = -elRect.top + bandRect.top + elStartY;
-        const maxY = bandRect.bottom - elRect.bottom + elStartY;
+        const minX = (-elRect.left + bandRect.left) / scale + elStartX;
+        const maxX = (bandRect.right - elRect.right) / scale + elStartX;
+        const minY = (-elRect.top + bandRect.top) / scale + elStartY;
+        const maxY = (bandRect.bottom - elRect.bottom) / scale + elStartY;
         newX = Math.max(minX, Math.min(maxX, newX));
         newY = Math.max(minY, Math.min(maxY, newY));
       } else {
-        // 其他元素：限制在预览容器内
-        const minX = -elRect.left + wrapperRect.left + elStartX;
-        const maxX = wrapperRect.right - elRect.right + elStartX;
-        const minY = -elRect.top + wrapperRect.top + elStartY;
-        const maxY = wrapperRect.bottom - elRect.bottom + elStartY;
+        const minX = (-elRect.left + wrapperRect.left) / scale + elStartX;
+        const maxX = (wrapperRect.right - elRect.right) / scale + elStartX;
+        const minY = (-elRect.top + wrapperRect.top) / scale + elStartY;
+        const maxY = (wrapperRect.bottom - elRect.bottom) / scale + elStartY;
         newX = Math.max(minX, Math.min(maxX, newX));
         newY = Math.max(minY, Math.min(maxY, newY));
       }
@@ -1216,7 +1527,6 @@ function bindTextDragAndEdit() {
       editable.classList.remove('dragging');
 
       if (isClick) {
-        // 点击 - 显示编辑工具栏
         showTextToolbar(editable, dragLayoutKey);
       }
 
@@ -1231,8 +1541,8 @@ function bindTextDragAndEdit() {
 
 // ==================== 状态栏高度拖拽 ====================
 function bindStatusBarResize() {
-  const handle = document.getElementById('topBandResizeHandle');
-  const topBand = document.getElementById('previewTopBand');
+  const handle = dom.topBandResizeHandle;
+  const topBand = dom.previewTopBand;
   if (!handle || !topBand) return;
 
   handle.addEventListener('mousedown', (e) => {
@@ -1241,12 +1551,12 @@ function bindStatusBarResize() {
     isResizingStatusBar = true;
     statusBarStartHeight = parseFloat(getComputedStyle(topBand).height);
     resizeStartY = e.clientY;
-      dragLayoutKey = null;
-    resizeStartY = e.clientY;
+    dragLayoutKey = null;
 
     function onMove(ev) {
       if (!isResizingStatusBar) return;
-      const dy = ev.clientY - resizeStartY;
+      const scale = previewScale || 1;
+      const dy = (ev.clientY - resizeStartY) / scale;
       const newHeight = Math.max(40, Math.min(200, statusBarStartHeight + dy));
       topBand.style.height = `${newHeight}px`;
     }
@@ -1271,8 +1581,8 @@ function bindStatusBarResize() {
 
 // ==================== 背景编辑模式 ====================
 function bindBackgroundEditMode() {
-  const btn = document.getElementById('editBackgroundBtn');
-  const wrapper = document.getElementById('editorPreviewWrapper');
+  const btn = dom.editBackgroundBtn;
+  const wrapper = dom.editorPreviewWrapper;
   if (!btn || !wrapper) return;
 
   btn.addEventListener('click', () => {
@@ -1333,6 +1643,8 @@ function bindToolbarDrag(toolbarId, headerSelector) {
 }
 
 // ==================== 初始化绑定 ====================
+cacheDom();
+initPreviewScale();
 renderFonts();
 loadConfig().then(showMigrationNoticeIfNeeded);
 bindSegmentActions();
@@ -1341,40 +1653,42 @@ bindTextDragAndEdit();
 bindStatusBarResize();
 bindBackgroundEditMode();
 
-// 工具栏拖动
 bindToolbarDrag('textEditToolbar', '.toolbar-header');
 bindToolbarDrag('statusBarToolbar', '.toolbar-header');
 bindToolbarDrag('backgroundToolbar', '.toolbar-header');
 
-// 工具栏关闭按钮
-document.getElementById('textToolbarClose')?.addEventListener('click', hideTextToolbar);
-document.getElementById('statusBarToolbarClose')?.addEventListener('click', hideStatusBarToolbar);
-document.getElementById('bgToolbarClose')?.addEventListener('click', hideBackgroundToolbar);
-document.getElementById('migrationCloseBtn')?.addEventListener('click', hideMigrationNotification);
+dom.textToolbarClose?.addEventListener('click', hideTextToolbar);
+dom.statusBarToolbarClose?.addEventListener('click', hideStatusBarToolbar);
+dom.bgToolbarClose?.addEventListener('click', hideBackgroundToolbar);
+dom.migrationCloseBtn?.addEventListener('click', hideMigrationNotification);
 
-// 工具栏输入事件
-document.getElementById('toolbarTextContent')?.addEventListener('input', updateTextToolbar);
-document.getElementById('toolbarFontFamily')?.addEventListener('change', updateTextToolbar);
-document.getElementById('toolbarFontSize')?.addEventListener('input', updateTextToolbar);
-document.getElementById('toolbarTextColor')?.addEventListener('input', updateTextToolbar);
+dom.toolbarTextContent?.addEventListener('input', updateTextToolbar);
+dom.toolbarFontFamily?.addEventListener('change', updateTextToolbar);
+dom.toolbarFontSize?.addEventListener('input', updateTextToolbar);
+dom.toolbarTextColor?.addEventListener('input', updateTextToolbar);
 
-document.getElementById('toolbarStatusBarColor')?.addEventListener('input', updateStatusBarToolbar);
-document.getElementById('toolbarStatusBarOpacity')?.addEventListener('input', updateStatusBarToolbar);
-document.getElementById('toolbarStatusBarColor2')?.addEventListener('input', updateStatusBarToolbar);
-document.getElementById('toolbarStatusBarGradient')?.addEventListener('change', updateStatusBarToolbar);
+dom.toolbarStatusBarColor?.addEventListener('input', updateStatusBarToolbar);
+dom.toolbarStatusBarOpacity?.addEventListener('input', updateStatusBarToolbar);
+dom.toolbarStatusBarColor2?.addEventListener('input', updateStatusBarToolbar);
+dom.toolbarStatusBarGradient?.addEventListener('change', updateStatusBarToolbar);
 
-document.getElementById('toolbarBgType')?.addEventListener('change', updateBackgroundToolbar);
-document.getElementById('toolbarBgColor')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgGradientStart')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgGradientEnd')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgGradientAngle')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgImageOpacity')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgImageScaleX')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgImageScaleY')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgImageOffsetX')?.addEventListener('input', updateBackgroundToolbar);
-document.getElementById('toolbarBgImageOffsetY')?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgType?.addEventListener('change', updateBackgroundToolbar);
+dom.toolbarBgColor?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgGradientStart?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgGradientEnd?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgGradientAngle?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgImageOpacity?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgImageScaleX?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgImageScaleY?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgImageOffsetX?.addEventListener('input', updateBackgroundToolbar);
+dom.toolbarBgImageOffsetY?.addEventListener('input', updateBackgroundToolbar);
 
-document.getElementById('toolbarBgImage')?.addEventListener('change', (event) => {
+dom.previewSegmentSelect?.addEventListener('change', (event) => {
+  const index = parseInt(event.target.value, 10);
+  if (!Number.isNaN(index)) updatePreviewForSegment(index);
+});
+
+dom.toolbarBgImage?.addEventListener('change', (event) => {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -1387,8 +1701,8 @@ document.getElementById('toolbarBgImage')?.addEventListener('change', (event) =>
     currentConfig.theme.backgroundImageSettings.scaleX = 100;
     currentConfig.theme.backgroundImageSettings.scaleY = 100;
     // 同步更新工具栏滑块
-    const scaleXInput = document.getElementById('toolbarBgImageScaleX');
-    const scaleYInput = document.getElementById('toolbarBgImageScaleY');
+    const scaleXInput = dom.toolbarBgImageScaleX;
+    const scaleYInput = dom.toolbarBgImageScaleY;
     if (scaleXInput) scaleXInput.value = 100;
     if (scaleYInput) scaleYInput.value = 100;
     applyBackgroundToPreview(currentConfig.theme);
@@ -1406,7 +1720,6 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// 导航切换
 document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
   el.addEventListener('click', () => {
     const panel = el.getAttribute('data-panel');
@@ -1414,10 +1727,9 @@ document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
   });
 });
 
-// 原有按钮事件
-document.getElementById('saveBtn').addEventListener('click', saveConfig);
-document.getElementById('resetBtn').addEventListener('click', resetConfig);
-document.getElementById('importConfigBtn').addEventListener('click', async () => {
+dom.saveBtn.addEventListener('click', saveConfig);
+dom.resetBtn.addEventListener('click', resetConfig);
+dom.importConfigBtn.addEventListener('click', async () => {
   log('info', '导入配置');
   const result = await window.electronAPI.importConfig();
   if (result?.ok) {
@@ -1430,7 +1742,7 @@ document.getElementById('importConfigBtn').addEventListener('click', async () =>
   }
 });
 
-document.getElementById('exportConfigBtn').addEventListener('click', async () => {
+dom.exportConfigBtn.addEventListener('click', async () => {
   log('info', '导出配置');
   const result = await window.electronAPI.exportConfig(gatherConfig());
   if (result?.ok) {
@@ -1439,9 +1751,9 @@ document.getElementById('exportConfigBtn').addEventListener('click', async () =>
   }
 });
 
-const exportProgressOverlay = document.getElementById('exportProgressOverlay');
-const exportProgressBar = document.getElementById('exportProgressBar');
-const exportProgressText = document.getElementById('exportProgressText');
+const exportProgressOverlay = dom.exportProgressOverlay;
+const exportProgressBar = dom.exportProgressBar;
+const exportProgressText = dom.exportProgressText;
 
 if (window.electronAPI?.onExportProgress) {
   window.electronAPI.onExportProgress(({ percent, message }) => {
@@ -1454,7 +1766,7 @@ if (window.electronAPI?.onExportProgress) {
   });
 }
 
-document.getElementById('exportTimerBtn').addEventListener('click', async () => {
+dom.exportTimerBtn.addEventListener('click', async () => {
   log('info', '导出独立计时器');
   if (exportProgressOverlay) {
     exportProgressBar.style.width = '0%';
@@ -1487,18 +1799,18 @@ document.getElementById('exportTimerBtn').addEventListener('click', async () => 
   }
 });
 
-document.getElementById('addNoneBtn').addEventListener('click', () => addSegmentPreset('none', '无计时', 0, undefined));
-document.getElementById('addSpeechBtn').addEventListener('click', () => addSegmentPreset('single_speech', '陈词', 180, 'affirmative'));
-document.getElementById('addQuestionBtn').addEventListener('click', () => addSegmentPreset('single_question', '质询', 60, 'affirmative'));
-document.getElementById('addNeutralBtn').addEventListener('click', () => addSegmentPreset('neutral_timer', '中场暂停', 300, undefined));
-document.getElementById('addDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '对辩', 120, 'affirmative'));
-document.getElementById('addFreeDebateBtn').addEventListener('click', () => addSegmentPreset('dual_debate', '自由辩论', 240, 'affirmative'));
-document.getElementById('openTimerBtn').addEventListener('click', () => window.electronAPI.openTimer());
+dom.addNoneBtn.addEventListener('click', () => addSegmentPreset('none', '无计时', 0, undefined));
+dom.addSpeechBtn.addEventListener('click', () => addSegmentPreset('single_speech', '陈词', 180, 'affirmative'));
+dom.addQuestionBtn.addEventListener('click', () => addSegmentPreset('single_question', '质询', 60, 'affirmative'));
+dom.addNeutralBtn.addEventListener('click', () => addSegmentPreset('neutral_timer', '中场暂停', 300, undefined));
+dom.addDebateBtn.addEventListener('click', () => addSegmentPreset('dual_debate', '对辩', 120, 'affirmative'));
+dom.addFreeDebateBtn.addEventListener('click', () => addSegmentPreset('dual_debate', '自由辩论', 240, 'affirmative'));
+dom.openTimerBtn.addEventListener('click', () => window.electronAPI.openTimer());
 
-const aboutOverlay = document.getElementById('aboutOverlay');
-const aboutVersion = document.getElementById('aboutVersion');
-const aboutCloseBtn = document.getElementById('aboutCloseBtn');
-const aboutBtn = document.getElementById('aboutBtn');
+const aboutOverlay = dom.aboutOverlay;
+const aboutVersion = dom.aboutVersion;
+const aboutCloseBtn = dom.aboutCloseBtn;
+const aboutBtn = dom.aboutBtn;
 
 async function showAbout() {
   if (!aboutOverlay || !aboutVersion) return;
@@ -1522,14 +1834,14 @@ aboutOverlay?.addEventListener('click', (e) => {
 });
 
 // ==================== 自动更新提示 ====================
-const updateNotification = document.getElementById('updateNotification');
-const updateVersion = document.getElementById('updateVersion');
-const updateChangelog = document.getElementById('updateChangelog');
-const updateDownloadBtn = document.getElementById('updateDownloadBtn');
-const updateRestartBtn = document.getElementById('updateRestartBtn');
-const updateLaterBtn = document.getElementById('updateLaterBtn');
-const updateSkipBtn = document.getElementById('updateSkipBtn');
-const updateErrorText = document.getElementById('updateErrorText');
+const updateNotification = dom.updateNotification;
+const updateVersion = dom.updateVersion;
+const updateChangelog = dom.updateChangelog;
+const updateDownloadBtn = dom.updateDownloadBtn;
+const updateRestartBtn = dom.updateRestartBtn;
+const updateLaterBtn = dom.updateLaterBtn;
+const updateSkipBtn = dom.updateSkipBtn;
+const updateErrorText = dom.updateErrorText;
 
 let pendingUpdateVersion = null;
 

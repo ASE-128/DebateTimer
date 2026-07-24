@@ -7,6 +7,7 @@ function log(level, message) {
 class AudioPlayer {
   constructor() {
     this.audioCtx = null;
+    this.reverbNode = null;
   }
 
   ensureAudio() {
@@ -15,11 +16,29 @@ class AudioPlayer {
       log('debug', 'AudioContext 初始化完成');
     }
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    this.ensureReverb();
   }
 
-  /**
-   * 创建一个带包络的 oscillator 音调。
-   */
+  ensureReverb() {
+    if (this.reverbNode && this.reverbNode.context === this.audioCtx) return;
+    this.reverbNode = this.audioCtx.createConvolver();
+    this.reverbNode.buffer = this.createReverbBuffer(0.5, 2.5);
+    this.reverbNode.connect(this.audioCtx.destination);
+  }
+
+  createReverbBuffer(duration, decayFactor) {
+    const rate = this.audioCtx.sampleRate;
+    const length = Math.floor(rate * duration);
+    const impulse = this.audioCtx.createBuffer(2, length, rate);
+    for (let c = 0; c < 2; c++) {
+      const channel = impulse.getChannelData(c);
+      for (let i = 0; i < length; i++) {
+        channel[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decayFactor);
+      }
+    }
+    return impulse;
+  }
+
   createTone({ frequency, type = 'sine', startAt, duration, volume, attack, decay, outputNode }) {
     const osc = this.audioCtx.createOscillator();
     osc.type = type;
@@ -38,29 +57,7 @@ class AudioPlayer {
     osc.stop(startAt + duration);
   }
 
-  /**
-   * 创建一个简单的混响节点（卷积混响）。
-   */
-  createReverb(duration, decayFactor) {
-    const rate = this.audioCtx.sampleRate;
-    const length = Math.floor(rate * duration);
-    const impulse = this.audioCtx.createBuffer(2, length, rate);
-    for (let c = 0; c < 2; c++) {
-      const channel = impulse.getChannelData(c);
-      for (let i = 0; i < length; i++) {
-        channel[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decayFactor);
-      }
-    }
-    const convolver = this.audioCtx.createConvolver();
-    convolver.buffer = impulse;
-    convolver.connect(this.audioCtx.destination);
-    return convolver;
-  }
-
-  /**
-   * 播放一次时间到铃声，可指定起始时间和共用混响节点。
-   */
-  _playEndRing({ startAt, reverbNode }) {
+  _playEndRing({ startAt }) {
     const wetRatio = 0.3;
     const freqs = [880, 1109, 1319];
 
@@ -86,44 +83,32 @@ class AudioPlayer {
         volume: 1.0 * wetRatio,
         attack: 0.01,
         decay: 1.49,
-        outputNode: reverbNode
+        outputNode: this.reverbNode
       });
     });
   }
 
-  /**
-   * 30 秒提示：统一使用时间到铃声，响 1 次。
-   */
   play30() {
     this.ensureAudio();
     const now = this.audioCtx.currentTime;
-    const reverbNode = this.createReverb(0.5, 2.5);
-    this._playEndRing({ startAt: now, reverbNode });
+    this._playEndRing({ startAt: now });
     log('debug', '播放 30 秒提示音（时间到铃声 ×1）');
   }
 
-  /**
-   * 5 秒提示：统一使用时间到铃声，响 2 次。
-   */
   play5() {
     this.ensureAudio();
     const now = this.audioCtx.currentTime;
-    const reverbNode = this.createReverb(0.5, 2.5);
-    this._playEndRing({ startAt: now, reverbNode });
-    this._playEndRing({ startAt: now + 0.15, reverbNode });
+    this._playEndRing({ startAt: now });
+    this._playEndRing({ startAt: now + 0.15 });
     log('debug', '播放 5 秒提示音（时间到铃声 ×2）');
   }
 
-  /**
-   * 时间到：统一使用时间到铃声，响 3 次。
-   */
   playEnd() {
     this.ensureAudio();
     const now = this.audioCtx.currentTime;
-    const reverbNode = this.createReverb(0.5, 2.5);
-    this._playEndRing({ startAt: now, reverbNode });
-    this._playEndRing({ startAt: now + 0.3, reverbNode });
-    this._playEndRing({ startAt: now + 0.6, reverbNode });
+    this._playEndRing({ startAt: now });
+    this._playEndRing({ startAt: now + 0.3 });
+    this._playEndRing({ startAt: now + 0.6 });
     log('debug', '播放结束提示音');
   }
 }

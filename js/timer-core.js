@@ -66,36 +66,32 @@ class TimerEngine {
   }
 
   start() {
-    if (!this.segments.length) return;
+    if (!this.segments.length || this.isRunning) return;
     this.ensureCurrentSegment();
     const segment = this.segments[this.currentIndex] || {};
-    const duration = Number(segment.duration || 0);
-    let didReset = false;
-    if (this.segments[this.currentIndex]?.type === 'dual_debate') {
-      if (this.remaining <= 0) {
-        this.remaining = duration;
-        didReset = true;
+
+    // 时间归零后点击开始无事发生（非对辩），避免再次触发结束提示音；
+    // 对辩中一方归零后，点击开始会自动切换到另一方并继续计时。
+    // 切换发言方后重置提示音状态，确保另一方的时间到提示音能正常播放。
+    if (segment.type === 'dual_debate') {
+      if (this.remaining === 0 && this.remainingOpposite === 0) return;
+      if (this.activeSide === 'affirmative' && this.remaining === 0) {
+        this.activeSide = 'negative';
+        this.alertState = { last30: false, last5: false, lastEnd: false };
+      } else if (this.activeSide === 'negative' && this.remainingOpposite === 0) {
+        this.activeSide = 'affirmative';
+        this.alertState = { last30: false, last5: false, lastEnd: false };
       }
-      if (this.remainingOpposite <= 0) {
-        this.remainingOpposite = duration;
-        didReset = true;
-      }
-    } else {
-      if (this.remaining <= 0) {
-        this.remaining = duration;
-        didReset = true;
-      }
-      this.remainingOpposite = duration;
+    } else if (this.remaining === 0) {
+      return;
     }
-    if (didReset) {
-      this.alertState = { last30: false, last5: false, lastEnd: false };
-    }
+
     this.isRunning = true;
     this.isPaused = false;
     this.lastTimestamp = performance.now();
     this.render();
     this.scheduleTick();
-    log('info', `计时开始: ${segment.name || '环节'}，时长=${duration}秒，类型=${segment.type}`);
+    log('info', `计时开始: ${segment.name || '环节'}，类型=${segment.type}，持方=${this.activeSide}`);
   }
 
   pause() {
@@ -117,15 +113,6 @@ class TimerEngine {
   }
 
   toggle() {
-    if (this.segments[this.currentIndex]?.type === 'dual_debate') {
-      if (this.isRunning) {
-        this.switchSide();
-      } else {
-        this.start();
-      }
-      return;
-    }
-
     if (this.isRunning) this.pause();
     else this.start();
   }
@@ -154,7 +141,11 @@ class TimerEngine {
         this.stop();
         return;
       }
-      if (this.remaining === 0 || this.remainingOpposite === 0) {
+      if (this.activeSide === 'affirmative' && this.remaining === 0) {
+        this.stop();
+        return;
+      }
+      if (this.activeSide === 'negative' && this.remainingOpposite === 0) {
         this.stop();
         return;
       }
@@ -206,6 +197,7 @@ class TimerEngine {
       this.isRunning = true;
       this.isPaused = false;
       this.lastRenderedSecond = -1;
+      this.alertState = { last30: false, last5: false, lastEnd: false };
       this.render();
       this.scheduleTick();
       log('info', `切换发言方 → ${this.activeSide === 'affirmative' ? '正方' : '反方'}`);

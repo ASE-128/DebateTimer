@@ -62,16 +62,6 @@ body {
   transition-duration: 100ms;
 }
 
-.topbar .actions button:last-child {
-  background: var(--accent-negative);
-  border-color: var(--accent-negative);
-  color: #fff;
-}
-
-.topbar .actions button:last-child:hover {
-  filter: brightness(1.1);
-}
-
 /* === 自动更新提示条 === */
 .update-notification {
   position: fixed;
@@ -265,6 +255,35 @@ body {
   font-family: var(--font-text);
 }
 
+.editor-preview-segment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-preview-segment label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: var(--font-text);
+  white-space: nowrap;
+}
+
+.editor-preview-segment select {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-text);
+  cursor: pointer;
+  min-width: 120px;
+  max-width: 200px;
+}
+
 .editor-preview-wrapper {
   width: 100%;
   flex: 1;
@@ -278,9 +297,14 @@ body {
 }
 
 #timerPreview {
-  min-height: 100%;
-  transform-origin: top center;
-  position: relative;
+  min-height: auto;
+  height: var(--preview-base-height, 900px);
+  width: var(--preview-base-width, 1600px);
+  transform-origin: center center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(var(--preview-scale, 1));
 }
 
 #timerPreview .bg-layer {
@@ -305,6 +329,129 @@ body {
 
 .editor-preview-wrapper.bg-edit-mode {
   cursor: default;
+}
+
+/* 预览区固定定位元素改为相对于预览画布定位 */
+#timerPreview .control-panel,
+#timerPreview .design-by {
+  position: absolute;
+}
+
+#timerPreview .control-panel {
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  user-select: none;
+}
+
+#timerPreview .control-panel button {
+  pointer-events: none;
+  user-select: none;
+}
+
+#timerPreview .design-by {
+  left: 12px;
+  bottom: 10px;
+}
+
+/* 预览区水印内边距与实际计时页一致，避免被控制面板遮挡 */
+#timerPreview .watermark {
+  padding-bottom: 90px;
+}
+
+/* 预览区：将计时页中基于 viewport 的 vw/vh 单位映射为基于预览容器可视尺寸，
+   确保缩放后字体/组件大小与计时页保持一致，而非跟随编辑器窗口 viewport。 */
+#timerPreview .segment-name-large {
+  font-size: clamp(80px, calc(var(--preview-visual-width) * 0.15 / var(--preview-scale, 1)), 180px);
+}
+
+#timerPreview .single-timer {
+  font-size: clamp(80px, calc(var(--preview-visual-width) * 0.15 / var(--preview-scale, 1)), 180px);
+}
+
+#timerPreview .dual-timer {
+  gap: clamp(40px, calc(var(--preview-visual-width) * 0.08 / var(--preview-scale, 1)), 100px);
+}
+
+#timerPreview .dual-time {
+  font-size: clamp(60px, calc(var(--preview-visual-width) * 0.12 / var(--preview-scale, 1)), 140px);
+}
+
+#timerPreview .control-panel {
+  max-width: calc(var(--preview-visual-width) * 0.9 / var(--preview-scale, 1));
+  max-height: calc(var(--preview-visual-height) * 0.8 / var(--preview-scale, 1));
+}
+
+/* 模拟计时页 @media (max-width: 1000px) 断点 */
+#timerPreview.preview-tablet .top-band {
+  padding: 0 calc(16px / var(--preview-scale, 1));
+  height: calc(64px / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-tablet .team-name {
+  max-width: calc(160px / var(--preview-scale, 1));
+  font-size: calc(18px * var(--font-scale) / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-tablet .team-topic {
+  max-width: calc(160px / var(--preview-scale, 1));
+  font-size: calc(12px * var(--font-scale) / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-tablet .single-timer {
+  font-size: clamp(60px, calc(var(--preview-visual-width) * 0.18 / var(--preview-scale, 1)), 120px);
+}
+
+#timerPreview.preview-tablet .dual-time {
+  font-size: clamp(48px, calc(var(--preview-visual-width) * 0.14 / var(--preview-scale, 1)), 100px);
+}
+
+#timerPreview.preview-tablet .control-panel button .btn-label {
+  display: none;
+}
+
+#timerPreview.preview-tablet .control-panel button {
+  padding: calc(8px / var(--preview-scale, 1)) calc(10px / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-tablet .control-group {
+  padding: 0 calc(4px / var(--preview-scale, 1));
+}
+
+/* 模拟计时页 @media (max-width: 768px) 断点 */
+#timerPreview.preview-mobile .control-panel {
+  bottom: calc(12px / var(--preview-scale, 1));
+  padding: calc(6px / var(--preview-scale, 1)) calc(8px / var(--preview-scale, 1));
+  border-radius: calc(12px / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-mobile .top-band {
+  height: calc(56px / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-mobile .team-label {
+  font-size: calc(9px * var(--font-scale) / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-mobile .segment-name {
+  font-size: calc(36px * var(--font-scale) / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-mobile .segment-name-large {
+  font-size: calc(56px * var(--font-scale) / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-mobile .side-label {
+  font-size: calc(13px * var(--font-scale) / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-mobile .event-name {
+  font-size: calc(22px * var(--font-scale) / var(--preview-scale, 1));
+}
+
+#timerPreview.preview-mobile .dual-timer {
+  gap: calc(24px / var(--preview-scale, 1));
 }
 
 /* === 状态栏拖拽手柄 === */

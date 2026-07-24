@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
@@ -409,7 +409,6 @@ function findMakensis(tempBase) {
     }
   }
 
-  // 4. 从 PATH 环境变量中查找
   const pathEnv = process.env.PATH || process.env.Path || '';
   const dirs = pathEnv.split(path.delimiter);
   for (const dir of dirs) {
@@ -421,7 +420,6 @@ function findMakensis(tempBase) {
     }
   }
 
-  // 5. 使用内嵌的 makensis.exe（如果提供了 makensisBase64）
   if (embeddedBinaries && embeddedBinaries.makensisBase64) {
     const embeddedPath = path.join(tempBase, 'makensis.exe');
     fs.writeFileSync(embeddedPath, Buffer.from(embeddedBinaries.makensisBase64, 'base64'));
@@ -495,15 +493,12 @@ function generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName) 
     '  WriteRegStr HKCU "Software\\${APP_NAME}" "InstallPath" "$INSTDIR"\n' +
     '  WriteRegStr HKCU "Software\\${APP_NAME}" "Version" "' + appVersion + '"\n' +
     '\n' +
-    '  ; 桌面快捷方式\n' +
     '  CreateShortcut "$DESKTOP\\${APP_NAME}.lnk" "$INSTDIR\\${APP_EXE}" "" "$INSTDIR\\${ICON_NAME}"\n' +
-    '  ; 开始菜单\n' +
     '  CreateDirectory "$SMPROGRAMS\\${APP_NAME}"\n' +
     '  CreateShortcut "$SMPROGRAMS\\${APP_NAME}\\${APP_NAME}.lnk" "$INSTDIR\\${APP_EXE}" "" "$INSTDIR\\${ICON_NAME}"\n' +
     '\n' +
     '  WriteUninstaller "$INSTDIR\\uninst.exe"\n' +
     '\n' +
-    '  ; 安装完成后运行应用\n' +
     '  Exec \'"$INSTDIR\\${APP_EXE}"\'\n' +
     'SectionEnd\n' +
     '\n' +
@@ -614,14 +609,12 @@ function generateStandaloneExe(config, savePath, onProgress = () => {}) {
       fs.mkdirSync(tempBase, { recursive: true });
       log('info', `创建临时目录: ${tempBase}`);
 
-      // 1. 复制 Electron 运行时至 package 目录
       onProgress(5, '复制 Electron 运行时...');
       const packageDir = path.join(tempBase, 'package');
       const electronDist = getElectronDist();
       copyDir(electronDist, packageDir);
       log('info', 'Electron 运行时复制完成');
 
-      // 1.5 清理运行时中不必要的文件以减小安装包体积
       onProgress(25, '清理运行时冗余文件...');
       trimElectronRuntime(packageDir);
 
@@ -635,37 +628,38 @@ function generateStandaloneExe(config, savePath, onProgress = () => {}) {
         }
       }
 
-      // 2. 生成应用文件
       onProgress(35, '生成应用文件...');
       const appDir = path.join(packageDir, 'resources', 'app');
       generateStandaloneAppFiles(config, appDir);
       log('info', '应用文件生成完成');
 
-      // 3. 重命名为独立的可执行文件名
       onProgress(45, '准备可执行文件...');
       const appExeName = 'DebateTimer.exe';
-      fs.renameSync(path.join(packageDir, 'electron.exe'), path.join(packageDir, appExeName));
-      log('info', `已将 electron.exe 重命名为 ${appExeName}`);
+      const srcExe = path.join(packageDir, 'electron.exe');
+      const destExe = path.join(packageDir, appExeName);
+      if (fs.existsSync(srcExe)) {
+        if (fs.existsSync(destExe) && srcExe !== destExe) {
+          fs.rmSync(destExe, { force: true });
+        }
+        fs.renameSync(srcExe, destExe);
+        log('info', `已将 electron.exe 重命名为 ${appExeName}`);
+      }
 
-      // 4. 准备图标
       onProgress(50, '准备图标...');
       const iconName = 'electron-icon.ico';
       const iconPath = writeIconToTemp(tempBase);
       fs.copyFileSync(iconPath, path.join(packageDir, iconName));
       log('info', '图标准备完成');
 
-      // 5. 查找 makensis.exe
       onProgress(55, '准备安装程序编译器...');
       const makensisExe = findMakensis(tempBase);
 
-      // 6. 生成 .nsi 脚本
       onProgress(60, '生成安装脚本...');
       const appName = pkg.productName || pkg.name || 'DebateTimer';
       const nsiPath = path.join(tempBase, 'installer.nsi');
       generateNsisScript(nsiPath, packageDir, appName, appExeName, iconName);
       log('info', `NSIS 脚本生成完成: ${nsiPath}`);
 
-      // 7. 调用 makensis.exe 编译安装程序
       onProgress(65, '编译安装程序（耗时较长）...');
       const tmpExe = path.join(tempBase, '辩论赛计时器-Setup.exe');
       const child = childProcess.spawn(makensisExe, ['/INPUTCHARSET', 'UTF8', nsiPath], { cwd: tempBase, windowsHide: true });
@@ -733,15 +727,28 @@ let timerWindow;
 
 function createEditorWindow() {
   log('info', '创建编辑窗口');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
+
+  // 编辑窗口占屏幕工作区 90%，充分利用屏幕空间
+  const margin = 0.9;
+  const width = Math.round(screenW * margin);
+  const height = Math.round(screenH * margin);
+
+  // 动态设计基准：与计时窗口保持一致，确保编辑预览与实际显示比例一致
+  const baseWidth = 1600;
+  const baseHeight = Math.max(600, Math.round(baseWidth * screenH / screenW));
+
   editorWindow = new BrowserWindow({
-    width: 1400,
-    height: 980,
+    width,
+    height,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
+  editorWindow.__timerBaseSize = { width: baseWidth, height: baseHeight };
   editorWindow.on('closed', () => {
     editorWindow = null;
     if (timerWindow && !timerWindow.isDestroyed()) {
@@ -754,9 +761,21 @@ function createEditorWindow() {
 
 function createTimerWindow() {
   log('info', '创建计时窗口');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
+
+  // 窗口占屏幕工作区 90%，保持屏幕原始比例
+  const margin = 0.9;
+  const width = Math.round(screenW * margin);
+  const height = Math.round(screenH * margin);
+
+  // 动态设计基准：固定宽度 1600，高度按屏幕比例自适应
+  const baseWidth = 1600;
+  const baseHeight = Math.max(600, Math.round(baseWidth * screenH / screenW));
+
   timerWindow = new BrowserWindow({
-    width: 1500,
-    height: 950,
+    width,
+    height,
     fullscreen: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -765,6 +784,10 @@ function createTimerWindow() {
       nodeIntegration: false
     }
   });
+
+  // 将动态基准附加到窗口对象，供渲染进程查询
+  timerWindow.__timerBaseSize = { width: baseWidth, height: baseHeight };
+
   timerWindow.on('closed', () => {
     timerWindow = null;
     if (editorWindow && !editorWindow.isDestroyed()) {
@@ -783,6 +806,10 @@ if (isMainApp) {
 
     ipcMain.handle('load-config', () => readConfig());
     ipcMain.handle('get-app-version', () => pkg.version || '0.0.0');
+    ipcMain.handle('get-timer-base-size', (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      return win?.__timerBaseSize || { width: 1600, height: 900 };
+    });
     ipcMain.handle('get-latest-changelog', () => getLatestChangelog());
     ipcMain.handle('consume-migration-info', () => {
       const info = lastMigrationInfo;
