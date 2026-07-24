@@ -291,18 +291,27 @@ function extractBody(html) {
   return body.replace(/<script[\s\S]*?<\/script>/gi, '').trim();
 }
 
-function copyDir(src, dest) {
+function copyDir(src, dest, ignore = []) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    const lowerName = entry.name.toLowerCase();
+    if (ignore.includes(lowerName)) continue;
+    // 已安装应用目录中可能残留 uninstaller，独立计时器会由 NSIS 重新生成，无需复制
+    if (lowerName === 'uninst.exe' || lowerName.startsWith('uninstall')) continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDir(srcPath, destPath);
-    } else if (entry.name.toLowerCase() === 'default_app.asar') {
-      continue;
-    } else {
-      fs.copyFileSync(srcPath, destPath);
+    try {
+      if (entry.isDirectory()) {
+        copyDir(srcPath, destPath, ignore);
+      } else if (lowerName === 'default_app.asar') {
+        continue;
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    } catch (e) {
+      log('warn', `复制 ${srcPath} -> ${destPath} 失败: ${e.message}`);
+      throw new Error(`复制文件失败: ${srcPath} -> ${destPath}: ${e.message}`);
     }
   }
 }
@@ -612,7 +621,9 @@ function generateStandaloneExe(config, savePath, onProgress = () => {}) {
       onProgress(5, '复制 Electron 运行时...');
       const packageDir = path.join(tempBase, 'package');
       const electronDist = getElectronDist();
-      copyDir(electronDist, packageDir);
+      // 已安装应用目录下包含原始 app.asar / app.asar.unpacked，
+      // 独立计时器会重新生成 resources/app，故无需复制，避免 asar 访问异常
+      copyDir(electronDist, packageDir, ['app.asar', 'app.asar.unpacked']);
       log('info', 'Electron 运行时复制完成');
 
       onProgress(25, '清理运行时冗余文件...');
