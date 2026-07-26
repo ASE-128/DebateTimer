@@ -1,0 +1,69 @@
+{
+  "root": true,
+  "env": {
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "extends": ["eslint:recommended", "plugin:prettier/recommended"],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "args": "after-used",
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-console": "off"
+  },
+  "overrides": [
+    {
+      "files": ["main.js", "preload.js", "test-export.js"],
+      "env": {
+        "node": true,
+        "commonjs": true
+      }
+    },
+    {
+      "files": ["js/*.js"],
+      "env": {
+        "browser": true
+      }
+    },
+    {
+      "files": ["js/toast.js", "js/timer-core.js"],
+      "env": {
+        "browser": true,
+        "commonjs": true
+      }
+    },
+    {
+      "files": ["js/main/*.js"],
+      "env": {
+        "node": true,
+        "commonjs": true
+      }
+    },
+    {
+      "files": ["tests/**/*.js"],
+      "env": {
+        "node": true
+      },
+      "parserOptions": {
+        "ecmaVersion": 2022,
+        "sourceType": "module"
+      },
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "vi": "readonly"
+      }
+    }
+  ]
+}

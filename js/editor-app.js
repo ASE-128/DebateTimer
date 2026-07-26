@@ -1,3 +1,5 @@
+/* global showToast:readonly */
+
 function log(level, message) {
   if (window.electronAPI?.log) {
     window.electronAPI.log(level, message);
@@ -9,11 +11,6 @@ const fonts = ['system-ui', 'SimSun', 'Microsoft YaHei', 'KaiTi', 'Segoe UI', 'I
 let currentConfig = null;
 let editingElement = null;
 let editingLayoutKey = null;
-let isDraggingText = false;
-let dragStartX = 0;
-let dragStartY = 0;
-let dragElementStartX = 0;
-let dragElementStartY = 0;
 let isBackgroundEditMode = false;
 let isResizingStatusBar = false;
 let statusBarStartHeight = 0;
@@ -41,6 +38,8 @@ function cacheDom() {
   dom.previewEventName = document.getElementById('previewEventName');
   dom.previewAffirmativeTeamName = document.getElementById('previewAffirmativeTeamName');
   dom.previewNegativeTeamName = document.getElementById('previewNegativeTeamName');
+  dom.previewAffirmativeLogo = document.getElementById('previewAffirmativeLogo');
+  dom.previewNegativeLogo = document.getElementById('previewNegativeLogo');
   dom.previewAffirmativeTopic = document.getElementById('previewAffirmativeTopic');
   dom.previewNegativeTopic = document.getElementById('previewNegativeTopic');
   dom.previewWatermark = document.getElementById('previewWatermark');
@@ -68,6 +67,9 @@ function cacheDom() {
   dom.migrationNotification = document.getElementById('migrationNotification');
   dom.migrationBackupPath = document.getElementById('migrationBackupPath');
   dom.migrationCloseBtn = document.getElementById('migrationCloseBtn');
+  dom.schedulePanel = document.getElementById('panel-schedule');
+  dom.scheduleList = document.getElementById('scheduleList');
+  dom.addScheduleItemBtn = document.getElementById('addScheduleItemBtn');
   dom.exportProgressOverlay = document.getElementById('exportProgressOverlay');
   dom.exportProgressBar = document.getElementById('exportProgressBar');
   dom.exportProgressText = document.getElementById('exportProgressText');
@@ -75,6 +77,11 @@ function cacheDom() {
   dom.aboutVersion = document.getElementById('aboutVersion');
   dom.aboutCloseBtn = document.getElementById('aboutCloseBtn');
   dom.aboutBtn = document.getElementById('aboutBtn');
+  dom.loadTemplateBtn = document.getElementById('loadTemplateBtn');
+  dom.saveTemplateBtn = document.getElementById('saveTemplateBtn');
+  dom.templateModal = document.getElementById('templateModal');
+  dom.templateModalClose = document.getElementById('templateModalClose');
+  dom.templateList = document.getElementById('templateList');
   dom.updateNotification = document.getElementById('updateNotification');
   dom.updateVersion = document.getElementById('updateVersion');
   dom.updateChangelog = document.getElementById('updateChangelog');
@@ -302,7 +309,9 @@ function applyCustomFontToPreview(theme = {}) {
 
 function formatDuration(seconds) {
   const total = Math.max(0, Math.floor(Number(seconds) || 0));
-  const m = Math.floor(total / 60).toString().padStart(2, '0');
+  const m = Math.floor(total / 60)
+    .toString()
+    .padStart(2, '0');
   const s = (total % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
@@ -312,16 +321,19 @@ function initPreviewScale() {
   const wrapper = dom.editorPreviewWrapper;
   if (!preview || !wrapper) return;
 
-  window.electronAPI?.getTimerBaseSize?.().then((size) => {
-    if (size?.width && size?.height) {
-      timerBaseSize = size;
-      preview.style.width = `${timerBaseSize.width}px`;
-      preview.style.height = `${timerBaseSize.height}px`;
-      updatePreviewScale();
-    }
-  }).catch((err) => {
-    log('warn', `获取计时基准尺寸失败: ${err?.message || err}`);
-  });
+  window.electronAPI
+    ?.getTimerBaseSize?.()
+    .then((size) => {
+      if (size?.width && size?.height) {
+        timerBaseSize = size;
+        preview.style.width = `${timerBaseSize.width}px`;
+        preview.style.height = `${timerBaseSize.height}px`;
+        updatePreviewScale();
+      }
+    })
+    .catch((err) => {
+      log('warn', `获取计时基准尺寸失败: ${err?.message || err}`);
+    });
 
   preview.style.width = `${timerBaseSize.width}px`;
   preview.style.height = `${timerBaseSize.height}px`;
@@ -340,11 +352,7 @@ function updatePreviewScale() {
   const preview = dom.timerPreview;
   if (!wrapper || !preview) return;
   const rect = wrapper.getBoundingClientRect();
-  const scale = Math.min(
-    rect.width / timerBaseSize.width,
-    rect.height / timerBaseSize.height,
-    1
-  );
+  const scale = Math.min(rect.width / timerBaseSize.width, rect.height / timerBaseSize.height, 1);
   previewScale = scale;
   preview.style.setProperty('--preview-scale', scale);
   preview.style.setProperty('--preview-base-width', `${timerBaseSize.width}px`);
@@ -474,6 +482,11 @@ function adjustPreviewSegmentNameFontSize() {
 function fillEditorUI(config) {
   if (!config) return;
   currentConfig = config;
+  if (!Array.isArray(currentConfig.schedule)) {
+    currentConfig.schedule = [];
+  }
+  currentConfig.logos = config.logos || { affirmative: '', negative: '' };
+  updatePreviewLogos();
 
   dom.previewEventName.textContent = config.eventName || '赛事名称';
   dom.previewAffirmativeTeamName.textContent = config.teams?.affirmative || '正方队';
@@ -495,7 +508,9 @@ function fillEditorUI(config) {
     dom.toolbarBgGradientEnd.value = theme.backgroundGradient.end || '#0b0e14';
     dom.toolbarBgGradientAngle.value = theme.backgroundGradient.angle || 135;
   }
-  dom.toolbarBgImageOpacity.value = Math.round((bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1) * 100);
+  dom.toolbarBgImageOpacity.value = Math.round(
+    (bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1) * 100
+  );
   dom.toolbarBgImageScaleX.value = bgImageSettings.scaleX || 100;
   dom.toolbarBgImageScaleY.value = bgImageSettings.scaleY || 100;
   dom.toolbarBgImageOffsetX.value = bgImageSettings.offsetX || 0;
@@ -507,6 +522,7 @@ function fillEditorUI(config) {
 
   renderSegments(config.segments || []);
   renderSegmentNav();
+  renderSchedule(currentConfig.schedule);
   updatePreviewSegmentSelect();
 }
 
@@ -716,7 +732,6 @@ function bindSegmentNavDragDrop() {
   }
 
   function updatePlaceholder(clientY) {
-    const items = Array.from(navContainer.querySelectorAll('.segment-nav-item'));
     const insertIndex = getInsertionIndex(clientY);
 
     let beforeNode = null;
@@ -776,7 +791,7 @@ function bindSegmentNavDragDrop() {
     updatePlaceholder(e.clientY);
   }
 
-  function onMouseUp(e) {
+  function onMouseUp(_e) {
     if (!isDragging) return;
     isDragging = false;
 
@@ -832,7 +847,8 @@ function bindSegmentNavDragDrop() {
   if (!contextMenu) {
     contextMenu = document.createElement('div');
     contextMenu.id = 'segmentNavContextMenu';
-    contextMenu.style.cssText = 'position:fixed;display:none;z-index:1000;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:4px 0;min-width:140px;overflow:hidden;';
+    contextMenu.style.cssText =
+      'position:fixed;display:none;z-index:1000;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:4px 0;min-width:140px;overflow:hidden;';
     contextMenu.innerHTML = `
       <div class="ctx-item" data-ctx="scroll" style="padding:6px 14px;font-size:13px;cursor:pointer;transition:background var(--duration-fast);color:var(--text-primary);">定位到该环节</div>
       <div class="ctx-item" data-ctx="up" style="padding:6px 14px;font-size:13px;cursor:pointer;transition:background var(--duration-fast);color:var(--text-primary);">上移</div>
@@ -993,18 +1009,30 @@ function updateNameTemplateSelect(card, type) {
 
   sideSelect.innerHTML = sideOptions.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
   sideSelect.value = '';
-  positionSelect.innerHTML = positionOptions.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
+  positionSelect.innerHTML = positionOptions
+    .map(([label, value]) => `<option value="${value}">${label}</option>`)
+    .join('');
   positionSelect.value = '';
-  templateSelect.innerHTML = (templateOptions[type] || templateOptions.single_speech).map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
+  templateSelect.innerHTML = (templateOptions[type] || templateOptions.single_speech)
+    .map(([label, value]) => `<option value="${value}">${label}</option>`)
+    .join('');
   templateSelect.value = type === 'none' ? '' : '';
   side2Select.innerHTML = side2Options.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
   side2Select.value = '';
-  position2Select.innerHTML = position2Options.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
-  for (const opt of position2Select.options) { opt.selected = false; }
-  option2Select.innerHTML = option2Options.map(([label, value]) => `<option value="${value}">${label}</option>`).join('');
+  position2Select.innerHTML = position2Options
+    .map(([label, value]) => `<option value="${value}">${label}</option>`)
+    .join('');
+  for (const opt of position2Select.options) {
+    opt.selected = false;
+  }
+  option2Select.innerHTML = option2Options
+    .map(([label, value]) => `<option value="${value}">${label}</option>`)
+    .join('');
   option2Select.value = '';
 
-  const show = (el, v) => { if (el) el.style.display = v ? '' : 'none'; };
+  const show = (el, v) => {
+    if (el) el.style.display = v ? '' : 'none';
+  };
   if (type === 'none') {
     show(sideSelect, false);
     show(positionSelect, false);
@@ -1029,12 +1057,212 @@ function updateNameTemplateSelect(card, type) {
   }
 }
 
+function createScheduleInput(item, index, field, placeholder) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.dataset.field = field;
+  input.dataset.index = String(index);
+  input.placeholder = placeholder;
+  input.value = item[field] || '';
+  return input;
+}
+
+function createScheduleField(item, index, field, placeholder) {
+  const label = document.createElement('label');
+  label.textContent = placeholder;
+  const input = createScheduleInput(item, index, field, placeholder);
+  label.appendChild(input);
+  return label;
+}
+
+function createScheduleLogoField(item, index, field, labelText) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'schedule-logo-field';
+
+  const label = document.createElement('label');
+  label.textContent = labelText;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg,image/webp,image/svg+xml';
+  input.dataset.field = field;
+  input.dataset.index = String(index);
+  label.appendChild(input);
+
+  const preview = document.createElement('img');
+  preview.className = 'schedule-logo-preview';
+  preview.alt = `${labelText}预览`;
+  if (item[field]) {
+    preview.src = item[field];
+    preview.style.display = '';
+  } else {
+    preview.style.display = 'none';
+  }
+
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'btn';
+  clearBtn.dataset.logoClearIndex = String(index);
+  clearBtn.dataset.logoClearField = field;
+  clearBtn.textContent = '清除队徽';
+
+  wrapper.appendChild(label);
+  wrapper.appendChild(preview);
+  wrapper.appendChild(clearBtn);
+  return wrapper;
+}
+
+function renderSchedule(schedule) {
+  const list = dom.scheduleList;
+  if (!list) return;
+  list.innerHTML = '';
+  (schedule || []).forEach((item, index) => {
+    const card = document.createElement('article');
+    card.className = 'schedule-card';
+
+    const header = document.createElement('div');
+    header.className = 'schedule-card-header';
+    const indexBadge = document.createElement('span');
+    indexBadge.className = 'schedule-index';
+    indexBadge.textContent = index + 1;
+    const nameInput = createScheduleInput(item, index, 'name', '赛程名称');
+    header.appendChild(indexBadge);
+    header.appendChild(nameInput);
+
+    const fields = document.createElement('div');
+    fields.className = 'schedule-fields';
+    fields.appendChild(createScheduleField(item, index, 'affirmativeTeam', '正方队伍'));
+    fields.appendChild(createScheduleField(item, index, 'negativeTeam', '反方队伍'));
+    const affirmativeTopicField = createScheduleField(item, index, 'affirmativeTopic', '正方辩题');
+    affirmativeTopicField.classList.add('schedule-field-full');
+    const negativeTopicField = createScheduleField(item, index, 'negativeTopic', '反方辩题');
+    negativeTopicField.classList.add('schedule-field-full');
+    fields.appendChild(affirmativeTopicField);
+    fields.appendChild(negativeTopicField);
+
+    const logoRow = document.createElement('div');
+    logoRow.className = 'schedule-logo-row';
+    logoRow.appendChild(createScheduleLogoField(item, index, 'affirmativeLogo', '正方队徽'));
+    logoRow.appendChild(createScheduleLogoField(item, index, 'negativeLogo', '反方队徽'));
+
+    const actions = document.createElement('div');
+    actions.className = 'schedule-actions';
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.className = 'btn btn-accent';
+    applyBtn.dataset.action = 'apply';
+    applyBtn.dataset.index = String(index);
+    applyBtn.textContent = '应用此赛程';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn';
+    deleteBtn.dataset.action = 'delete';
+    deleteBtn.dataset.index = String(index);
+    deleteBtn.textContent = '删除';
+    actions.appendChild(applyBtn);
+    actions.appendChild(deleteBtn);
+
+    card.appendChild(header);
+    card.appendChild(fields);
+    card.appendChild(logoRow);
+    card.appendChild(actions);
+    list.appendChild(card);
+  });
+}
+
+function addScheduleItem() {
+  if (!currentConfig) currentConfig = {};
+  if (!Array.isArray(currentConfig.schedule)) currentConfig.schedule = [];
+  currentConfig.schedule.push({
+    id: `schedule-${Date.now()}`,
+    name: `赛程 ${currentConfig.schedule.length + 1}`,
+    affirmativeTeam: '',
+    negativeTeam: '',
+    affirmativeTopic: '',
+    negativeTopic: '',
+    affirmativeLogo: '',
+    negativeLogo: ''
+  });
+  renderSchedule(currentConfig.schedule);
+}
+
+function removeScheduleItem(index) {
+  if (!confirm('确定删除该赛程吗？')) return;
+  if (!currentConfig?.schedule) return;
+  currentConfig.schedule.splice(index, 1);
+  renderSchedule(currentConfig.schedule);
+}
+
+function updatePreviewLogos() {
+  const logos = currentConfig?.logos || { affirmative: '', negative: '' };
+  if (dom.previewAffirmativeLogo) {
+    dom.previewAffirmativeLogo.src = logos.affirmative || '';
+    dom.previewAffirmativeLogo.style.display = logos.affirmative ? '' : 'none';
+  }
+  if (dom.previewNegativeLogo) {
+    dom.previewNegativeLogo.src = logos.negative || '';
+    dom.previewNegativeLogo.style.display = logos.negative ? '' : 'none';
+  }
+}
+
+function applyScheduleItem(index) {
+  const item = currentConfig?.schedule?.[index];
+  if (!item) return;
+  if (!currentConfig.teams) currentConfig.teams = {};
+  if (!currentConfig.topics) currentConfig.topics = {};
+  if (!currentConfig.logos) currentConfig.logos = { affirmative: '', negative: '' };
+  currentConfig.teams.affirmative = item.affirmativeTeam || '';
+  currentConfig.teams.negative = item.negativeTeam || '';
+  currentConfig.topics.affirmative = item.affirmativeTopic || '';
+  currentConfig.topics.negative = item.negativeTopic || '';
+  currentConfig.logos.affirmative = item.affirmativeLogo || '';
+  currentConfig.logos.negative = item.negativeLogo || '';
+
+  if (dom.previewAffirmativeTeamName) {
+    dom.previewAffirmativeTeamName.textContent = item.affirmativeTeam || '正方队';
+  }
+  if (dom.previewNegativeTeamName) {
+    dom.previewNegativeTeamName.textContent = item.negativeTeam || '反方队';
+  }
+  if (dom.previewAffirmativeTopic) {
+    dom.previewAffirmativeTopic.textContent = item.affirmativeTopic || '正方辩题';
+  }
+  if (dom.previewNegativeTopic) {
+    dom.previewNegativeTopic.textContent = item.negativeTopic || '反方辩题';
+  }
+  updatePreviewLogos();
+  showToast('已应用赛程到当前配置', 'info');
+}
+
+function handleLogoFileSelect(index, field, file) {
+  if (!file || !file.type.startsWith('image/')) {
+    alert('请选择有效的图片文件');
+    return;
+  }
+  if (file.size > 500 * 1024) {
+    alert('队徽图片建议小于 500KB，请压缩后重新选择');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (!currentConfig?.schedule?.[index]) return;
+    currentConfig.schedule[index][field] = reader.result || '';
+    renderSchedule(currentConfig.schedule);
+  };
+  reader.readAsDataURL(file);
+}
+
 function gatherConfig() {
   const theme = currentConfig?.theme || {};
   const layout = currentConfig?.layout ? JSON.parse(JSON.stringify(currentConfig.layout)) : defaultLayout();
-  const statusBar = currentConfig?.theme?.statusBar ? JSON.parse(JSON.stringify(currentConfig.theme.statusBar)) : defaultStatusBar();
-  const bgImageSettings = currentConfig?.theme?.backgroundImageSettings ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundImageSettings)) : defaultBackgroundImageSettings();
-  const bgGradient = currentConfig?.theme?.backgroundGradient ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundGradient)) : defaultBackgroundGradient();
+  const statusBar = currentConfig?.theme?.statusBar
+    ? JSON.parse(JSON.stringify(currentConfig.theme.statusBar))
+    : defaultStatusBar();
+  const bgImageSettings = currentConfig?.theme?.backgroundImageSettings
+    ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundImageSettings))
+    : defaultBackgroundImageSettings();
+  const bgGradient = currentConfig?.theme?.backgroundGradient
+    ? JSON.parse(JSON.stringify(currentConfig.theme.backgroundGradient))
+    : defaultBackgroundGradient();
 
   const preview = dom.timerPreview;
   if (preview) {
@@ -1108,7 +1336,9 @@ function gatherConfig() {
       type: card.querySelector('[data-field="type"]').value,
       duration: Number(card.querySelector('[data-field="duration"]').value || 0),
       side: card.querySelector('[data-field="side"]').value || undefined
-    }))
+    })),
+    logos: currentConfig?.logos || { affirmative: '', negative: '' },
+    schedule: currentConfig?.schedule || []
   };
 }
 
@@ -1118,7 +1348,9 @@ async function saveConfig() {
   log('info', '保存配置');
   await window.electronAPI.saveConfig(gatherConfig());
   saveBtn.textContent = '已保存';
-  setTimeout(() => { saveBtn.textContent = '保存配置'; }, 1200);
+  setTimeout(() => {
+    saveBtn.textContent = '保存配置';
+  }, 1200);
 }
 
 async function resetConfig() {
@@ -1160,7 +1392,9 @@ function bindSegmentActions() {
         const position = card.querySelector('[data-name-position]').value;
         const side2 = card.querySelector('[data-name-side2]').value;
         const position2Select = card.querySelector('[data-name-position2]');
-        const selectedPositions = Array.from(position2Select.selectedOptions).map((o) => o.value).filter(Boolean);
+        const selectedPositions = Array.from(position2Select.selectedOptions)
+          .map((o) => o.value)
+          .filter(Boolean);
         const position2 = selectedPositions.length ? selectedPositions.join('/') : '';
         const prefix = [side, position].filter(Boolean).join('');
         const target = [side2, position2].filter(Boolean).join('');
@@ -1278,10 +1512,15 @@ function rgbToHex(rgb) {
   if (!rgb || rgb.startsWith('#')) return rgb || '#ffffff';
   const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   if (!match) return '#ffffff';
-  return '#' + [match[1], match[2], match[3]].map((x) => {
-    const hex = parseInt(x).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  }).join('');
+  return (
+    '#' +
+    [match[1], match[2], match[3]]
+      .map((x) => {
+        const hex = parseInt(x).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      })
+      .join('')
+  );
 }
 
 function updateTextToolbar() {
@@ -1429,7 +1668,6 @@ function bindTextDragAndEdit() {
   const preview = dom.timerPreview;
   if (!preview) return;
 
-  let dragElement = null;
   let dragLayoutKey = null;
   let startX = 0;
   let startY = 0;
@@ -1445,10 +1683,7 @@ function bindTextDragAndEdit() {
 
     // 判断是点击还是拖动（根据移动距离）
     let isClick = true;
-    const clickStartX = e.clientX;
-    const clickStartY = e.clientY;
 
-    dragElement = editable;
     dragLayoutKey = editable.getAttribute('data-layout-key');
     startX = e.clientX;
     startY = e.clientY;
@@ -1464,7 +1699,7 @@ function bindTextDragAndEdit() {
     const symEl = symKey ? document.querySelector(`[data-layout-key="${symKey}"]`) : null;
     if (symEl) {
       const symTransform = symEl.style.transform;
-      const symMatch = symTransform.match(/translate\(([\-\d.]+)px,\s*([\-\d.]+)px\)/);
+      const symMatch = symTransform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
       symElStartX = symMatch ? parseFloat(symMatch[1]) : 0;
       symElStartY = symMatch ? parseFloat(symMatch[2]) : 0;
     }
@@ -1521,7 +1756,7 @@ function bindTextDragAndEdit() {
       }
     }
 
-    function onUp(ev) {
+    function onUp(_ev) {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       editable.classList.remove('dragging');
@@ -1530,7 +1765,6 @@ function bindTextDragAndEdit() {
         showTextToolbar(editable, dragLayoutKey);
       }
 
-      dragElement = null;
       dragLayoutKey = null;
     }
 
@@ -1551,7 +1785,6 @@ function bindStatusBarResize() {
     isResizingStatusBar = true;
     statusBarStartHeight = parseFloat(getComputedStyle(topBand).height);
     resizeStartY = e.clientY;
-    dragLayoutKey = null;
 
     function onMove(ev) {
       if (!isResizingStatusBar) return;
@@ -1727,6 +1960,49 @@ document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
   });
 });
 
+dom.addScheduleItemBtn?.addEventListener('click', addScheduleItem);
+dom.scheduleList?.addEventListener('input', (event) => {
+  const input = event.target.closest('[data-field]');
+  if (!input || input.type === 'file') return;
+  const index = parseInt(input.dataset.index, 10);
+  const field = input.dataset.field;
+  if (!currentConfig?.schedule || Number.isNaN(index) || !field) return;
+  currentConfig.schedule[index][field] = input.value;
+});
+dom.scheduleList?.addEventListener('change', (event) => {
+  const input = event.target.closest('input[type="file"][data-field]');
+  if (!input) return;
+  const field = input.dataset.field;
+  if (field !== 'affirmativeLogo' && field !== 'negativeLogo') return;
+  const index = parseInt(input.dataset.index, 10);
+  const file = input.files?.[0];
+  if (Number.isNaN(index) || !file) return;
+  handleLogoFileSelect(index, field, file);
+  input.value = '';
+});
+dom.scheduleList?.addEventListener('click', (event) => {
+  const clearBtn = event.target.closest('button[data-logo-clear-index]');
+  if (clearBtn) {
+    const index = parseInt(clearBtn.dataset.logoClearIndex, 10);
+    const field = clearBtn.dataset.logoClearField;
+    if (!Number.isNaN(index) && field && currentConfig?.schedule?.[index]) {
+      currentConfig.schedule[index][field] = '';
+      renderSchedule(currentConfig.schedule);
+    }
+    return;
+  }
+  const btn = event.target.closest('button[data-action]');
+  if (!btn) return;
+  const index = parseInt(btn.dataset.index, 10);
+  if (Number.isNaN(index)) return;
+  const action = btn.dataset.action;
+  if (action === 'apply') {
+    applyScheduleItem(index);
+  } else if (action === 'delete') {
+    removeScheduleItem(index);
+  }
+});
+
 dom.saveBtn.addEventListener('click', saveConfig);
 dom.resetBtn.addEventListener('click', resetConfig);
 dom.importConfigBtn.addEventListener('click', async () => {
@@ -1734,7 +2010,16 @@ dom.importConfigBtn.addEventListener('click', async () => {
   const result = await window.electronAPI.importConfig();
   if (result?.ok) {
     log('info', `配置已导入: ${result.path}`);
-    alert(`配置已导入：${result.path}`);
+    if (result.warnings && result.warnings.length > 0) {
+      const message = `配置已导入，但存在以下问题：\n\n${result.warnings.join('\n')}`;
+      if (typeof showToast === 'function') {
+        showToast(message.replace(/\n/g, '<br>'), 'warning', 6000);
+      } else {
+        alert(message);
+      }
+    } else {
+      alert(`配置已导入：${result.path}`);
+    }
     await loadConfigFromImport(result.config);
   } else {
     log('warn', `导入配置失败: ${result?.error || '未知错误'}`);
@@ -1787,7 +2072,9 @@ dom.exportTimerBtn.addEventListener('click', async () => {
       } catch (e) {
         log('warn', `获取最新更新日志失败: ${e.message}`);
       }
-      alert(`独立计时器已导出到：${result.path}\n说明：这是一个 NSIS 安装程序，运行后会在本地安装并创建桌面和开始菜单快捷方式。${changelogLine}`);
+      alert(
+        `独立计时器已导出到：${result.path}\n说明：这是一个 NSIS 安装程序，运行后会在本地安装并创建桌面和开始菜单快捷方式。${changelogLine}`
+      );
     } else {
       log('error', `导出独立计时器失败: ${result?.error || '未知错误'}`);
       alert(`导出失败：${result?.error || '未知错误'}`);
@@ -1832,6 +2119,225 @@ aboutCloseBtn?.addEventListener('click', hideAbout);
 aboutOverlay?.addEventListener('click', (e) => {
   if (e.target === aboutOverlay) hideAbout();
 });
+
+// ==================== 模板功能 ====================
+const templateModal = dom.templateModal;
+const templateList = dom.templateList;
+
+let currentEditingTemplateId = null;
+let currentEditingTemplateName = '';
+
+function showTemplateModal() {
+  if (!templateModal) return;
+  templateModal.classList.add('active');
+  loadAndRenderTemplates();
+}
+
+function hideTemplateModal() {
+  if (!templateModal) return;
+  templateModal.classList.remove('active');
+}
+
+function slugifyName(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function createTemplateItem(template) {
+  const item = document.createElement('div');
+  item.className = 'template-item';
+  const overriddenBadge = template.overridden ? '<span class="template-overridden">（已覆盖）</span>' : '';
+  const canDelete = !template.builtin || template.overridden;
+  item.innerHTML = `
+    <div class="template-info">
+      <strong>${escapeHtml(template.name)}${overriddenBadge}</strong>
+      <span>${escapeHtml(template.description || '')}</span>
+    </div>
+    <div class="template-actions">
+      <button class="btn btn-accent" type="button" data-template-id="${escapeHtml(template.id)}">应用</button>
+      <button class="btn" type="button" data-template-edit-id="${escapeHtml(template.id)}" data-template-name="${escapeHtml(template.name)}">编辑</button>
+      ${canDelete ? `<button class="btn" type="button" data-template-delete-id="${escapeHtml(template.id)}">删除</button>` : ''}
+    </div>
+  `;
+  return item;
+}
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function loadAndRenderTemplates() {
+  if (!templateList) return;
+  templateList.innerHTML = '<p class="template-loading">加载中...</p>';
+
+  try {
+    const templates = await window.electronAPI.getTemplates();
+    const sorted = templates.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-CN'));
+
+    templateList.innerHTML = '';
+
+    if (sorted.length === 0) {
+      templateList.innerHTML = '<p class="template-empty">暂无模板</p>';
+    } else {
+      sorted.forEach((template) => {
+        templateList.appendChild(createTemplateItem(template));
+      });
+    }
+  } catch (err) {
+    log('error', `加载模板列表失败: ${err?.message || err}`);
+    templateList.innerHTML = '<p class="template-empty">加载失败</p>';
+  }
+}
+
+async function applyTemplateById(id) {
+  try {
+    const result = await window.electronAPI.applyTemplate(id);
+    if (!result?.ok || !result.config) {
+      alert(`应用模板失败：${result?.error || '未知错误'}`);
+      return;
+    }
+    const confirmed = confirm('应用模板将覆盖当前配置，是否继续？');
+    if (!confirmed) return;
+    resetEditingTemplateState();
+    await loadConfigFromImport(result.config);
+    hideTemplateModal();
+    showToast('模板已应用', 'info');
+    log('info', `已应用模板: ${id}`);
+  } catch (err) {
+    log('error', `应用模板失败: ${err?.message || err}`);
+    alert(`应用模板失败：${err?.message || err}`);
+  }
+}
+
+async function editTemplateById(id, name) {
+  try {
+    const result = await window.electronAPI.applyTemplate(id);
+    if (!result?.ok || !result.config) {
+      alert(`编辑模板失败：${result?.error || '未知错误'}`);
+      return;
+    }
+    const confirmed = confirm('编辑模板将覆盖当前编辑器配置，是否继续？');
+    if (!confirmed) return;
+    await loadConfigFromImport(result.config);
+    currentEditingTemplateId = id;
+    currentEditingTemplateName = name || '';
+    if (dom.saveTemplateBtn) {
+      dom.saveTemplateBtn.textContent = '保存模板修改';
+    }
+    hideTemplateModal();
+    showToast('正在编辑模板，修改后点击“保存模板修改”', 'info');
+    log('info', `正在编辑模板: ${id}`);
+  } catch (err) {
+    log('error', `编辑模板失败: ${err?.message || err}`);
+    alert(`编辑模板失败：${err?.message || err}`);
+  }
+}
+
+async function deleteTemplateById(id) {
+  const confirmed = confirm('确定删除该模板吗？');
+  if (!confirmed) return;
+  try {
+    const result = await window.electronAPI.deleteTemplate(id);
+    if (!result?.ok) {
+      alert(`删除失败：${result?.error || '未知错误'}`);
+      return;
+    }
+    if (currentEditingTemplateId === id) {
+      resetEditingTemplateState();
+    }
+    await loadAndRenderTemplates();
+    if (result.restored) {
+      showToast('已恢复默认模板', 'info');
+      log('info', `已恢复默认模板: ${id}`);
+    } else {
+      showToast('模板已删除', 'info');
+      log('info', `已删除模板: ${id}`);
+    }
+  } catch (err) {
+    log('error', `删除模板失败: ${err?.message || err}`);
+    alert(`删除失败：${err?.message || err}`);
+  }
+}
+
+async function saveCurrentAsTemplate() {
+  if (currentEditingTemplateId) {
+    try {
+      const name = currentEditingTemplateName || '';
+      const result = await window.electronAPI.saveTemplate(currentEditingTemplateId, name, '', gatherConfig());
+      if (!result?.ok) {
+        alert(`保存失败：${result?.error || '未知错误'}`);
+        return;
+      }
+      showToast('模板修改已保存', 'info');
+      log('info', `已保存模板修改: ${currentEditingTemplateId}`);
+      resetEditingTemplateState();
+    } catch (err) {
+      log('error', `保存模板修改失败: ${err?.message || err}`);
+      alert(`保存失败：${err?.message || err}`);
+    }
+    return;
+  }
+
+  const name = prompt('请输入模板名称：');
+  if (!name || !name.trim()) return;
+  const id = slugifyName(name.trim());
+  if (!id) {
+    alert('模板名称无效，请使用字母、数字或中文');
+    return;
+  }
+  try {
+    const result = await window.electronAPI.saveTemplate(id, name.trim(), '', gatherConfig());
+    if (!result?.ok) {
+      alert(`保存失败：${result?.error || '未知错误'}`);
+      return;
+    }
+    showToast('模板已保存', 'info');
+    log('info', `已保存模板: ${id}`);
+  } catch (err) {
+    log('error', `保存模板失败: ${err?.message || err}`);
+    alert(`保存失败：${err?.message || err}`);
+  }
+}
+
+function resetEditingTemplateState() {
+  currentEditingTemplateId = null;
+  currentEditingTemplateName = '';
+  if (dom.saveTemplateBtn) {
+    dom.saveTemplateBtn.textContent = '保存为模板';
+  }
+}
+
+if (templateModal) {
+  templateModal.addEventListener('click', (e) => {
+    if (e.target === templateModal) hideTemplateModal();
+  });
+}
+
+templateModal?.querySelector('.template-modal-body')?.addEventListener('click', (e) => {
+  const applyBtn = e.target.closest('[data-template-id]');
+  const editBtn = e.target.closest('[data-template-edit-id]');
+  const deleteBtn = e.target.closest('[data-template-delete-id]');
+  if (applyBtn) {
+    applyTemplateById(applyBtn.getAttribute('data-template-id'));
+  } else if (editBtn) {
+    editTemplateById(editBtn.getAttribute('data-template-edit-id'), editBtn.getAttribute('data-template-name'));
+  } else if (deleteBtn) {
+    deleteTemplateById(deleteBtn.getAttribute('data-template-delete-id'));
+  }
+});
+
+dom.templateModalClose?.addEventListener('click', hideTemplateModal);
+dom.loadTemplateBtn?.addEventListener('click', showTemplateModal);
+dom.saveTemplateBtn?.addEventListener('click', saveCurrentAsTemplate);
+
+resetEditingTemplateState();
 
 // ==================== 自动更新提示 ====================
 const updateNotification = dom.updateNotification;
@@ -1892,14 +2398,17 @@ function showUpdateNotification(version) {
   updateNotification.style.display = 'block';
 
   if (window.electronAPI?.getLatestChangelog) {
-    window.electronAPI.getLatestChangelog().then((summary) => {
-      if (updateChangelog) {
-        updateChangelog.innerHTML = summary ? renderMarkdownToHtml(summary) : '暂无更新日志摘要';
-      }
-    }).catch((e) => {
-      log('error', `获取更新日志失败: ${e.message}`);
-      if (updateChangelog) updateChangelog.textContent = '更新日志加载失败';
-    });
+    window.electronAPI
+      .getLatestChangelog()
+      .then((summary) => {
+        if (updateChangelog) {
+          updateChangelog.innerHTML = summary ? renderMarkdownToHtml(summary) : '暂无更新日志摘要';
+        }
+      })
+      .catch((e) => {
+        log('error', `获取更新日志失败: ${e.message}`);
+        if (updateChangelog) updateChangelog.textContent = '更新日志加载失败';
+      });
   }
 }
 

@@ -1,5 +1,16 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+function slugify(name) {
+  return (
+    String(name)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'template'
+  );
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   loadConfig: () => ipcRenderer.invoke('load-config'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -14,6 +25,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportConfig: (config) => ipcRenderer.invoke('export-config', config),
   exportStandalone: (config) => ipcRenderer.invoke('export-standalone', config),
   importConfig: () => ipcRenderer.invoke('import-config'),
+  getTemplates: () => ipcRenderer.invoke('get-templates'),
+  applyTemplate: (id) => ipcRenderer.invoke('apply-template', id),
+  saveTemplate: (id, name, description, config) =>
+    ipcRenderer.invoke('save-template', { id, name, description, config }),
+  deleteTemplate: (id) => ipcRenderer.invoke('delete-template', id),
+  saveCustomTemplate: (name, config) =>
+    ipcRenderer.invoke('save-template', { id: slugify(name), name, description: '', config }),
+  deleteCustomTemplate: (name) => ipcRenderer.invoke('delete-template', slugify(name)),
   log: (level, message) => ipcRenderer.invoke('log', level, message),
   onConfigUpdated: (callback) => {
     const listener = (_event, config) => callback(config);

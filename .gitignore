@@ -28,12 +28,3 @@ tmp-*.log
 test-standalone*.html
 test-standalone*.js
 *-verify*.png
-editor-verify*.png
-timer-verify*.png
-timer-none*.png
-timer-event.png
-editor-export.png
-standalone-verify*.png
-.playwright-mcp/
-test_*.jpg
-*.png

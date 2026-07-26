@@ -1,3 +1,5 @@
+/* global audioPlayer:readonly, TimerEngine:readonly */
+
 let config = null;
 let engine = null;
 const isStandalone = !!window.__STANDALONE_CONFIG__;
@@ -17,6 +19,8 @@ const affirmativeTeamNameEl = document.getElementById('affirmativeTeamName');
 const negativeTeamNameEl = document.getElementById('negativeTeamName');
 const affirmativeTopicEl = document.getElementById('affirmativeTopic');
 const negativeTopicEl = document.getElementById('negativeTopic');
+const affirmativeLogoEl = document.getElementById('affirmativeLogo');
+const negativeLogoEl = document.getElementById('negativeLogo');
 
 const singleTimerEl = document.getElementById('singleTimer');
 const dualTimerEl = document.getElementById('dualTimer');
@@ -41,7 +45,13 @@ function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
 
   const bgType = theme.backgroundType || 'color';
-  const bgImageSettings = theme.backgroundImageSettings || { opacity: 1, scaleX: 100, scaleY: 100, offsetX: 0, offsetY: 0 };
+  const bgImageSettings = theme.backgroundImageSettings || {
+    opacity: 1,
+    scaleX: 100,
+    scaleY: 100,
+    offsetX: 0,
+    offsetY: 0
+  };
 
   const timerShell = document.querySelector('.timer-shell');
   const bgLayer = timerShell ? timerShell.querySelector('.bg-layer') : null;
@@ -98,6 +108,8 @@ function applyTheme(theme = config.theme || {}) {
       negativeTeamName: 'negativeTeamName',
       affirmativeTopic: 'affirmativeTopic',
       negativeTopic: 'negativeTopic',
+      affirmativeLogo: 'affirmativeLogo',
+      negativeLogo: 'negativeLogo',
       eventName: 'eventName',
       segmentName: 'segmentName',
       sideLabel: 'sideLabel',
@@ -202,19 +214,31 @@ function updateControlLabel(state) {
   const btnLabel = startBtnEl.querySelector('.btn-label');
   const label = state.isRunning ? '暂停' : '启动';
   if (!btnLabel) {
-    queueRenderWrite(() => { startBtnEl.textContent = label; });
+    queueRenderWrite(() => {
+      startBtnEl.textContent = label;
+    });
     return;
   }
-  queueRenderWrite(() => { btnLabel.textContent = label; });
+  queueRenderWrite(() => {
+    btnLabel.textContent = label;
+  });
 }
 
-function updateTeamDisplay(state) {
+function updateTeamDisplay(_state) {
   queueRenderWrite(() => {
     affirmativeTeamNameEl.textContent = config?.teams?.affirmative || '正方队';
     negativeTeamNameEl.textContent = config?.teams?.negative || '反方队';
     affirmativeTopicEl.textContent = config?.topics?.affirmative || '正方辩题';
     negativeTopicEl.textContent = config?.topics?.negative || '反方辩题';
     if (eventNameEl) eventNameEl.textContent = config.eventName || '赛事名称';
+    if (affirmativeLogoEl) {
+      affirmativeLogoEl.src = config?.logos?.affirmative || '';
+      affirmativeLogoEl.style.display = config?.logos?.affirmative ? '' : 'none';
+    }
+    if (negativeLogoEl) {
+      negativeLogoEl.src = config?.logos?.negative || '';
+      negativeLogoEl.style.display = config?.logos?.negative ? '' : 'none';
+    }
   });
 }
 
@@ -223,12 +247,16 @@ function updateProgress(state) {
   const segment = state.currentSegment || {};
   const isNoTimer = segment.type === 'none';
   if (isNoTimer) {
-    queueRenderWrite(() => { timerProgressEl.style.display = 'none'; });
+    queueRenderWrite(() => {
+      timerProgressEl.style.display = 'none';
+    });
     return;
   }
   const totalDuration = Number(segment.duration || 0);
   if (totalDuration <= 0) {
-    queueRenderWrite(() => { timerProgressEl.style.display = 'none'; });
+    queueRenderWrite(() => {
+      timerProgressEl.style.display = 'none';
+    });
     return;
   }
   let remaining = 0;
@@ -238,7 +266,7 @@ function updateProgress(state) {
     remaining = state.remaining;
   }
   const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
-  const progressClass = remaining <= 5 ? 'critical' : (remaining <= 30 ? 'urgent' : null);
+  const progressClass = remaining <= 5 ? 'critical' : remaining <= 30 ? 'urgent' : null;
   queueRenderWrite(() => {
     timerProgressEl.style.display = '';
     timerProgressBarEl.style.width = `${pct}%`;
@@ -253,9 +281,8 @@ function adjustSegmentNameFontSize() {
   if (!parent) return;
 
   const parentStyle = window.getComputedStyle(parent);
-  const parentWidth = parent.clientWidth
-    - parseFloat(parentStyle.paddingLeft || 0)
-    - parseFloat(parentStyle.paddingRight || 0);
+  const parentWidth =
+    parent.clientWidth - parseFloat(parentStyle.paddingLeft || 0) - parseFloat(parentStyle.paddingRight || 0);
   if (parentWidth <= 0) return;
 
   const maxFontSize = Math.min(Math.max(window.innerWidth * 0.14, 48), 180);
@@ -282,7 +309,7 @@ function adjustSegmentNameFontSize() {
   segmentNameEl.style.fontSize = `${best}px`;
 }
 
-function syncUi(actionLabel) {
+function syncUi(_actionLabel) {
   const state = engine.getState();
   render(state);
 }
@@ -292,12 +319,16 @@ function render(state) {
   const isNoTimer = segment.type === 'none';
   const eventName = config.eventName || '赛事名称';
   if (lastRenderCache.eventName !== eventName) {
-    queueRenderWrite(() => { eventNameEl.textContent = eventName; });
+    queueRenderWrite(() => {
+      eventNameEl.textContent = eventName;
+    });
     lastRenderCache.eventName = eventName;
   }
   const segmentName = segment.name || '开场';
   if (lastRenderCache.segmentName !== segmentName) {
-    queueRenderWrite(() => { segmentNameEl.textContent = segmentName; });
+    queueRenderWrite(() => {
+      segmentNameEl.textContent = segmentName;
+    });
     lastRenderCache.segmentName = segmentName;
   }
   if (lastRenderCache.isNoTimer !== isNoTimer) {
@@ -308,25 +339,41 @@ function render(state) {
     lastRenderCache.isNoTimer = isNoTimer;
   }
   // 无计时环节的字体缩放已由 CSS clamp() 处理，不再在 render() 中执行二分查找。
-  const sideLabelText = isNoTimer ? '' : (state.activeSide === 'neutral' ? '中立计时中' : (state.activeSide === 'affirmative' ? '正方发言中' : '反方发言中'));
+  const sideLabelText = isNoTimer
+    ? ''
+    : state.activeSide === 'neutral'
+      ? '中立计时中'
+      : state.activeSide === 'affirmative'
+        ? '正方发言中'
+        : '反方发言中';
   if (sideLabelEl.textContent !== sideLabelText) {
-    queueRenderWrite(() => { sideLabelEl.textContent = sideLabelText; });
+    queueRenderWrite(() => {
+      sideLabelEl.textContent = sideLabelText;
+    });
   }
   const sideLabelAffirmative = !isNoTimer && state.activeSide === 'affirmative';
   const sideLabelNegative = !isNoTimer && state.activeSide === 'negative';
   const sideLabelNeutral = !isNoTimer && state.activeSide === 'neutral';
   if (sideLabelEl.classList.contains('affirmative') !== sideLabelAffirmative) {
-    queueRenderWrite(() => { sideLabelEl.classList.toggle('affirmative', sideLabelAffirmative); });
+    queueRenderWrite(() => {
+      sideLabelEl.classList.toggle('affirmative', sideLabelAffirmative);
+    });
   }
   if (sideLabelEl.classList.contains('negative') !== sideLabelNegative) {
-    queueRenderWrite(() => { sideLabelEl.classList.toggle('negative', sideLabelNegative); });
+    queueRenderWrite(() => {
+      sideLabelEl.classList.toggle('negative', sideLabelNegative);
+    });
   }
   if (sideLabelEl.classList.contains('neutral') !== sideLabelNeutral) {
-    queueRenderWrite(() => { sideLabelEl.classList.toggle('neutral', sideLabelNeutral); });
+    queueRenderWrite(() => {
+      sideLabelEl.classList.toggle('neutral', sideLabelNeutral);
+    });
   }
   const sideLabelDisplay = isNoTimer ? 'none' : '';
   if (sideLabelEl.style.display !== sideLabelDisplay) {
-    queueRenderWrite(() => { sideLabelEl.style.display = sideLabelDisplay; });
+    queueRenderWrite(() => {
+      sideLabelEl.style.display = sideLabelDisplay;
+    });
   }
   updateControlLabel(state);
   updateTeamDisplay(state);
@@ -345,7 +392,9 @@ function render(state) {
     return;
   }
 
-  queueRenderWrite(() => { timerDisplayEl.style.display = ''; });
+  queueRenderWrite(() => {
+    timerDisplayEl.style.display = '';
+  });
   if (segment.type === 'dual_debate') {
     if (lastRenderCache.segmentType !== 'dual_debate') {
       queueRenderWrite(() => {
@@ -358,11 +407,15 @@ function render(state) {
     const affTime = formatTime(state.remaining);
     const negTime = formatTime(state.remainingOpposite);
     if (lastRenderCache.affirmativeTimeText !== affTime) {
-      queueRenderWrite(() => { affirmativeTimeEl.textContent = affTime; });
+      queueRenderWrite(() => {
+        affirmativeTimeEl.textContent = affTime;
+      });
       lastRenderCache.affirmativeTimeText = affTime;
     }
     if (lastRenderCache.negativeTimeText !== negTime) {
-      queueRenderWrite(() => { negativeTimeEl.textContent = negTime; });
+      queueRenderWrite(() => {
+        negativeTimeEl.textContent = negTime;
+      });
       lastRenderCache.negativeTimeText = negTime;
     }
   } else {
@@ -375,20 +428,28 @@ function render(state) {
     }
     const timerText = formatTime(state.remaining);
     if (lastRenderCache.singleTimerText !== timerText) {
-      queueRenderWrite(() => { singleTimerEl.textContent = timerText; });
+      queueRenderWrite(() => {
+        singleTimerEl.textContent = timerText;
+      });
       lastRenderCache.singleTimerText = timerText;
     }
     const singleAffirmative = state.activeSide === 'affirmative';
     const singleNegative = state.activeSide === 'negative';
     const singleNeutral = state.activeSide === 'neutral';
     if (singleTimerEl.classList.contains('affirmative') !== singleAffirmative) {
-      queueRenderWrite(() => { singleTimerEl.classList.toggle('affirmative', singleAffirmative); });
+      queueRenderWrite(() => {
+        singleTimerEl.classList.toggle('affirmative', singleAffirmative);
+      });
     }
     if (singleTimerEl.classList.contains('negative') !== singleNegative) {
-      queueRenderWrite(() => { singleTimerEl.classList.toggle('negative', singleNegative); });
+      queueRenderWrite(() => {
+        singleTimerEl.classList.toggle('negative', singleNegative);
+      });
     }
     if (singleTimerEl.classList.contains('neutral') !== singleNeutral) {
-      queueRenderWrite(() => { singleTimerEl.classList.toggle('neutral', singleNeutral); });
+      queueRenderWrite(() => {
+        singleTimerEl.classList.toggle('neutral', singleNeutral);
+      });
     }
   }
   flushRenderWritesSync();
@@ -412,6 +473,76 @@ function finishInit() {
   bindControlButtons();
 }
 
+function renderStandaloneSchedule(schedule) {
+  const section = document.getElementById('ssScheduleSection');
+  const list = document.getElementById('ssScheduleList');
+  if (!section || !list) return;
+
+  const items = Array.isArray(schedule) ? schedule : [];
+  if (items.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  list.innerHTML = '';
+
+  items.forEach((item) => {
+    const el = document.createElement('div');
+    el.className = 'ss-schedule-item';
+
+    const name = document.createElement('div');
+    name.className = 'ss-schedule-name';
+    name.textContent = item.name || '未命名赛程';
+
+    const affMeta = document.createElement('span');
+    affMeta.className = 'ss-schedule-meta';
+    affMeta.textContent = `正方：${item.affirmativeTeam || ''}`;
+
+    const negMeta = document.createElement('span');
+    negMeta.className = 'ss-schedule-meta';
+    negMeta.textContent = `反方：${item.negativeTeam || ''}`;
+
+    const logos = document.createElement('div');
+    logos.className = 'ss-schedule-logos';
+    if (item.affirmativeLogo) {
+      const affLogo = document.createElement('img');
+      affLogo.src = item.affirmativeLogo;
+      affLogo.alt = '';
+      affLogo.className = 'ss-schedule-logo';
+      logos.appendChild(affLogo);
+    }
+    if (item.negativeLogo) {
+      const negLogo = document.createElement('img');
+      negLogo.src = item.negativeLogo;
+      negLogo.alt = '';
+      negLogo.className = 'ss-schedule-logo';
+      logos.appendChild(negLogo);
+    }
+
+    el.appendChild(name);
+    el.appendChild(logos);
+    el.appendChild(affMeta);
+    el.appendChild(negMeta);
+
+    el.addEventListener('click', () => {
+      document.getElementById('ssAffirmativeTeam').value = item.affirmativeTeam || '';
+      document.getElementById('ssNegativeTeam').value = item.negativeTeam || '';
+      document.getElementById('ssAffirmativeTopic').value = item.affirmativeTopic || '';
+      document.getElementById('ssNegativeTopic').value = item.negativeTopic || '';
+      config.logos = {
+        affirmative: item.affirmativeLogo || '',
+        negative: item.negativeLogo || ''
+      };
+
+      list.querySelectorAll('.ss-schedule-item').forEach((child) => child.classList.remove('active'));
+      el.classList.add('active');
+    });
+
+    list.appendChild(el);
+  });
+}
+
 function openStandaloneSetup() {
   const modal = document.getElementById('standaloneSetup');
   if (!modal) return finishInit();
@@ -420,6 +551,7 @@ function openStandaloneSetup() {
   document.getElementById('ssAffirmativeTopic').value = config.topics?.affirmative || '';
   document.getElementById('ssNegativeTeam').value = config.teams?.negative || '';
   document.getElementById('ssNegativeTopic').value = config.topics?.negative || '';
+  renderStandaloneSchedule(config.schedule || []);
   modal.classList.add('active');
   const startBtn = document.getElementById('ssStartBtn');
   const newStartBtn = startBtn.cloneNode(true);
@@ -443,7 +575,8 @@ async function refreshFromConfig(nextConfig) {
   engine.currentIndex = 0;
   engine.remaining = engine.getCurrentDuration();
   engine.remainingOpposite = engine.getCurrentDuration();
-  engine.activeSide = engine.segments[0]?.type === 'neutral_timer' ? 'neutral' : (engine.segments[0]?.side || 'affirmative');
+  engine.activeSide =
+    engine.segments[0]?.type === 'neutral_timer' ? 'neutral' : engine.segments[0]?.side || 'affirmative';
   engine.isRunning = false;
   engine.isPaused = true;
   engine.lastTimestamp = null;
@@ -459,7 +592,8 @@ function bindShortcuts() {
   });
 
   document.addEventListener('keydown', (event) => {
-    const isTyping = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
+    const isTyping =
+      event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
     if (isTyping) return;
     const key = event.key.toLowerCase();
     if (event.code === 'Space') {
@@ -467,19 +601,43 @@ function bindShortcuts() {
       log('debug', '快捷键：Space 切换计时');
       engine.toggle();
     }
-    if (key === 'p') { log('debug', '快捷键：P 暂停'); engine.pause(); }
-    if (key === 'q') { log('debug', '快捷键：Q 试播30秒提示音'); audioPlayer.play30(); }
-    if (key === 'w') { log('debug', '快捷键：W 试播5秒提示音'); audioPlayer.play5(); }
-    if (key === 'e') { log('debug', '快捷键：E 试播结束提示音'); audioPlayer.playEnd(); }
-    if (key === 'f') { log('debug', '快捷键：F 切换全屏'); window.electronAPI.toggleFullscreen(); }
+    if (key === 'p') {
+      log('debug', '快捷键：P 暂停');
+      engine.pause();
+    }
+    if (key === 'q') {
+      log('debug', '快捷键：Q 试播30秒提示音');
+      audioPlayer.play30();
+    }
+    if (key === 'w') {
+      log('debug', '快捷键：W 试播5秒提示音');
+      audioPlayer.play5();
+    }
+    if (key === 'e') {
+      log('debug', '快捷键：E 试播结束提示音');
+      audioPlayer.playEnd();
+    }
+    if (key === 'f') {
+      log('debug', '快捷键：F 切换全屏');
+      window.electronAPI.toggleFullscreen();
+    }
     if (key === 'b') {
       log('debug', '快捷键：B 返回');
       if (isStandalone) openStandaloneSetup();
       else window.electronAPI.openEditor();
     }
-    if (event.key === 'ArrowRight') { log('debug', '快捷键：→ 下一环节'); engine.nextSegment(); }
-    if (event.key === 'ArrowLeft') { log('debug', '快捷键：← 上一环节'); engine.prevSegment(); }
-    if (key === 'c') { log('debug', '快捷键：C 切换持方'); engine.switchSide(); }
+    if (event.key === 'ArrowRight') {
+      log('debug', '快捷键：→ 下一环节');
+      engine.nextSegment();
+    }
+    if (event.key === 'ArrowLeft') {
+      log('debug', '快捷键：← 上一环节');
+      engine.prevSegment();
+    }
+    if (key === 'c') {
+      log('debug', '快捷键：C 切换持方');
+      engine.switchSide();
+    }
   });
 }
 
@@ -529,10 +687,22 @@ function bindControlButtons() {
     document.getElementById('stopBtn').classList.add('pulse');
     setTimeout(() => document.getElementById('stopBtn').classList.remove('pulse'), 180);
   });
-  document.getElementById('test30Btn').addEventListener('click', () => { log('debug', '试播30秒提示音'); audioPlayer.play30(); });
-  document.getElementById('test5Btn').addEventListener('click', () => { log('debug', '试播5秒提示音'); audioPlayer.play5(); });
-  document.getElementById('testEndBtn').addEventListener('click', () => { log('debug', '试播结束提示音'); audioPlayer.playEnd(); });
-  document.getElementById('fullscreenBtn').addEventListener('click', async () => { log('info', '切换全屏'); await window.electronAPI.toggleFullscreen(); });
+  document.getElementById('test30Btn').addEventListener('click', () => {
+    log('debug', '试播30秒提示音');
+    audioPlayer.play30();
+  });
+  document.getElementById('test5Btn').addEventListener('click', () => {
+    log('debug', '试播5秒提示音');
+    audioPlayer.play5();
+  });
+  document.getElementById('testEndBtn').addEventListener('click', () => {
+    log('debug', '试播结束提示音');
+    audioPlayer.playEnd();
+  });
+  document.getElementById('fullscreenBtn').addEventListener('click', async () => {
+    log('info', '切换全屏');
+    await window.electronAPI.toggleFullscreen();
+  });
   document.getElementById('backBtn').addEventListener('click', async () => {
     if (isStandalone) {
       log('info', '打开独立计时器队伍设置');
@@ -575,7 +745,7 @@ function openJumpModal() {
     btn.className = 'segment-jump-btn';
     btn.textContent = `${index + 1}. ${segment.name || '未命名环节'}${segment.type === 'dual_debate' ? ' [双计时]' : segment.type === 'neutral_timer' ? ' [中立计时]' : ''}`;
     btn.addEventListener('click', () => {
-      log('info', `跳转到环节: ${segment.name || ('第' + (index + 1) + '环节')}`);
+      log('info', `跳转到环节: ${segment.name || '第' + (index + 1) + '环节'}`);
       engine.jumpToSegment(index);
       closeJumpModal();
       syncUi(`已跳转到${segment.name || '第' + (index + 1) + '环节'}`);

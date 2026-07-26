@@ -1393,3 +1393,357 @@ body {
   color: var(--text-secondary, rgba(240, 242, 245, 0.7));
   margin: 0 0 24px;
 }
+
+/* === 模板选择弹窗 === */
+.template-modal-box {
+  width: 560px;
+  max-width: 92vw;
+  max-height: 80vh;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: var(--bg-card, #0f172a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-lg, 0 24px 64px rgba(0, 0, 0, 0.6));
+}
+
+.template-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.template-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-text);
+}
+
+.template-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
+}
+
+.template-item:hover {
+  border-color: var(--border-focus);
+  background: var(--bg-card-hover);
+}
+
+.template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.template-info strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.template-info span {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.template-overridden {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.template-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.template-actions .btn {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.template-actions .btn[data-template-delete-id]:hover {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.template-empty,
+.template-loading {
+  margin: 0;
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .template-modal-box {
+    max-height: 86vh;
+  }
+  .template-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .template-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* === 赛程管理面板 === */
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.schedule-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent-title);
+  font-family: var(--font-text);
+}
+
+.schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedule-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.schedule-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.schedule-index {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-negative);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.schedule-card-header input {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.schedule-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.schedule-field-full {
+  grid-column: 1 / -1;
+}
+
+.schedule-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font-text);
+}
+
+.schedule-card input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.schedule-card input:focus {
+  border-color: var(--accent-negative);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
+.schedule-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.schedule-actions button {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.schedule-actions button:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-focus);
+}
+
+.schedule-actions button.btn-accent {
+  background: var(--accent-negative);
+  border-color: var(--accent-negative);
+  color: #fff;
+}
+
+.schedule-actions button.btn-accent:hover {
+  filter: brightness(1.1);
+}
+
+.schedule-actions button[data-action="delete"]:hover {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.schedule-hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-text);
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .schedule-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === 队徽样式 === */
+.team-logo {
+  height: 40px;
+  width: auto;
+  border-radius: 6px;
+  object-fit: contain;
+  display: none;
+  margin-bottom: 4px;
+}
+
+.team.affirmative,
+.team.negative {
+  align-items: center;
+}
+
+.schedule-logo-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.schedule-logo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-logo-field label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font-text);
+}
+
+.schedule-logo-field input[type="file"] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.schedule-logo-preview {
+  height: 48px;
+  width: auto;
+  border-radius: 6px;
+  object-fit: contain;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.schedule-logo-field button {
+  align-self: flex-start;
+}
+
+@media (max-width: 600px) {
+  .schedule-logo-row {
+    grid-template-columns: 1fr;
+  }
+}

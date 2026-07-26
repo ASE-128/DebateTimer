@@ -1,3 +1,5 @@
+/* exported audioPlayer */
+
 function log(level, message) {
   if (typeof window !== 'undefined' && window.electronAPI?.log) {
     window.electronAPI.log(level, message);

@@ -1,11 +1,16 @@
 {
   "name": "debate-timer-electron",
-  "version": "3.0.4",
+  "version": "3.1.0",
   "description": "一款桌面辩论赛计时器",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "format": "prettier --write \"*.js\" \"js/**/*.js\""
   },
   "build": {
     "appId": "com.debate-timer.app",
@@ -49,10 +54,15 @@
       ]
     },
     "mac": {
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "linux": {
-      "target": ["AppImage"]
+      "target": [
+        "AppImage"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -74,10 +84,16 @@
     "url": "https://github.com/ASE-128/DebateTimer.git"
   },
   "dependencies": {
-    "electron-updater": "^6.3.0"
+    "electron-updater": "^6.3.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "electron": "^42.4.1",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.6",
+    "prettier": "^3.9.6",
+    "vitest": "^3.0.0"
   }
 }

@@ -1,6 +1,6 @@
 # 辩论赛计时器（DebateTimer）
 
-**版本：3.0.4** | 作者：Chen Yu | 许可证：GPL-3.0
+**版本：3.1.0** | 作者：Chen Yu | 许可证：GPL-3.0
 
 DebateTimer 是一款基于 Electron 的离线桌面辩论赛计时器，提供编辑器与计时两种视图，支持导出为独立 Windows 安装程序以便比赛现场脱机使用。
 
@@ -98,6 +98,32 @@ npm start
   - `←/→` 切换环节
   - `C` 切换持方（仅对单边计时有效）
 
+## 开发检查
+
+在提交代码或发起 Pull Request 前，建议在本地依次执行以下检查，确保代码风格、测试与语法正确：
+
+```bash
+# 1. 代码风格检查
+npm run lint
+
+# 2. 运行测试
+npm test
+
+# 3. 检查主进程与核心模块语法
+node --check main.js
+node --check js/timer-core.js
+node --check js/editor-app.js
+node --check js/timer-app.js
+node --check js/main/ipc.js
+node --check js/main/windows.js
+node --check js/main/export.js
+
+# 4. 打包验证（不发布）
+npx electron-builder --publish never
+```
+
+以上步骤与 `.github/workflows/ci.yml` 中的持续集成流程保持一致。
+
 ## 打包与发行
 
 项目内置 `electron-builder` 配置，支持以下分发目标：
@@ -134,8 +160,8 @@ DebateTimer 3.0.0 集成 `electron-updater`，启动时会检查 GitHub Releases
 通过推送符合 `v*` 格式的 Git 标签触发 GitHub Actions 自动发布：
 
 ```bash
-git tag v3.0.4
-git push origin v3.0.4
+git tag v3.1.0
+git push origin v3.1.0
 ```
 
 工作流 `.github/workflows/release.yml` 会自动执行 `npm ci` 与 `npm run dist`，并将 `dist/` 下的 `.exe`、`.blockmap`、`.yml`、`.zip` 文件上传到对应版本的 GitHub Release 中。

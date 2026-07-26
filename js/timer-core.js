@@ -1,3 +1,6 @@
+/* exported TimerEngine */
+/* global audioPlayer:readonly */
+
 function log(level, message) {
   if (typeof window !== 'undefined' && window.electronAPI?.log) {
     window.electronAPI.log(level, message);
@@ -13,7 +16,7 @@ class TimerEngine {
     this.isRunning = false;
     this.isPaused = true;
     const firstSegment = this.segments[0] || {};
-    this.activeSide = firstSegment.type === 'neutral_timer' ? 'neutral' : (firstSegment.side || 'affirmative');
+    this.activeSide = firstSegment.type === 'neutral_timer' ? 'neutral' : firstSegment.side || 'affirmative';
     this.remaining = this.getCurrentDuration();
     this.remainingOpposite = this.getCurrentDuration();
     this.lastTimestamp = null;
@@ -37,7 +40,7 @@ class TimerEngine {
     const segment = this.segments[this.currentIndex] || {};
     this.remaining = Number(segment.duration || 0);
     this.remainingOpposite = Number(segment.duration || 0);
-    this.activeSide = segment.type === 'neutral_timer' ? 'neutral' : (segment.side || 'affirmative');
+    this.activeSide = segment.type === 'neutral_timer' ? 'neutral' : segment.side || 'affirmative';
     this.isPaused = true;
     this.isRunning = false;
     this.lastTimestamp = null;
@@ -45,7 +48,7 @@ class TimerEngine {
     this.alertState = { last30: false, last5: false, lastEnd: false };
     this.lastRenderedSecond = -1;
     this.render();
-    log('info', `重置环节: ${segment.name || ('第' + (this.currentIndex + 1) + '环节')}`);
+    log('info', `重置环节: ${segment.name || '第' + (this.currentIndex + 1) + '环节'}`);
   }
 
   cancelAnimationFrame() {
@@ -159,9 +162,12 @@ class TimerEngine {
       }
     }
 
-    const displayRemaining = this.segments[this.currentIndex]?.type === 'dual_debate'
-      ? (this.activeSide === 'affirmative' ? this.remaining : this.remainingOpposite)
-      : this.remaining;
+    const displayRemaining =
+      this.segments[this.currentIndex]?.type === 'dual_debate'
+        ? this.activeSide === 'affirmative'
+          ? this.remaining
+          : this.remainingOpposite
+        : this.remaining;
     const currentSecond = Math.floor(displayRemaining);
     if (currentSecond !== this.lastRenderedSecond) {
       this.render();
@@ -251,4 +257,8 @@ class TimerEngine {
   render() {
     this.onRender?.(this.getState());
   }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { TimerEngine };
 }

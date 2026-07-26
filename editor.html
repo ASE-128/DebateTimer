@@ -45,6 +45,8 @@
           <button id="resetBtn" class="btn">重置默认</button>
           <button id="importConfigBtn" class="btn">导入配置</button>
           <button id="exportConfigBtn" class="btn">导出配置</button>
+          <button id="loadTemplateBtn" class="btn">从模板新建</button>
+          <button id="saveTemplateBtn" class="btn">保存为模板</button>
           <button id="exportTimerBtn" class="btn">导出独立计时器</button>
           <button id="openTimerBtn" class="btn btn-accent">进入计时页</button>
           <button id="aboutBtn" class="btn">关于</button>
@@ -54,6 +56,7 @@
       <div class="editor-tabs">
         <button class="editor-tab active" data-panel="editor">编辑界面</button>
         <button class="editor-tab" data-panel="segments">环节管理</button>
+        <button class="editor-tab" data-panel="schedule">赛程管理</button>
       </div>
 
       <div class="editor-body">
@@ -63,6 +66,9 @@
           </div>
           <div class="editor-nav-item" data-panel="segments">
             <span>环节管理</span>
+          </div>
+          <div class="editor-nav-item" data-panel="schedule">
+            <span>赛程管理</span>
           </div>
         </nav>
 
@@ -82,11 +88,13 @@
                 <header class="top-band" id="previewTopBand">
                   <div class="team affirmative">
                     <span class="team-label">正方</span>
+                    <img id="previewAffirmativeLogo" class="team-logo" src="" alt="" />
                     <strong class="team-name" id="previewAffirmativeTeamName" data-editable="text" data-layout-key="affirmativeTeamName">正方队</strong>
                     <span class="team-topic" id="previewAffirmativeTopic" data-editable="text" data-layout-key="affirmativeTopic">正方辩题</span>
                   </div>
                   <div class="team negative">
                     <span class="team-label">反方</span>
+                    <img id="previewNegativeLogo" class="team-logo" src="" alt="" />
                     <strong class="team-name" id="previewNegativeTeamName" data-editable="text" data-layout-key="negativeTeamName">反方队</strong>
                     <span class="team-topic" id="previewNegativeTopic" data-editable="text" data-layout-key="negativeTopic">反方辩题</span>
                   </div>
@@ -201,6 +209,16 @@
               </div>
             </div>
           </div>
+
+          <!-- 赛程管理面板 -->
+          <div class="editor-panel" id="panel-schedule">
+            <div class="schedule-header">
+              <h2>赛程管理</h2>
+              <button id="addScheduleItemBtn" class="btn btn-accent" type="button">新增赛程</button>
+            </div>
+            <div id="scheduleList" class="schedule-list"></div>
+            <p class="schedule-hint">配置好的赛程会随配置一起导出到独立计时器，供赛前选择调用。</p>
+          </div>
         </div>
       </div>
 
@@ -284,6 +302,18 @@
         <p id="aboutVersion" class="about-version">版本号：加载中...</p>
         <p class="about-copyright">© Chen Yu 2026 · All rights reserved.</p>
         <button id="aboutCloseBtn" class="btn btn-accent">关闭</button>
+      </div>
+    </div>
+
+    <div id="templateModal" class="export-progress-overlay">
+      <div class="export-progress-box template-modal-box">
+        <div class="template-modal-header">
+          <h2>模板管理</h2>
+          <button id="templateModalClose" class="toolbar-close" type="button">×</button>
+        </div>
+        <div id="templateModalBody" class="template-modal-body">
+          <div id="templateList" class="template-list"></div>
+        </div>
       </div>
     </div>
 

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist2/
+dist3/
+out/
+build/
+vendor/
+.trae/
+package-lock.json

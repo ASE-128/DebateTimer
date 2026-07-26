@@ -1,3 +1,5 @@
+/* exported showToast, showConfirm */
+
 function showToast(message, type = 'info', duration = 3000) {
   let container = document.getElementById('toast-container');
   if (!container) {

@@ -14,11 +14,13 @@
       <header class="top-band">
         <div class="team affirmative">
           <span class="team-label">正方</span>
+          <img id="affirmativeLogo" class="team-logo" src="" alt="" />
           <strong class="team-name" id="affirmativeTeamName">正方队</strong>
           <span class="team-topic" id="affirmativeTopic">正方辩题</span>
         </div>
         <div class="team negative">
           <span class="team-label">反方</span>
+          <img id="negativeLogo" class="team-logo" src="" alt="" />
           <strong class="team-name" id="negativeTeamName">反方队</strong>
           <span class="team-topic" id="negativeTopic">反方辩题</span>
         </div>
@@ -127,6 +129,11 @@
     <div id="standaloneSetup" class="standalone-setup">
       <div class="box">
         <h2>赛前设置</h2>
+        <div id="ssScheduleSection" class="ss-schedule-section" style="display:none;">
+          <h3>选择预设赛程</h3>
+          <div id="ssScheduleList" class="ss-schedule-list"></div>
+          <p class="ss-schedule-or">或手动输入下方信息</p>
+        </div>
         <label>正方队伍<input id="ssAffirmativeTeam" type="text" /></label>
         <label>正方辩题<input id="ssAffirmativeTopic" type="text" /></label>
         <label>反方队伍<input id="ssNegativeTeam" type="text" /></label>
