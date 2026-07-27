@@ -37,12 +37,26 @@ function formatTime(seconds) {
 }
 
 function applyTheme(theme = config.theme || {}) {
-  document.documentElement.style.setProperty('--accent-affirmative', theme.colors?.affirmative || '#e74c3c');
-  document.documentElement.style.setProperty('--accent-negative', theme.colors?.negative || '#3498db');
-  document.documentElement.style.setProperty('--accent-neutral', theme.colors?.neutral || '#ffffff');
-  document.documentElement.style.setProperty('--accent-title', theme.colors?.title || '#5dade2');
-  document.documentElement.style.setProperty('--text-color', theme.colors?.text || '#f0f2f5');
-  document.documentElement.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
+  // 预设解析：独立模式从注入的全局对象同步读取，Electron 模式由 init 缓存到 config.theme
+  const preset = theme.preset || 'classic';
+  const colorMode = theme.colorMode || 'dark';
+  let resolvedColors = theme.colors;
+  let resolvedBg = theme.backgroundColor;
+  let resolvedStatusBar = theme.statusBar;
+  if (isStandalone && window.__THEME_PRESETS__) {
+    const p = window.__THEME_PRESETS__[preset] || window.__THEME_PRESETS__.classic;
+    const variant = p[colorMode] || p.dark;
+    resolvedColors = { ...variant.colors, ...theme.colors };
+    resolvedBg = theme.backgroundColor || variant.backgroundColor;
+    resolvedStatusBar = { ...variant.statusBar, ...theme.statusBar };
+  }
+
+  document.documentElement.style.setProperty('--accent-affirmative', resolvedColors?.affirmative || '#e74c3c');
+  document.documentElement.style.setProperty('--accent-negative', resolvedColors?.negative || '#3498db');
+  document.documentElement.style.setProperty('--accent-neutral', resolvedColors?.neutral || '#ffffff');
+  document.documentElement.style.setProperty('--accent-title', resolvedColors?.title || '#5dade2');
+  document.documentElement.style.setProperty('--text-color', resolvedColors?.text || '#f0f2f5');
+  document.documentElement.style.setProperty('--bg-color', resolvedBg || '#0b0e14');
 
   const bgType = theme.backgroundType || 'color';
   const bgImageSettings = theme.backgroundImageSettings || {
@@ -55,6 +69,12 @@ function applyTheme(theme = config.theme || {}) {
 
   const timerShell = document.querySelector('.timer-shell');
   const bgLayer = timerShell ? timerShell.querySelector('.bg-layer') : null;
+
+  // 在 .timer-shell 上标记当前预设与色彩模式，触发 timer.css 的方向覆盖规则
+  if (timerShell) {
+    timerShell.setAttribute('data-preset-active', preset);
+    timerShell.setAttribute('data-color-mode', colorMode);
+  }
 
   // 清除 body 和 .timer-shell 的背景，由独立背景层渲染
   document.body.style.background = 'transparent';
@@ -93,8 +113,8 @@ function applyTheme(theme = config.theme || {}) {
 
   // 应用状态栏设置
   const topBand = document.querySelector('.top-band');
-  if (topBand && theme.statusBar) {
-    const sb = theme.statusBar;
+  if (topBand && resolvedStatusBar) {
+    const sb = resolvedStatusBar;
     if (sb.height) topBand.style.height = `${sb.height}px`;
     if (sb.background) topBand.style.background = sb.background;
     if (sb.color) topBand.style.color = sb.color;

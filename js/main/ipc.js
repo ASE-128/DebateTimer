@@ -19,6 +19,7 @@ const {
   deleteTemplate
 } = require('./export');
 const pkg = require('../../package.json');
+const { resolvePreset } = require('./theme-presets');
 
 function sendToEditor(channel, ...args) {
   const editorWindow = windows.getEditorWindow();
@@ -38,6 +39,7 @@ function registerIpcHandlers() {
   let skippedVersion = null;
 
   ipcMain.handle(channels.LOAD_CONFIG, () => readConfig());
+  ipcMain.handle(channels.RESOLVE_PRESET, (_event, preset, colorMode) => resolvePreset(preset, colorMode));
   ipcMain.handle(channels.GET_APP_VERSION, () => pkg.version || '0.0.0');
   ipcMain.handle(channels.GET_TIMER_BASE_SIZE, (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);

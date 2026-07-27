@@ -14,6 +14,7 @@ const CHANNELS = {
   EXPORT_STANDALONE: 'export-standalone',
   GET_TEMPLATES: 'get-templates',
   APPLY_TEMPLATE: 'apply-template',
+  RESOLVE_PRESET: 'resolve-preset',
   SAVE_TEMPLATE: 'save-template',
   DELETE_TEMPLATE: 'delete-template',
   SAVE_CUSTOM_TEMPLATE: 'save-template',

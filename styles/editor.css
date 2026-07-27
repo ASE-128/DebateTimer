@@ -1747,3 +1747,80 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* === 主题风格切换器 === */
+.theme-switcher {
+  position: relative;
+}
+
+.theme-switcher .theme-arrow {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.theme-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px 0;
+  z-index: 500;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.theme-dropdown-section {
+  padding: 0 4px;
+}
+
+.theme-dropdown-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: var(--font-ui);
+}
+
+.theme-dropdown-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 8px;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-text);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out);
+  text-align: left;
+}
+
+.theme-option:hover {
+  background: var(--bg-card-hover);
+}
+
+.theme-option.active {
+  color: var(--accent-title);
+  font-weight: 600;
+}
+
+.theme-option.active::before {
+  content: '✓';
+  margin-right: 2px;
+  font-size: 12px;
+}

@@ -6,6 +6,7 @@ const YAML = require('yaml');
 const embeddedBinaries = require('../../vendor/embedded-binaries');
 const pkg = require('../../package.json');
 const builtInTemplates = require('./built-in-templates');
+const { THEME_PRESETS } = require('./theme-presets');
 
 const projectRoot = path.join(__dirname, '..', '..');
 
@@ -78,6 +79,7 @@ function defaultConfig() {
     topics: { affirmative: '正方辩题', negative: '反方辩题' },
     theme: {
       preset: 'classic',
+      colorMode: 'dark',
       backgroundType: 'color',
       backgroundImage: '',
       backgroundColor: '#1a1a1a',
@@ -104,6 +106,23 @@ function defaultConfig() {
         scaleY: 100,
         offsetX: 0,
         offsetY: 0
+      },
+      tokens: {
+        radius: '16px',
+        progressHeight: '4px',
+        progressStyle: 'solid',
+        controlStyle: 'default',
+        motionEnabled: true,
+        statusBarStyle: 'block',
+        fwDisplay: 700,
+        fwTitle: 900,
+        fwBody: 700,
+        fwCap: 600,
+        fsCap: '11px',
+        capTransform: 'uppercase',
+        capSpacing: '2px',
+        shadowLevel: 'default',
+        timerFontFamily: "'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"
       }
     },
     layout: {
@@ -151,7 +170,8 @@ function validateConfig(input) {
           }
         : { affirmative: '', negative: '' },
     theme: {
-      preset: String(theme.preset || defTheme.preset),
+      preset: ['classic', 'broadcast', 'restrained', 'vibrant'].includes(theme.preset) ? theme.preset : defTheme.preset,
+      colorMode: ['dark', 'light'].includes(theme.colorMode) ? theme.colorMode : defTheme.colorMode,
       backgroundType: ['color', 'image', 'gradient'].includes(theme.backgroundType)
         ? theme.backgroundType
         : defTheme.backgroundType,
@@ -196,7 +216,37 @@ function validateConfig(input) {
               offsetX: Number(theme.backgroundImageSettings.offsetX ?? 0),
               offsetY: Number(theme.backgroundImageSettings.offsetY ?? 0)
             }
-          : defTheme.backgroundImageSettings
+          : defTheme.backgroundImageSettings,
+      tokens:
+        theme.tokens && typeof theme.tokens === 'object'
+          ? {
+              radius: String(theme.tokens.radius || defTheme.tokens.radius),
+              progressHeight: String(theme.tokens.progressHeight || defTheme.tokens.progressHeight),
+              progressStyle: ['solid', 'gradient', 'line'].includes(theme.tokens.progressStyle)
+                ? theme.tokens.progressStyle
+                : defTheme.tokens.progressStyle,
+              controlStyle: ['default', 'capsule', 'text', 'round-icon'].includes(theme.tokens.controlStyle)
+                ? theme.tokens.controlStyle
+                : defTheme.tokens.controlStyle,
+              motionEnabled: Boolean(theme.tokens.motionEnabled ?? defTheme.tokens.motionEnabled),
+              statusBarStyle: ['block', 'line', 'pill'].includes(theme.tokens.statusBarStyle)
+                ? theme.tokens.statusBarStyle
+                : defTheme.tokens.statusBarStyle,
+              fwDisplay: Number(theme.tokens.fwDisplay || defTheme.tokens.fwDisplay),
+              fwTitle: Number(theme.tokens.fwTitle || defTheme.tokens.fwTitle),
+              fwBody: Number(theme.tokens.fwBody || defTheme.tokens.fwBody),
+              fwCap: Number(theme.tokens.fwCap || defTheme.tokens.fwCap),
+              fsCap: String(theme.tokens.fsCap || defTheme.tokens.fsCap),
+              capTransform: ['uppercase', 'none'].includes(theme.tokens.capTransform)
+                ? theme.tokens.capTransform
+                : defTheme.tokens.capTransform,
+              capSpacing: String(theme.tokens.capSpacing || defTheme.tokens.capSpacing),
+              shadowLevel: ['none', 'light', 'layered', 'default'].includes(theme.tokens.shadowLevel)
+                ? theme.tokens.shadowLevel
+                : defTheme.tokens.shadowLevel,
+              timerFontFamily: String(theme.tokens.timerFontFamily || defTheme.tokens.timerFontFamily)
+            }
+          : defTheme.tokens
     },
     layout:
       input.layout && typeof input.layout === 'object'
@@ -698,6 +748,9 @@ function generateStandaloneAppFiles(config, appDir) {
     '  </div>\n' +
     '  <script>window.__STANDALONE_CONFIG__ = ' +
     JSON.stringify(config) +
+    ';</script>\n' +
+    '  <script>window.__THEME_PRESETS__ = ' +
+    JSON.stringify(THEME_PRESETS) +
     ';</script>\n' +
     '  <script src="js/toast.js"></script>\n' +
     '  <script src="js/audio.js"></script>\n' +

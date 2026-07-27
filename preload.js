@@ -13,6 +13,7 @@ function slugify(name) {
 
 contextBridge.exposeInMainWorld('electronAPI', {
   loadConfig: () => ipcRenderer.invoke('load-config'),
+  resolvePreset: (preset, colorMode) => ipcRenderer.invoke('resolve-preset', preset, colorMode),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getTimerBaseSize: () => ipcRenderer.invoke('get-timer-base-size'),
   getLatestChangelog: () => ipcRenderer.invoke('get-latest-changelog'),

@@ -791,3 +791,254 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================================
+   风格方向预设覆盖规则
+   通过在 .timer-shell / #timerPreview 上设置 data-preset-active="<preset>"
+   触发对应方向的视觉覆盖。classic 不匹配任何规则，渲染与历史完全一致。
+   ========================================================================= */
+
+/* === 阴影层级（各方向通用，按 shadowLevel 取值） === */
+[data-preset-active="broadcast"] .control-panel {
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+}
+[data-preset-active="restrained"] .control-panel {
+  box-shadow: none;
+}
+[data-preset-active="vibrant"] .control-panel {
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    0 16px 48px rgba(0, 0, 0, 0.1);
+}
+
+/* ===================== 广播竞技风 broadcast ===================== */
+[data-preset-active="broadcast"] .control-panel {
+  border-radius: 4px;
+  gap: 6px;
+}
+[data-preset-active="broadcast"] .control-group {
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+}
+[data-preset-active="broadcast"] .control-panel button {
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-weight: 700;
+}
+[data-preset-active="broadcast"] #startBtn {
+  border-radius: 999px;
+}
+[data-preset-active="broadcast"] .timer-progress {
+  height: 5px;
+  border-radius: 3px;
+}
+[data-preset-active="broadcast"] .timer-progress-bar {
+  border-radius: 3px;
+  background: var(--accent-negative);
+}
+[data-preset-active="broadcast"] .timer-progress-bar.urgent {
+  background: linear-gradient(90deg, #f39c12, #e74c3c);
+}
+[data-preset-active="broadcast"] .timer-progress-bar.critical {
+  background: #e74c3c;
+}
+[data-preset-active="broadcast"] .segment-name {
+  font-weight: 900;
+}
+[data-preset-active="broadcast"] .single-timer,
+[data-preset-active="broadcast"] .dual-time {
+  font-weight: 900;
+}
+[data-preset-active="broadcast"] .event-name {
+  font-weight: 700;
+}
+
+/* ===================== 专业克制风 restrained ===================== */
+[data-preset-active="restrained"] .top-band {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+[data-preset-active="restrained"] .top-band::before {
+  display: none;
+}
+[data-preset-active="restrained"] .control-panel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+[data-preset-active="restrained"] .control-panel:hover {
+  background: transparent;
+  box-shadow: none;
+}
+[data-preset-active="restrained"] .control-group {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+[data-preset-active="restrained"] .control-panel button {
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  padding: 6px 12px;
+  font-weight: 600;
+}
+[data-preset-active="restrained"] .control-panel button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: none;
+}
+[data-preset-active="restrained"] #startBtn {
+  background: var(--accent-negative);
+  border-radius: 2px;
+  box-shadow: none;
+}
+[data-preset-active="restrained"] #startBtn:hover {
+  filter: brightness(1.1);
+  transform: none;
+  box-shadow: none;
+}
+[data-preset-active="restrained"] .timer-progress {
+  height: 2px;
+  background: transparent;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  overflow: visible;
+}
+[data-preset-active="restrained"] .timer-progress-bar {
+  background: var(--accent-negative);
+  border-radius: 0;
+}
+[data-preset-active="restrained"] .timer-progress-bar.urgent,
+[data-preset-active="restrained"] .timer-progress-bar.critical {
+  background: var(--accent-affirmative);
+  animation: none;
+}
+[data-preset-active="restrained"] .segment-name {
+  font-weight: 600;
+  font-family: Georgia, 'Source Han Serif SC', 'Noto Serif SC', serif;
+}
+[data-preset-active="restrained"] .single-timer,
+[data-preset-active="restrained"] .dual-time {
+  font-weight: 500;
+}
+[data-preset-active="restrained"] .event-name {
+  font-weight: 600;
+}
+[data-preset-active="restrained"] .team-label,
+[data-preset-active="restrained"] .side-label,
+[data-preset-active="restrained"] .dual-label {
+  text-transform: none;
+  letter-spacing: 1px;
+  font-family: var(--font-mono);
+}
+/* 克制风：禁用所有动效 */
+[data-preset-active="restrained"] *,
+[data-preset-active="restrained"] *::before,
+[data-preset-active="restrained"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* ===================== 活力校园风 vibrant ===================== */
+[data-preset-active="vibrant"] .top-band {
+  border-bottom: none;
+  border-radius: 0 0 20px 20px;
+}
+[data-preset-active="vibrant"] .top-band::before {
+  display: none;
+}
+[data-preset-active="vibrant"] .control-panel {
+  border-radius: 20px;
+  padding: 10px 14px;
+  gap: 8px;
+}
+[data-preset-active="vibrant"] .control-group {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0 6px;
+}
+[data-preset-active="vibrant"] .control-panel button {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+[data-preset-active="vibrant"] .control-panel button .btn-label {
+  font-size: 0;
+}
+[data-preset-active="vibrant"] .control-panel button .btn-label::before {
+  font-size: 16px;
+}
+[data-preset-active="vibrant"] .control-panel button .btn-key {
+  display: none;
+}
+[data-preset-active="vibrant"] #startBtn {
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+}
+[data-preset-active="vibrant"] #startBtn .btn-label {
+  font-size: 0;
+}
+[data-preset-active="vibrant"] #startBtn .btn-label::before {
+  content: '▶';
+  font-size: 18px;
+}
+[data-preset-active="vibrant"] .control-panel button:hover {
+  transform: scale(1.08);
+}
+[data-preset-active="vibrant"] .control-panel button:active {
+  transform: scale(0.9);
+}
+[data-preset-active="vibrant"] .timer-progress {
+  height: 12px;
+  border-radius: 6px;
+}
+[data-preset-active="vibrant"] .timer-progress-bar {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--accent-affirmative), var(--accent-negative));
+}
+[data-preset-active="vibrant"] .timer-progress-bar.urgent {
+  background: linear-gradient(90deg, #f39c12, #e74c3c);
+}
+[data-preset-active="vibrant"] .timer-progress-bar.critical {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+[data-preset-active="vibrant"] .segment-name {
+  font-weight: 800;
+}
+[data-preset-active="vibrant"] .single-timer,
+[data-preset-active="vibrant"] .dual-time {
+  font-weight: 900;
+}
+[data-preset-active="vibrant"] .event-name {
+  font-weight: 700;
+}
+[data-preset-active="vibrant"] .team-label,
+[data-preset-active="vibrant"] .side-label,
+[data-preset-active="vibrant"] .dual-label {
+  text-transform: none;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+/* === 亮色模式微调：亮底下控制面板背景加深以保证可读性 === */
+[data-preset-active="broadcast"][data-color-mode="light"] .control-panel,
+[data-preset-active="vibrant"][data-color-mode="light"] .control-panel {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #1a1d24;
+}
+[data-preset-active="restrained"][data-color-mode="light"] .control-panel {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+[data-preset-active="broadcast"][data-color-mode="light"] .control-panel button,
+[data-preset-active="vibrant"][data-color-mode="light"] .control-panel button {
+  color: #1a1d24;
+}
+[data-preset-active="broadcast"][data-color-mode="light"] .control-group,
+[data-preset-active="vibrant"][data-color-mode="light"] .control-group {
+  border-right-color: rgba(0, 0, 0, 0.08);
+}

@@ -116,6 +116,12 @@ function cacheDom() {
   dom.statusBarToolbarClose = document.getElementById('statusBarToolbarClose');
   dom.bgToolbarClose = document.getElementById('bgToolbarClose');
   dom.previewCustomFontFace = document.getElementById('preview-custom-font-face');
+  dom.themeSwitcher = document.getElementById('themeSwitcher');
+  dom.themePresetBtn = document.getElementById('themePresetBtn');
+  dom.themePresetLabel = document.getElementById('themePresetLabel');
+  dom.themeDropdown = document.getElementById('themeDropdown');
+  dom.themeColorModeBtn = document.getElementById('themeColorModeBtn');
+  dom.themeColorModeLabel = document.getElementById('themeColorModeLabel');
 }
 
 function renderFonts() {
@@ -262,10 +268,24 @@ function applyBackgroundToPreview(theme = {}) {
   }
 }
 
-function applyThemeToPreview(theme = {}) {
+async function applyThemeToPreview(theme = {}) {
   const preview = dom.timerPreview;
   if (!preview) return;
-  const colors = theme.colors || {};
+
+  // 预设解析：通过 IPC 异步 resolvePreset 得到当前方向的色彩与状态栏
+  const preset = theme.preset || 'classic';
+  const colorMode = theme.colorMode || 'dark';
+  let colors = theme.colors || {};
+  let backgroundColor = theme.backgroundColor;
+  let statusBar = theme.statusBar;
+  if (window.electronAPI?.resolvePreset) {
+    const resolved = await window.electronAPI.resolvePreset(preset, colorMode);
+    if (resolved) {
+      colors = { ...resolved.colors, ...theme.colors };
+      backgroundColor = theme.backgroundColor || resolved.backgroundColor;
+      statusBar = { ...resolved.statusBar, ...theme.statusBar };
+    }
+  }
   const root = preview;
 
   root.style.setProperty('--accent-affirmative', colors.affirmative || '#e74c3c');
@@ -273,12 +293,16 @@ function applyThemeToPreview(theme = {}) {
   root.style.setProperty('--accent-neutral', colors.neutral || '#ffffff');
   root.style.setProperty('--accent-title', colors.title || '#5dade2');
   root.style.setProperty('--text-color', colors.text || '#f0f2f5');
-  root.style.setProperty('--bg-color', theme.backgroundColor || '#0b0e14');
+  root.style.setProperty('--bg-color', backgroundColor || '#0b0e14');
   root.style.setProperty('--font-family', theme.fontFamily || 'system-ui');
   root.style.setProperty('--font-scale', theme.fontSizeScale || 1);
 
-  applyBackgroundToPreview(theme);
-  applyStatusBarToPreview(theme.statusBar || defaultStatusBar());
+  // 在预览根上标记当前预设与色彩模式，触发 timer.css 的方向覆盖规则
+  root.setAttribute('data-preset-active', preset);
+  root.setAttribute('data-color-mode', colorMode);
+
+  applyBackgroundToPreview({ ...theme, backgroundColor });
+  applyStatusBarToPreview(statusBar || defaultStatusBar());
   applyLayoutToPreview(currentConfig?.layout || defaultLayout());
   applyCustomFontToPreview(theme);
 }
@@ -524,6 +548,85 @@ function fillEditorUI(config) {
   renderSegmentNav();
   renderSchedule(currentConfig.schedule);
   updatePreviewSegmentSelect();
+  initThemeSwitcher();
+}
+
+// ==================== 主题风格切换器 ====================
+const PRESET_LABELS = {
+  classic: '经典',
+  broadcast: '广播竞技',
+  restrained: '专业克制',
+  vibrant: '活力校园'
+};
+
+function initThemeSwitcher() {
+  if (!dom.themeSwitcher) return;
+  const theme = currentConfig?.theme || {};
+  const preset = theme.preset || 'classic';
+  const colorMode = theme.colorMode || 'dark';
+  updateSwitcherUI(preset, colorMode);
+
+  dom.themePresetBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = dom.themeDropdown.style.display !== 'none';
+    dom.themeDropdown.style.display = isVisible ? 'none' : 'block';
+  });
+
+  document.addEventListener('click', () => {
+    dom.themeDropdown.style.display = 'none';
+  });
+  dom.themeDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+  dom.themeDropdown.querySelectorAll('.theme-option[data-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const newPreset = btn.getAttribute('data-preset');
+      const currentMode = currentConfig?.theme?.colorMode || 'dark';
+      switchPreset(newPreset, currentMode);
+    });
+  });
+
+  dom.themeColorModeBtn.addEventListener('click', () => {
+    const newMode = (currentConfig?.theme?.colorMode || 'dark') === 'dark' ? 'light' : 'dark';
+    const currentPreset = currentConfig?.theme?.preset || 'classic';
+    switchPreset(currentPreset, newMode);
+  });
+}
+
+async function switchPreset(preset, colorMode) {
+  const resolved = window.electronAPI?.resolvePreset ? await window.electronAPI.resolvePreset(preset, colorMode) : null;
+  if (!resolved) return;
+
+  if (!currentConfig) currentConfig = {};
+  if (!currentConfig.theme) currentConfig.theme = {};
+  currentConfig.theme.preset = preset;
+  currentConfig.theme.colorMode = colorMode;
+  currentConfig.theme.colors = { ...resolved.colors };
+  currentConfig.theme.backgroundColor = resolved.backgroundColor;
+  if (!currentConfig.theme.statusBar) currentConfig.theme.statusBar = {};
+  currentConfig.theme.statusBar.background = resolved.statusBar.background;
+  currentConfig.theme.statusBar.color = resolved.statusBar.color;
+  currentConfig.theme.tokens = resolved.tokens;
+
+  applyThemeToPreview(currentConfig.theme);
+  updateSwitcherUI(preset, colorMode);
+
+  // 同步背景工具栏色值显示
+  if (dom.toolbarBgColor) dom.toolbarBgColor.value = resolved.backgroundColor;
+}
+
+function updateSwitcherUI(preset, colorMode) {
+  if (dom.themePresetLabel) {
+    dom.themePresetLabel.textContent = PRESET_LABELS[preset] || '经典';
+  }
+  if (dom.themeColorModeLabel) {
+    dom.themeColorModeLabel.textContent = colorMode === 'dark' ? '暗色模式' : '亮色模式';
+  }
+  if (dom.themeDropdown) {
+    dom.themeDropdown.querySelectorAll('.theme-option[data-preset]').forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-preset') === preset);
+    });
+    dom.themeDropdown.style.display = 'none';
+  }
 }
 
 async function loadConfig() {

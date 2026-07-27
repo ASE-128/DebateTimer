@@ -41,6 +41,36 @@
       <header class="topbar">
         <h1>辩论赛计时器 · 编辑配置</h1>
         <div class="actions topbar-actions">
+          <div class="theme-switcher" id="themeSwitcher">
+            <button id="themePresetBtn" class="btn" type="button" title="主题风格">
+              <span id="themePresetLabel">经典</span>
+              <span class="theme-arrow">▾</span>
+            </button>
+            <div class="theme-dropdown" id="themeDropdown" style="display:none;">
+              <div class="theme-dropdown-section">
+                <div class="theme-dropdown-title">风格方向</div>
+                <button class="theme-option active" type="button" data-preset="classic">
+                  <span class="theme-option-name">经典</span>
+                </button>
+                <button class="theme-option" type="button" data-preset="broadcast">
+                  <span class="theme-option-name">广播竞技</span>
+                </button>
+                <button class="theme-option" type="button" data-preset="restrained">
+                  <span class="theme-option-name">专业克制</span>
+                </button>
+                <button class="theme-option" type="button" data-preset="vibrant">
+                  <span class="theme-option-name">活力校园</span>
+                </button>
+              </div>
+              <div class="theme-dropdown-divider"></div>
+              <div class="theme-dropdown-section">
+                <div class="theme-dropdown-title">色彩模式</div>
+                <button class="theme-option" type="button" id="themeColorModeBtn">
+                  <span class="theme-option-name" id="themeColorModeLabel">暗色模式</span>
+                </button>
+              </div>
+            </div>
+          </div>
           <button id="saveBtn" class="btn btn-accent">保存配置</button>
           <button id="resetBtn" class="btn">重置默认</button>
           <button id="importConfigBtn" class="btn">导入配置</button>
