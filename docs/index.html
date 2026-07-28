@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="author" content="Chen Yu" />
   <title>辩论赛计时器</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="styles/variables.css" />
   <link rel="stylesheet" href="styles/editor.css" />
   <link rel="stylesheet" href="styles/timer.css" />
@@ -433,37 +434,7 @@
       // 默认显示编辑器视图
       showView('editor');
 
-      // 编辑器面板切换 (在 editor-app.js 中已声明了 editorTabs，
-      // 但以防 tab 事件在 SPA 中不触发，加一个兜底初始化)
-      document.querySelectorAll('.editor-tab').forEach(function (tab) {
-        tab.addEventListener('click', function () {
-          var panel = this.getAttribute('data-panel');
-          document.querySelectorAll('.editor-tab').forEach(function (t) { t.classList.remove('active'); });
-          this.classList.add('active');
-          document.querySelectorAll('.editor-panel').forEach(function (p) { p.classList.remove('active'); });
-          var target = document.getElementById('panel-' + panel);
-          if (target) target.classList.add('active');
-          // 同步侧边栏
-          document.querySelectorAll('.editor-nav-item').forEach(function (n) {
-            n.classList.toggle('active', n.getAttribute('data-panel') === panel);
-          });
-        });
-      });
-
-      // 编辑器侧边栏导航
-      document.querySelectorAll('.editor-nav-item').forEach(function (item) {
-        item.addEventListener('click', function () {
-          var panel = this.getAttribute('data-panel');
-          document.querySelectorAll('.editor-tab').forEach(function (t) {
-            t.classList.toggle('active', t.getAttribute('data-panel') === panel);
-          });
-          document.querySelectorAll('.editor-panel').forEach(function (p) { p.classList.remove('active'); });
-          var target = document.getElementById('panel-' + panel);
-          if (target) target.classList.add('active');
-          document.querySelectorAll('.editor-nav-item').forEach(function (n) { n.classList.remove('active'); });
-          this.classList.add('active');
-        });
-      });
+      // 面板切换由 editor-app.js 中的 switchPanel() 处理，无需重复绑定。
 
       window.DataService.log('info', 'SPA 初始化完成');
     })();
