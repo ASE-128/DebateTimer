@@ -70,7 +70,8 @@ function applyTheme(theme = config.theme || {}) {
     offsetY: 0
   };
 
-  const timerShell = document.querySelector('.timer-shell');
+  // SPA 中优先选取 #timer-view 内的计时器 shell，避免误操作编辑器预览
+  const timerShell = document.querySelector('#timer-view .timer-shell') || document.querySelector('.timer-shell');
   const bgLayer = timerShell ? timerShell.querySelector('.bg-layer') : null;
 
   // 在 .timer-shell 上标记当前预设与色彩模式，触发 timer.css 的方向覆盖规则
@@ -80,7 +81,10 @@ function applyTheme(theme = config.theme || {}) {
   }
 
   // 清除 body 和 .timer-shell 的背景，由独立背景层渲染
-  document.body.style.background = 'transparent';
+  // 注：SPA 模式下仅当 .timer-shell 不在编辑器预览中时才清 body 背景
+  if (timerShell && !timerShell.closest('#editor-view')) {
+    document.body.style.background = 'transparent';
+  }
   if (timerShell) {
     timerShell.style.background = 'transparent';
   }
@@ -115,7 +119,7 @@ function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--font-scale', theme.fontSizeScale || 1);
 
   // 应用状态栏设置
-  const topBand = document.querySelector('.top-band');
+  const topBand = document.querySelector('#timer-view .top-band') || document.querySelector('.top-band');
   if (topBand && resolvedStatusBar) {
     const sb = resolvedStatusBar;
     if (sb.height) topBand.style.height = `${sb.height}px`;

@@ -401,19 +401,39 @@
     (function () {
       'use strict';
 
+      // 重置 timer 污染到 document.documentElement / body 的全局样式
+      function resetTimerStyles() {
+        var cssVars = [
+          '--accent-affirmative', '--accent-negative', '--accent-neutral',
+          '--accent-title', '--text-color', '--bg-color',
+          '--font-family', '--font-scale', '--text-font-family',
+          '--text-font-family'
+        ];
+        cssVars.forEach(function (v) {
+          document.documentElement.style.removeProperty(v);
+        });
+        document.body.style.background = '';
+        document.body.style.fontFamily = '';
+      }
+
+      // 页面加载后立即清除 timer-app.js 启动时设置的全局样式
+      resetTimerStyles();
+
       function showView(name) {
-        document.body.classList.remove('spa-editor-active', 'spa-timer-active');
         if (name === 'timer') {
+          document.body.classList.remove('spa-editor-active');
           document.body.classList.add('spa-timer-active');
         } else {
+          document.body.classList.remove('spa-timer-active');
           document.body.classList.add('spa-editor-active');
+          // 回到编辑器时清除 timer 的全局样式污染
+          resetTimerStyles();
         }
       }
 
       // 初始化 DataService 视图回调
       window.DataService.init({
         onOpenTimer: async function () {
-          // 自动保存编辑器当前配置
           if (typeof gatherConfig === 'function') {
             try {
               var config = gatherConfig();
@@ -434,7 +454,7 @@
       // 默认显示编辑器视图
       showView('editor');
 
-      // 面板切换由 editor-app.js 中的 switchPanel() 处理，无需重复绑定。
+      // 面板切换由 editor-app.js 中的 switchPanel() 处理
 
       window.DataService.log('info', 'SPA 初始化完成');
     })();
