@@ -210,6 +210,24 @@ class TimerEngine {
     }
   }
 
+  startSide(side) {
+    if (this.segments[this.currentIndex]?.type !== 'dual_debate') return;
+    if (side !== 'affirmative' && side !== 'negative') return;
+    if (side === 'affirmative' && this.remaining === 0) return;
+    if (side === 'negative' && this.remainingOpposite === 0) return;
+
+    this.cancelAnimationFrame();
+    this.activeSide = side;
+    this.lastTimestamp = performance.now();
+    this.isRunning = true;
+    this.isPaused = false;
+    this.lastRenderedSecond = -1;
+    this.alertState = { last30: false, last5: false, lastEnd: false };
+    this.render();
+    this.scheduleTick();
+    log('info', `强制切换发言方 → ${this.activeSide === 'affirmative' ? '正方' : '反方'}`);
+  }
+
   nextSegment() {
     const nextIndex = (this.currentIndex + 1) % this.segments.length;
     this.currentIndex = nextIndex;

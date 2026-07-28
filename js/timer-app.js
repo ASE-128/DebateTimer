@@ -28,6 +28,9 @@ const affirmativeTimeEl = document.getElementById('affirmativeTime');
 const negativeTimeEl = document.getElementById('negativeTime');
 const timerProgressEl = document.getElementById('timerProgress');
 const timerProgressBarEl = document.getElementById('timerProgressBar');
+const duelSideGroupEl = document.getElementById('duelSideGroup');
+const duelSideAffirmativeBtnEl = document.getElementById('duelSideAffirmativeBtn');
+const duelSideNegativeBtnEl = document.getElementById('duelSideNegativeBtn');
 
 function formatTime(seconds) {
   const total = Math.max(0, Math.floor(seconds));
@@ -177,6 +180,7 @@ let lastRenderCache = {
   eventName: null,
   segmentName: null,
   isNoTimer: null,
+  isDual: null,
   activeSide: null,
   segmentType: null,
   singleTimerText: null,
@@ -232,7 +236,8 @@ function applyCustomFont(theme) {
 
 function updateControlLabel(state) {
   const btnLabel = startBtnEl.querySelector('.btn-label');
-  const label = state.isRunning ? '暂停' : '启动';
+  const isDual = state.currentSegment?.type === 'dual_debate';
+  const label = state.isRunning ? (isDual ? '切换' : '暂停') : '启动';
   if (!btnLabel) {
     queueRenderWrite(() => {
       startBtnEl.textContent = label;
@@ -287,9 +292,17 @@ function updateProgress(state) {
   }
   const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
   const progressClass = remaining <= 5 ? 'critical' : remaining <= 30 ? 'urgent' : null;
+  // 根据发言方设置进度条颜色
+  const sideColor =
+    state.activeSide === 'affirmative'
+      ? 'var(--accent-affirmative)'
+      : state.activeSide === 'negative'
+        ? 'var(--accent-negative)'
+        : 'var(--accent-neutral)';
   queueRenderWrite(() => {
     timerProgressEl.style.display = '';
     timerProgressBarEl.style.width = `${pct}%`;
+    timerProgressBarEl.style.setProperty('--progress-bar-bg', sideColor);
     timerProgressBarEl.classList.remove('urgent', 'critical');
     if (progressClass) timerProgressBarEl.classList.add(progressClass);
   });
@@ -398,6 +411,23 @@ function render(state) {
   updateControlLabel(state);
   updateTeamDisplay(state);
   updateProgress(state);
+
+  // 对辩工具栏显示/隐藏与激活状态
+  const isDual = segment.type === 'dual_debate';
+  if (lastRenderCache.isDual !== isDual) {
+    queueRenderWrite(() => {
+      if (duelSideGroupEl) duelSideGroupEl.style.display = isDual ? '' : 'none';
+    });
+    lastRenderCache.isDual = isDual;
+  }
+  if (isDual && duelSideAffirmativeBtnEl && duelSideNegativeBtnEl) {
+    const affActive = state.activeSide === 'affirmative' && engine?.isRunning;
+    const negActive = state.activeSide === 'negative' && engine?.isRunning;
+    queueRenderWrite(() => {
+      duelSideAffirmativeBtnEl.classList.toggle('active', affActive);
+      duelSideNegativeBtnEl.classList.toggle('active', negActive);
+    });
+  }
 
   if (isNoTimer) {
     if (lastRenderCache.segmentType !== 'none') {
@@ -618,8 +648,14 @@ function bindShortcuts() {
     const key = event.key.toLowerCase();
     if (event.code === 'Space') {
       event.preventDefault();
-      log('debug', '快捷键：Space 切换计时');
-      engine.toggle();
+      const isDual = config?.segments?.[engine?.currentIndex]?.type === 'dual_debate';
+      if (isDual && engine?.isRunning) {
+        log('debug', '快捷键：Space 切换发言方');
+        engine.switchSide();
+      } else {
+        log('debug', '快捷键：Space 切换计时');
+        engine.toggle();
+      }
     }
     if (key === 'p') {
       log('debug', '快捷键：P 暂停');
@@ -658,6 +694,20 @@ function bindShortcuts() {
       log('debug', '快捷键：C 切换持方');
       engine.switchSide();
     }
+    if (key === ',') {
+      const isDualComma = config?.segments?.[engine?.currentIndex]?.type === 'dual_debate';
+      if (isDualComma && engine) {
+        log('debug', '快捷键：, 切换至正方');
+        engine.startSide('affirmative');
+      }
+    }
+    if (key === '.') {
+      const isDualPeriod = config?.segments?.[engine?.currentIndex]?.type === 'dual_debate';
+      if (isDualPeriod && engine) {
+        log('debug', '快捷键：. 切换至反方');
+        engine.startSide('negative');
+      }
+    }
   });
 }
 
@@ -669,9 +719,15 @@ function bindControlButtons() {
     if (!engine) return;
     const wasRunning = engine.isRunning;
     const isDual = config?.segments?.[engine.currentIndex]?.type === 'dual_debate';
-    log('info', `点击启动按钮，${isDual ? '双边模式' : '单边模式'}，${wasRunning ? '暂停' : '启动'}`);
-    engine.toggle();
-    syncUi(engine.isRunning ? '计时已开始' : '计时已暂停');
+    if (isDual && wasRunning) {
+      log('info', '双边模式：切换发言方');
+      engine.switchSide();
+      syncUi('已切换发言方');
+    } else {
+      log('info', `点击启动按钮，${isDual ? '双边模式' : '单边模式'}，${wasRunning ? '暂停' : '启动'}`);
+      engine.toggle();
+      syncUi(engine.isRunning ? '计时已开始' : '计时已暂停');
+    }
     startBtnEl.classList.add('pulse');
     setTimeout(() => startBtnEl.classList.remove('pulse'), 180);
   });
@@ -753,6 +809,28 @@ function bindControlButtons() {
     closeSetTimeModal();
     syncUi('已设置剩余时间');
   });
+
+  // 对辩侧方按钮
+  if (duelSideAffirmativeBtnEl) {
+    duelSideAffirmativeBtnEl.addEventListener('click', () => {
+      if (!engine) return;
+      log('info', '对辩：强制切换至正方');
+      engine.startSide('affirmative');
+      syncUi('正方发言');
+      duelSideAffirmativeBtnEl.classList.add('pulse');
+      setTimeout(() => duelSideAffirmativeBtnEl.classList.remove('pulse'), 180);
+    });
+  }
+  if (duelSideNegativeBtnEl) {
+    duelSideNegativeBtnEl.addEventListener('click', () => {
+      if (!engine) return;
+      log('info', '对辩：强制切换至反方');
+      engine.startSide('negative');
+      syncUi('反方发言');
+      duelSideNegativeBtnEl.classList.add('pulse');
+      setTimeout(() => duelSideNegativeBtnEl.classList.remove('pulse'), 180);
+    });
+  }
 }
 
 function openJumpModal() {

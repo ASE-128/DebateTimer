@@ -264,16 +264,16 @@ body {
   height: 100%;
   border-radius: 2px;
   transition: width 1000ms linear, background-color 300ms ease;
-  background: linear-gradient(90deg, var(--accent-negative), var(--accent-title));
+  background: var(--progress-bar-bg, var(--accent-negative));
 }
 
 .timer-progress-bar.urgent {
-  background: linear-gradient(90deg, #f39c12, #e74c3c);
+  background: linear-gradient(90deg, #f39c12, #e74c3c) !important;
   animation: pulseGlow 1s ease-in-out infinite;
 }
 
 .timer-progress-bar.critical {
-  background: #e74c3c;
+  background: #e74c3c !important;
   animation: pulseGlow 0.5s ease-in-out infinite;
 }
 
@@ -382,6 +382,32 @@ body {
   0% { transform: scale(1); }
   50% { transform: scale(0.95); }
   100% { transform: scale(1); }
+}
+
+/* === 对辩侧方按钮 === */
+.duel-side-group button:first-child {
+  border-color: var(--accent-affirmative);
+  color: var(--accent-affirmative);
+}
+.duel-side-group button:first-child:hover {
+  background: rgba(231, 76, 60, 0.12);
+}
+.duel-side-group button:first-child.active {
+  background: var(--accent-affirmative);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(231, 76, 60, 0.4);
+}
+.duel-side-group button:last-child {
+  border-color: var(--accent-negative);
+  color: var(--accent-negative);
+}
+.duel-side-group button:last-child:hover {
+  background: rgba(52, 152, 219, 0.12);
+}
+.duel-side-group button:last-child.active {
+  background: var(--accent-negative);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(52, 152, 219, 0.4);
 }
 
 .control-panel button .btn-key {
@@ -834,13 +860,13 @@ body {
 }
 [data-preset-active="broadcast"] .timer-progress-bar {
   border-radius: 3px;
-  background: var(--accent-negative);
+  background: var(--progress-bar-bg, var(--accent-negative));
 }
 [data-preset-active="broadcast"] .timer-progress-bar.urgent {
-  background: linear-gradient(90deg, #f39c12, #e74c3c);
+  background: linear-gradient(90deg, #f39c12, #e74c3c) !important;
 }
 [data-preset-active="broadcast"] .timer-progress-bar.critical {
-  background: #e74c3c;
+  background: #e74c3c !important;
 }
 [data-preset-active="broadcast"] .segment-name {
   font-weight: 900;
@@ -904,12 +930,12 @@ body {
   overflow: visible;
 }
 [data-preset-active="restrained"] .timer-progress-bar {
-  background: var(--accent-negative);
+  background: var(--progress-bar-bg, var(--accent-negative));
   border-radius: 0;
 }
 [data-preset-active="restrained"] .timer-progress-bar.urgent,
 [data-preset-active="restrained"] .timer-progress-bar.critical {
-  background: var(--accent-affirmative);
+  background: var(--accent-affirmative) !important;
   animation: none;
 }
 [data-preset-active="restrained"] .segment-name {
@@ -998,13 +1024,13 @@ body {
 }
 [data-preset-active="vibrant"] .timer-progress-bar {
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--accent-affirmative), var(--accent-negative));
+  background: var(--progress-bar-bg, linear-gradient(90deg, var(--accent-affirmative), var(--accent-negative)));
 }
 [data-preset-active="vibrant"] .timer-progress-bar.urgent {
-  background: linear-gradient(90deg, #f39c12, #e74c3c);
+  background: linear-gradient(90deg, #f39c12, #e74c3c) !important;
 }
 [data-preset-active="vibrant"] .timer-progress-bar.critical {
-  background: linear-gradient(90deg, #e74c3c, #c0392b);
+  background: linear-gradient(90deg, #e74c3c, #c0392b) !important;
 }
 [data-preset-active="vibrant"] .segment-name {
   font-weight: 800;

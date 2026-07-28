@@ -268,24 +268,16 @@ function applyBackgroundToPreview(theme = {}) {
   }
 }
 
-async function applyThemeToPreview(theme = {}) {
+function applyThemeToPreview(theme = {}) {
   const preview = dom.timerPreview;
   if (!preview) return;
 
-  // 预设解析：通过 IPC 异步 resolvePreset 得到当前方向的色彩与状态栏
   const preset = theme.preset || 'classic';
   const colorMode = theme.colorMode || 'dark';
-  let colors = theme.colors || {};
-  let backgroundColor = theme.backgroundColor;
-  let statusBar = theme.statusBar;
-  if (window.electronAPI?.resolvePreset) {
-    const resolved = await window.electronAPI.resolvePreset(preset, colorMode);
-    if (resolved) {
-      colors = { ...resolved.colors, ...theme.colors };
-      backgroundColor = theme.backgroundColor || resolved.backgroundColor;
-      statusBar = { ...resolved.statusBar, ...theme.statusBar };
-    }
-  }
+  const colors = theme.colors || {};
+  const backgroundColor = theme.backgroundColor;
+  const statusBar = theme.statusBar;
+
   const root = preview;
 
   root.style.setProperty('--accent-affirmative', colors.affirmative || '#e74c3c');
@@ -486,6 +478,28 @@ function updatePreviewForSegment(index) {
 
   if (progressBar) {
     progressBar.style.width = isNoTimer ? '0%' : '60%';
+    progressBar.style.setProperty(
+      '--progress-bar-bg',
+      activeSide === 'affirmative'
+        ? 'var(--accent-affirmative)'
+        : activeSide === 'negative'
+          ? 'var(--accent-negative)'
+          : 'var(--accent-neutral)'
+    );
+  }
+
+  // 对辩预览工具栏
+  const duelGroup = document.getElementById('previewDuelSideGroup');
+  const duelAffBtn = document.getElementById('previewDuelSideAffirmativeBtn');
+  const duelNegBtn = document.getElementById('previewDuelSideNegativeBtn');
+  if (duelGroup) {
+    duelGroup.style.display = isDual ? '' : 'none';
+  }
+  if (duelAffBtn) {
+    duelAffBtn.classList.toggle('active', isDual && activeSide === 'affirmative');
+  }
+  if (duelNegBtn) {
+    duelNegBtn.classList.toggle('active', isDual && activeSide === 'negative');
   }
 
   const select = dom.previewSegmentSelect;
