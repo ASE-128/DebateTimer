@@ -1,15 +1,296 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="author" content="DebateTimer">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="author" content="Chen Yu" />
   <title>辩论赛计时器</title>
-  <link rel="stylesheet" href="styles/variables.css">
-  <link rel="stylesheet" href="styles/timer.css">
+  <link rel="stylesheet" href="styles/variables.css" />
+  <link rel="stylesheet" href="styles/editor.css" />
+  <link rel="stylesheet" href="styles/timer.css" />
+  <style>
+    /* SPA 视图切换 */
+    #timer-view { display: none; }
+    .spa-editor-active #editor-view { display: block; }
+    .spa-editor-active #timer-view { display: none; }
+    .spa-timer-active #editor-view { display: none; }
+    .spa-timer-active #timer-view { display: block; }
+
+    /* 编辑器子面板切换 */
+    .editor-panel { display: none; }
+    .editor-panel.active { display: block; }
+  </style>
 </head>
 <body>
-  <main class="timer-shell">
+  <!-- ==================== 编辑器视图 ==================== -->
+  <div id="editor-view">
+    <div id="migrationNotification" class="migration-notification" style="display:none;">
+      <div class="migration-notification-content">
+        <span class="migration-icon">&#8505;</span>
+        <span class="migration-text">检测到旧版配置，已自动迁移到 3.0 格式，原配置已备份为 <code id="migrationBackupPath">config.json.v2.bak</code></span>
+        <button id="migrationCloseBtn" class="btn">知道了</button>
+      </div>
+    </div>
+
+    <div id="updateNotification" class="update-notification" style="display:none;">
+      <div class="update-notification-content">
+        <div class="update-info">
+          <span class="update-icon">&#8593;</span>
+          <div class="update-text">
+            <strong>发现新版本 <span id="updateVersion"></span></strong>
+            <div id="updateChangelog" class="update-changelog">更新日志摘要</div>
+          </div>
+        </div>
+        <div class="update-actions">
+          <button id="updateDownloadBtn" class="btn btn-accent">立即更新</button>
+          <button id="updateRestartBtn" class="btn btn-accent" style="display:none;">立即重启</button>
+          <button id="updateLaterBtn" class="btn">稍后</button>
+          <button id="updateSkipBtn" class="btn">跳过此版本</button>
+        </div>
+      </div>
+      <div id="updateErrorText" class="update-error"></div>
+    </div>
+
+    <main class="app-shell">
+      <header class="topbar">
+        <h1>辩论赛计时器 <span class="topbar-subtitle">· 编辑配置</span></h1>
+        <div class="actions topbar-actions">
+          <div class="theme-switcher" id="themeSwitcher">
+            <button id="themePresetBtn" class="btn" type="button" title="主题风格">
+              <span id="themePresetLabel">经典</span>
+              <span class="theme-arrow">&#9662;</span>
+            </button>
+            <div class="theme-dropdown" id="themeDropdown" style="display:none;">
+              <div class="theme-dropdown-section">
+                <div class="theme-dropdown-title">风格方向</div>
+                <button class="theme-option active" type="button" data-preset="classic"><span class="theme-option-name">经典</span></button>
+                <button class="theme-option" type="button" data-preset="broadcast"><span class="theme-option-name">广播竞技</span></button>
+                <button class="theme-option" type="button" data-preset="restrained"><span class="theme-option-name">专业克制</span></button>
+                <button class="theme-option" type="button" data-preset="vibrant"><span class="theme-option-name">活力校园</span></button>
+              </div>
+              <div class="theme-dropdown-divider"></div>
+              <div class="theme-dropdown-section">
+                <div class="theme-dropdown-title">色彩模式</div>
+                <button class="theme-option" type="button" id="themeColorModeBtn"><span class="theme-option-name" id="themeColorModeLabel">暗色模式</span></button>
+              </div>
+            </div>
+          </div>
+          <button id="saveBtn" class="btn btn-accent">保存配置</button>
+          <button id="resetBtn" class="btn">重置默认</button>
+          <button id="importConfigBtn" class="btn">导入配置</button>
+          <button id="exportConfigBtn" class="btn">导出配置</button>
+          <button id="loadTemplateBtn" class="btn">从模板新建</button>
+          <button id="saveTemplateBtn" class="btn">保存为模板</button>
+          <button id="exportTimerBtn" class="btn">导出独立计时器</button>
+          <button id="openTimerBtn" class="btn btn-accent">进入计时页</button>
+          <button id="aboutBtn" class="btn">关于</button>
+        </div>
+      </header>
+
+      <div class="editor-tabs">
+        <button class="editor-tab active" data-panel="editor">编辑界面</button>
+        <button class="editor-tab" data-panel="segments">环节管理</button>
+        <button class="editor-tab" data-panel="schedule">赛程管理</button>
+      </div>
+
+      <div class="editor-body">
+        <nav class="editor-sidebar" id="editorSidebar">
+          <div class="editor-nav-item active" data-panel="editor"><span>编辑界面</span></div>
+          <div class="editor-nav-item" data-panel="segments"><span>环节管理</span></div>
+          <div class="editor-nav-item" data-panel="schedule"><span>赛程管理</span></div>
+        </nav>
+
+        <div class="editor-content">
+          <div class="editor-panel active" id="panel-editor">
+            <div class="editor-preview-toolbar">
+              <button id="editBackgroundBtn" class="btn btn-accent">修改背景相关设置</button>
+              <div class="editor-preview-segment">
+                <label>预览环节<select id="previewSegmentSelect"></select></label>
+              </div>
+              <span class="editor-hint">提示：点击文本元素可编辑内容、字体、大小和颜色；拖动可调整位置</span>
+            </div>
+            <div class="editor-preview-wrapper" id="editorPreviewWrapper">
+              <div class="timer-shell" id="timerPreview">
+                <div class="bg-layer"></div>
+                <header class="top-band" id="previewTopBand">
+                  <div class="team affirmative">
+                    <span class="team-label">正方</span>
+                    <img id="previewAffirmativeLogo" class="team-logo" src="" alt="" />
+                    <strong class="team-name" id="previewAffirmativeTeamName" data-editable="text" data-layout-key="affirmativeTeamName">正方队</strong>
+                    <span class="team-topic" id="previewAffirmativeTopic" data-editable="text" data-layout-key="affirmativeTopic">正方辩题</span>
+                  </div>
+                  <div class="team negative">
+                    <span class="team-label">反方</span>
+                    <img id="previewNegativeLogo" class="team-logo" src="" alt="" />
+                    <strong class="team-name" id="previewNegativeTeamName" data-editable="text" data-layout-key="negativeTeamName">反方队</strong>
+                    <span class="team-topic" id="previewNegativeTopic" data-editable="text" data-layout-key="negativeTopic">反方辩题</span>
+                  </div>
+                  <div class="top-band-resize-handle" id="topBandResizeHandle"></div>
+                </header>
+                <section class="main-area" id="previewMainArea">
+                  <div class="event-name" id="previewEventName" data-editable="text" data-layout-key="eventName">赛事名称</div>
+                  <div class="segment-name" id="previewSegmentName" data-editable="text" data-layout-key="segmentName">中立计时</div>
+                  <div class="timer-display" id="previewTimerDisplay">
+                    <div class="single-timer neutral" id="previewSingleTimer">03:00</div>
+                    <div class="dual-timer" id="previewDualTimer" style="display: none;">
+                      <div class="dual-side affirmative"><span class="dual-label">正方</span><span class="dual-time" id="previewAffirmativeTime">03:00</span></div>
+                      <div class="dual-side negative"><span class="dual-label">反方</span><span class="dual-time" id="previewNegativeTime">03:00</span></div>
+                    </div>
+                    <div class="timer-progress" id="previewTimerProgress"><div class="timer-progress-bar" id="previewTimerProgressBar" style="width: 60%;"></div></div>
+                  </div>
+                  <div class="side-label neutral" id="previewSideLabel" data-editable="text" data-layout-key="sideLabel">中立计时中</div>
+                </section>
+                <footer class="watermark" id="previewWatermark" data-editable="text" data-layout-key="watermark">辩论计时器</footer>
+                <div class="design-by" id="previewDesignBy" data-editable="text" data-layout-key="designBy">&copy; Chen Yu 2026<br /> All rights reserved.</div>
+                <aside class="control-panel preview-control-panel" id="previewControlPanel">
+                  <div class="control-group">
+                    <button id="previewStartBtn" type="button"><span class="btn-label">启动</span><span class="btn-key">Space</span></button>
+                  </div>
+                  <div class="control-group duel-side-group" id="previewDuelSideGroup" style="display:none;">
+                    <button id="previewDuelSideAffirmativeBtn" type="button"><span class="btn-label">正方</span><span class="btn-key">,</span></button>
+                    <button id="previewDuelSideNegativeBtn" type="button"><span class="btn-label">反方</span><span class="btn-key">.</span></button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewStopBtn" type="button"><span class="btn-label">停止</span></button>
+                    <button id="previewResetBtn" type="button"><span class="btn-label">重置</span></button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewPrevBtn" type="button"><span class="btn-label">&#9664;</span></button>
+                    <button id="previewNextBtn" type="button"><span class="btn-label">&#9654;</span></button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewJumpBtn" type="button"><span class="btn-label">跳转</span></button>
+                    <button id="previewSetTimeBtn" type="button"><span class="btn-label">设时</span></button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewTest30Btn" type="button"><span class="btn-label">30s</span><span class="btn-key">Q</span></button>
+                    <button id="previewTest5Btn" type="button"><span class="btn-label">5s</span><span class="btn-key">W</span></button>
+                    <button id="previewTestEndBtn" type="button"><span class="btn-label">结束</span><span class="btn-key">E</span></button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewFullscreenBtn" type="button"><span class="btn-label">全屏</span><span class="btn-key">F</span></button>
+                    <button id="previewBackBtn" type="button"><span class="btn-label">返回</span><span class="btn-key">B</span></button>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </div>
+
+          <div class="editor-panel" id="panel-segments">
+            <div class="segments-layout">
+              <div class="segments-sidebar">
+                <h2>环节管理</h2>
+                <div class="segment-nav-section">
+                  <span class="segment-nav-label">导航（拖拽排序）</span>
+                  <div class="segment-nav" id="segmentNav"></div>
+                </div>
+                <div class="segment-action-bar">
+                  <button id="addNoneBtn" type="button">+ 无计时</button>
+                  <button id="addSpeechBtn" type="button">+ 陈词</button>
+                  <button id="addQuestionBtn" type="button">+ 质询</button>
+                  <button id="addNeutralBtn" type="button">+ 中立计时</button>
+                  <button id="addDebateBtn" type="button">+ 对辩</button>
+                  <button id="addFreeDebateBtn" type="button">+ 自由辩论</button>
+                </div>
+              </div>
+              <div class="segments-content">
+                <div id="segments"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="editor-panel" id="panel-schedule">
+            <div class="schedule-header">
+              <h2>赛程管理</h2>
+              <button id="addScheduleItemBtn" class="btn btn-accent" type="button">新增赛程</button>
+            </div>
+            <div id="scheduleList" class="schedule-list"></div>
+            <p class="schedule-hint">配置好的赛程会随配置一起导出到独立计时器，供赛前选择调用。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="design-by">&copy; Chen Yu 2026<br /> All rights reserved.</div>
+
+      <div id="textEditToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header"><span>文本编辑</span><button class="toolbar-close" id="textToolbarClose">&times;</button></div>
+        <div class="toolbar-body">
+          <label>内容<input id="toolbarTextContent" type="text" /></label>
+          <label>字体<select id="toolbarFontFamily"></select></label>
+          <label>字号(px)<input id="toolbarFontSize" type="number" min="8" max="200" /></label>
+          <label>颜色<input id="toolbarTextColor" type="color" /></label>
+        </div>
+      </div>
+
+      <div id="statusBarToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header"><span>状态栏设置</span><button class="toolbar-close" id="statusBarToolbarClose">&times;</button></div>
+        <div class="toolbar-body">
+          <label>背景颜色<input id="toolbarStatusBarColor" type="color" /></label>
+          <label>背景透明度<input id="toolbarStatusBarOpacity" type="range" min="0" max="100" /></label>
+          <label>渐变终点颜色<input id="toolbarStatusBarColor2" type="color" /></label>
+          <div class="toolbar-row"><label><input id="toolbarStatusBarGradient" type="checkbox" /> 使用渐变</label></div>
+        </div>
+      </div>
+
+      <div id="backgroundToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header"><span>背景设置</span><button class="toolbar-close" id="bgToolbarClose">&times;</button></div>
+        <div class="toolbar-body">
+          <label>背景类型<select id="toolbarBgType">
+            <option value="color">纯色</option>
+            <option value="gradient">渐变</option>
+            <option value="image">图片</option>
+          </select></label>
+          <div id="bgColorPanel"><label>背景色<input id="toolbarBgColor" type="color" /></label></div>
+          <div id="bgGradientPanel" style="display:none;">
+            <label>起始颜色<input id="toolbarBgGradientStart" type="color" /></label>
+            <label>结束颜色<input id="toolbarBgGradientEnd" type="color" /></label>
+            <label>角度<input id="toolbarBgGradientAngle" type="number" min="0" max="360" value="135" /></label>
+          </div>
+          <div id="bgImagePanel" style="display:none;">
+            <label>背景图片<input id="toolbarBgImage" type="file" accept="image/*" /></label>
+            <label>透明度<input id="toolbarBgImageOpacity" type="range" min="0" max="100" /></label>
+            <label>宽度缩放<input id="toolbarBgImageScaleX" type="range" min="10" max="500" step="10" value="100" /></label>
+            <label>高度缩放<input id="toolbarBgImageScaleY" type="range" min="10" max="500" step="10" value="100" /></label>
+            <label>X偏移<input id="toolbarBgImageOffsetX" type="range" min="-100" max="100" /></label>
+            <label>Y偏移<input id="toolbarBgImageOffsetY" type="range" min="-100" max="100" /></label>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div id="exportProgressOverlay" class="export-progress-overlay">
+      <div class="export-progress-box">
+        <h2>正在导出独立计时器</h2>
+        <div class="export-progress-bar-wrap"><div id="exportProgressBar" class="export-progress-bar"></div></div>
+        <p id="exportProgressText" class="export-progress-text">准备中...</p>
+      </div>
+    </div>
+
+    <div id="aboutOverlay" class="export-progress-overlay">
+      <div class="export-progress-box about-box">
+        <h2>关于 DebateTimer</h2>
+        <p id="aboutVersion" class="about-version">版本号：加载中...</p>
+        <p class="about-copyright">&copy; Chen Yu 2026 · All rights reserved.</p>
+        <button id="aboutCloseBtn" class="btn btn-accent">关闭</button>
+      </div>
+    </div>
+
+    <div id="templateModal" class="export-progress-overlay">
+      <div class="export-progress-box template-modal-box">
+        <div class="template-modal-header">
+          <h2>模板管理</h2>
+          <button id="templateModalClose" class="toolbar-close" type="button">&times;</button>
+        </div>
+        <div id="templateModalBody" class="template-modal-body">
+          <div id="templateList" class="template-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 计时器视图 ==================== -->
+  <div id="timer-view">
+    <main class="timer-shell">
       <div class="bg-layer"></div>
       <header class="top-band">
         <div class="team affirmative">
@@ -25,98 +306,51 @@
           <span class="team-topic" id="negativeTopic">反方辩题</span>
         </div>
       </header>
-
       <section class="main-area">
         <div class="event-name" id="eventName">赛事名称</div>
         <div class="segment-name" id="segmentName">开场</div>
         <div class="timer-display" id="timerDisplay">
           <div class="single-timer" id="singleTimer">00:00</div>
           <div class="dual-timer" id="dualTimer">
-            <div class="dual-side affirmative">
-              <span class="dual-label">正方</span>
-              <span class="dual-time" id="affirmativeTime">00:00</span>
-            </div>
-            <div class="dual-side negative">
-              <span class="dual-label">反方</span>
-              <span class="dual-time" id="negativeTime">00:00</span>
-            </div>
+            <div class="dual-side affirmative"><span class="dual-label">正方</span><span class="dual-time" id="affirmativeTime">00:00</span></div>
+            <div class="dual-side negative"><span class="dual-label">反方</span><span class="dual-time" id="negativeTime">00:00</span></div>
           </div>
-          <div class="timer-progress" id="timerProgress">
-            <div class="timer-progress-bar" id="timerProgressBar" style="width: 100%;"></div>
-          </div>
+          <div class="timer-progress" id="timerProgress"><div class="timer-progress-bar" id="timerProgressBar" style="width: 100%;"></div></div>
         </div>
         <div class="side-label" id="sideLabel">当前发言方</div>
       </section>
-
       <aside class="control-panel">
         <div class="control-group">
-          <button id="startBtn">
-            <span class="btn-label">启动</span>
-            <span class="btn-key">Space</span>
-          </button>
+          <button id="startBtn"><span class="btn-label">启动</span><span class="btn-key">Space</span></button>
         </div>
         <div class="control-group duel-side-group" id="duelSideGroup" style="display:none;">
-          <button id="duelSideAffirmativeBtn" type="button">
-            <span class="btn-label">正方</span>
-            <span class="btn-key">,</span>
-          </button>
-          <button id="duelSideNegativeBtn" type="button">
-            <span class="btn-label">反方</span>
-            <span class="btn-key">.</span>
-          </button>
+          <button id="duelSideAffirmativeBtn" type="button"><span class="btn-label">正方</span><span class="btn-key">,</span></button>
+          <button id="duelSideNegativeBtn" type="button"><span class="btn-label">反方</span><span class="btn-key">.</span></button>
         </div>
         <div class="control-group">
-          <button id="stopBtn">
-            <span class="btn-label">停止</span>
-          </button>
-          <button id="resetBtn">
-            <span class="btn-label">重置</span>
-          </button>
+          <button id="stopBtn"><span class="btn-label">停止</span></button>
+          <button id="resetBtn"><span class="btn-label">重置</span></button>
         </div>
         <div class="control-group">
-          <button id="prevBtn">
-            <span class="btn-label">◀</span>
-          </button>
-          <button id="nextBtn">
-            <span class="btn-label">▶</span>
-          </button>
+          <button id="prevBtn"><span class="btn-label">&#9664;</span></button>
+          <button id="nextBtn"><span class="btn-label">&#9654;</span></button>
         </div>
         <div class="control-group">
-          <button id="jumpBtn">
-            <span class="btn-label">跳转</span>
-          </button>
-          <button id="setTimeBtn">
-            <span class="btn-label">设时</span>
-          </button>
+          <button id="jumpBtn"><span class="btn-label">跳转</span></button>
+          <button id="setTimeBtn"><span class="btn-label">设时</span></button>
         </div>
         <div class="control-group">
-          <button id="test30Btn">
-            <span class="btn-label">30s</span>
-            <span class="btn-key">Q</span>
-          </button>
-          <button id="test5Btn">
-            <span class="btn-label">5s</span>
-            <span class="btn-key">W</span>
-          </button>
-          <button id="testEndBtn">
-            <span class="btn-label">结束</span>
-            <span class="btn-key">E</span>
-          </button>
+          <button id="test30Btn"><span class="btn-label">30s</span><span class="btn-key">Q</span></button>
+          <button id="test5Btn"><span class="btn-label">5s</span><span class="btn-key">W</span></button>
+          <button id="testEndBtn"><span class="btn-label">结束</span><span class="btn-key">E</span></button>
         </div>
         <div class="control-group">
-          <button id="fullscreenBtn">
-            <span class="btn-label">全屏</span>
-            <span class="btn-key">F</span>
-          </button>
-          <button id="backBtn">
-            <span class="btn-label">返回</span>
-            <span class="btn-key">B</span>
-          </button>
+          <button id="fullscreenBtn"><span class="btn-label">全屏</span><span class="btn-key">F</span></button>
+          <button id="backBtn"><span class="btn-label">返回</span><span class="btn-key">B</span></button>
         </div>
       </aside>
-
       <footer class="watermark" id="watermark">辩论计时器</footer>
-      <div class="design-by" id="designBy">© Chen Yu 2026<br> All rights reserved.</div>
+      <div class="design-by" id="designBy">&copy; Chen Yu 2026<br /> All rights reserved.</div>
     </main>
     <div id="jumpModal" class="timer-modal">
       <div class="box">
@@ -136,42 +370,103 @@
         <button id="setTimeCancelBtn" class="secondary">取消</button>
       </div>
     </div>
-  <div id="standaloneSetup" class="standalone-setup">
+    <div id="standaloneSetup" class="standalone-setup">
       <div class="box">
         <h2>赛前设置</h2>
+<div id="ssScheduleSection" class="ss-schedule-section" style="display:none;">
+          <h3>选择预设赛程</h3>
+          <div id="ssScheduleList" class="ss-schedule-list"></div>
+          <p class="ss-schedule-or">或手动输入下方信息</p>
+        </div>
         <label>正方队伍<input id="ssAffirmativeTeam" type="text" value="正方"></label>
         <label>正方辩题<input id="ssAffirmativeTopic" type="text" value="正方辩题"></label>
         <label>反方队伍<input id="ssNegativeTeam" type="text" value="反方"></label>
-        <label>反方辩题<input id="ssNegativeTopic" type="text" value="反方辩题"></label>
-        <button id="ssStartBtn">开始计时</button>
+        <label>反方辩题<input id="ssNegativeTopic" type="text" value="反方辩题"></label>        <button id="ssStartBtn">开始计时</button>
       </div>
     </div>
+  </div>
 
-  <!-- GitHub Pages: Web 兼容补丁 -->
-  <script>
-    // 为独立模式提供 window.electronAPI polyfill（仅在纯浏览器环境使用）
-    window.__STANDALONE_CONFIG__ = {"version":3,"eventName":"2026云游·华语辩论邀请赛","teams":{"affirmative":"正方","negative":"反方"},"topics":{"affirmative":"正方辩题","negative":"反方辩题"},"theme":{"preset":"broadcast","backgroundType":"gradient","backgroundImage":"","backgroundColor":"#0b0e14","backgroundGradient":{"start":"#a30a0a","end":"#05389e","angle":90},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#5dade2","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":111.951,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%)","color":"rgb(74, 79, 90)"},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":27,"fontFamily":"SimSun","color":"rgb(240, 242, 245)","text":""},"negativeTeamName":{"x":0,"y":0,"fontSize":27,"fontFamily":"SimSun","color":"rgb(240, 242, 245)","text":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":26,"fontFamily":"KaiTi","color":"rgb(255, 255, 255)","text":""},"negativeTopic":{"x":0,"y":0,"fontSize":26,"fontFamily":"KaiTi","color":"rgb(255, 255, 255)","text":""},"eventName":{"x":0,"y":0,"fontSize":36,"fontFamily":"SimSun","color":"rgb(255, 255, 255)","text":""},"segmentName":{"x":0,"y":0,"fontSize":180,"fontFamily":"SimSun","color":"rgb(240, 242, 245)","text":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":""},"watermark":{"x":0,"y":0,"fontSize":20,"fontFamily":"SimSun","color":"rgb(252, 252, 252)","text":"天地俊秀    2026云游·华语辩论邀请赛"},"designBy":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"评委介绍","type":"none","duration":0},{"id":3,"name":"双方介绍","type":"none","duration":0},{"id":4,"name":"提示音介绍","type":"none","duration":0},{"id":5,"name":"正方一辩·立论陈词","type":"single_speech","duration":210,"side":"affirmative"},{"id":6,"name":"反方一辩·立论陈词","type":"single_speech","duration":210,"side":"negative"},{"id":7,"name":"反方四辩·质询·正方一辩","type":"single_question","duration":90,"side":"negative"},{"id":8,"name":"正方四辩·质询·反方一辩","type":"single_question","duration":90,"side":"affirmative"},{"id":9,"name":"正方二辩·申论","type":"single_speech","duration":120,"side":"affirmative"},{"id":10,"name":"反方二辩·申论","type":"single_speech","duration":120,"side":"negative"},{"id":11,"name":"双方二辩·对辩","type":"dual_debate","duration":90,"side":"affirmative"},{"id":12,"name":"战术指导","type":"neutral_timer","duration":240},{"id":13,"name":"正方三辩·质询·反方一、二、四辩","type":"single_question","duration":120,"side":"affirmative"},{"id":14,"name":"反方三辩·质询·正方一、二、四辩","type":"single_question","duration":120,"side":"negative"},{"id":15,"name":"正方三辩·质询小结","type":"single_speech","duration":150,"side":"affirmative"},{"id":16,"name":"反方三辩·质询小结","type":"single_speech","duration":150,"side":"negative"},{"id":17,"name":"自由辩论","type":"dual_debate","duration":180,"side":"affirmative"},{"id":18,"name":"反方四辩·总结陈词","type":"single_speech","duration":210,"side":"negative"},{"id":19,"name":"正方四辩·总结陈词","type":"single_speech","duration":210,"side":"affirmative"},{"id":20,"name":"评委点评","type":"none","duration":0},{"id":21,"name":"赛果公示","type":"none","duration":0}],"logos":{"affirmative":"","negative":""},"schedule":[]};
-    window.__THEME_PRESETS__ = {"classic":{"label":"经典","dark":{"colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"backgroundColor":"#1a1a1a","statusBar":{"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""}},"light":{"colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#2980b9","text":"#1a1d24","neutral":"#1a1d24"},"backgroundColor":"#f5f6f8","statusBar":{"background":"linear-gradient(90deg, rgba(192, 57, 43, 0.12) 0%, rgba(41, 128, 185, 0.12) 100%)","color":""}},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"broadcast":{"label":"广播竞技","dark":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#5dade2","text":"#ffffff","neutral":"#ffffff"},"backgroundColor":"#0b0e14","statusBar":{"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%)","color":""}},"light":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#5dade2","text":"#1a1d24","neutral":"#1a1d24"},"backgroundColor":"#f5f6f8","statusBar":{"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%)","color":""}},"tokens":{"radius":"4px","progressHeight":"5px","progressStyle":"solid","controlStyle":"capsule","motionEnabled":false,"statusBarStyle":"block","fwDisplay":900,"fwTitle":900,"fwBody":700,"fwCap":700,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"light","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"restrained":{"label":"专业克制","dark":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#e8ecf3","text":"#e8ecf3","neutral":"#8a90a0"},"backgroundColor":"#1a1d24","statusBar":{"background":"transparent","color":"#4a4f5a"}},"light":{"colors":{"affirmative":"#c43a2c","negative":"#1d4ed8","title":"#1a1d24","text":"#1a1d24","neutral":"#6b7280"},"backgroundColor":"#f5f6f8","statusBar":{"background":"transparent","color":"#e3e6ec"}},"tokens":{"radius":"2px","progressHeight":"2px","progressStyle":"line","controlStyle":"text","motionEnabled":false,"statusBarStyle":"line","fwDisplay":500,"fwTitle":600,"fwBody":600,"fwCap":400,"fsCap":"11px","capTransform":"none","capSpacing":"1px","shadowLevel":"none","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"vibrant":{"label":"活力校园","dark":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#ffd93d","text":"#ffffff","neutral":"#ffffff"},"backgroundColor":"#1a1d24","statusBar":{"background":"rgba(255, 255, 255, 0.08)","color":""}},"light":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#f59e0b","text":"#1a1d24","neutral":"#1a1d24"},"backgroundColor":"#fff8f0","statusBar":{"background":"rgba(0, 0, 0, 0.05)","color":""}},"tokens":{"radius":"20px","progressHeight":"12px","progressStyle":"gradient","controlStyle":"round-icon","motionEnabled":true,"statusBarStyle":"pill","fwDisplay":900,"fwTitle":800,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"none","capSpacing":"1px","shadowLevel":"layered","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}}};
-
-    if (!window.electronAPI) {
-      window.electronAPI = {
-        loadConfig: function() { return Promise.resolve(window.__STANDALONE_CONFIG__); },
-        toggleFullscreen: function() {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(function(){});
-          } else {
-            document.exitFullscreen().catch(function(){});
-          }
-        },
-        openEditor: function() { return Promise.resolve(); },
-        log: function() {},
-        onConfigUpdated: function() { return function() {}; }
-      };
-    }
-  </script>
+  <!-- ==================== 脚本 ==================== -->
   <script src="js/toast.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/timer-core.js"></script>
+  <script src="js/services/data-service.js"></script>
+  <script src="js/theme-presets.js"></script>
+  <script src="js/built-in-templates.js"></script>
+  <script src="js/editor-app.js"></script>
   <script src="js/timer-app.js"></script>
+  <script>
+    // SPA 视图切换与 DataService 初始化
+    (function () {
+      'use strict';
+
+      function showView(name) {
+        document.body.classList.remove('spa-editor-active', 'spa-timer-active');
+        if (name === 'timer') {
+          document.body.classList.add('spa-timer-active');
+        } else {
+          document.body.classList.add('spa-editor-active');
+        }
+      }
+
+      // 初始化 DataService 视图回调
+      window.DataService.init({
+        onOpenTimer: async function () {
+          // 自动保存编辑器当前配置
+          if (typeof gatherConfig === 'function') {
+            try {
+              var config = gatherConfig();
+              await window.DataService.saveConfig(config);
+            } catch (e) {
+              window.DataService.log('warn', '自动保存配置失败: ' + e.message);
+            }
+          }
+          showView('timer');
+          return { ok: true };
+        },
+        onOpenEditor: function () {
+          showView('editor');
+          return { ok: true };
+        }
+      });
+
+      // 默认显示编辑器视图
+      showView('editor');
+
+      // 编辑器面板切换 (在 editor-app.js 中已声明了 editorTabs，
+      // 但以防 tab 事件在 SPA 中不触发，加一个兜底初始化)
+      document.querySelectorAll('.editor-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          var panel = this.getAttribute('data-panel');
+          document.querySelectorAll('.editor-tab').forEach(function (t) { t.classList.remove('active'); });
+          this.classList.add('active');
+          document.querySelectorAll('.editor-panel').forEach(function (p) { p.classList.remove('active'); });
+          var target = document.getElementById('panel-' + panel);
+          if (target) target.classList.add('active');
+          // 同步侧边栏
+          document.querySelectorAll('.editor-nav-item').forEach(function (n) {
+            n.classList.toggle('active', n.getAttribute('data-panel') === panel);
+          });
+        });
+      });
+
+      // 编辑器侧边栏导航
+      document.querySelectorAll('.editor-nav-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+          var panel = this.getAttribute('data-panel');
+          document.querySelectorAll('.editor-tab').forEach(function (t) {
+            t.classList.toggle('active', t.getAttribute('data-panel') === panel);
+          });
+          document.querySelectorAll('.editor-panel').forEach(function (p) { p.classList.remove('active'); });
+          var target = document.getElementById('panel-' + panel);
+          if (target) target.classList.add('active');
+          document.querySelectorAll('.editor-nav-item').forEach(function (n) { n.classList.remove('active'); });
+          this.classList.add('active');
+        });
+      });
+
+      window.DataService.log('info', 'SPA 初始化完成');
+    })();
+  </script>
 </body>
 </html>

@@ -5,8 +5,8 @@ let engine = null;
 const isStandalone = !!window.__STANDALONE_CONFIG__;
 
 function log(level, message) {
-  if (window.electronAPI?.log) {
-    window.electronAPI.log(level, message);
+  if (window.DataService?.log) {
+    window.DataService.log(level, message);
   }
 }
 
@@ -46,7 +46,7 @@ function applyTheme(theme = config.theme || {}) {
   let resolvedColors = theme.colors;
   let resolvedBg = theme.backgroundColor;
   let resolvedStatusBar = theme.statusBar;
-  if (isStandalone && window.__THEME_PRESETS__) {
+  if (window.__THEME_PRESETS__) {
     const p = window.__THEME_PRESETS__[preset] || window.__THEME_PRESETS__.classic;
     const variant = p[colorMode] || p.dark;
     resolvedColors = { ...variant.colors, ...theme.colors };
@@ -506,7 +506,7 @@ function render(state) {
 }
 
 async function initTimerApp() {
-  config = window.__STANDALONE_CONFIG__ || (await window.electronAPI.loadConfig());
+  config = window.__STANDALONE_CONFIG__ || (await window.DataService.loadConfig());
   log('info', `计时页初始化，${isStandalone ? '独立模式' : '编辑页模式'}`);
   engine = new TimerEngine(config, render);
   applyTheme(config.theme || {});
@@ -618,7 +618,7 @@ function openStandaloneSetup() {
 }
 
 async function refreshFromConfig(nextConfig) {
-  config = nextConfig || (await window.electronAPI.loadConfig());
+  config = nextConfig || (await window.DataService.loadConfig());
   log('info', '配置已同步，刷新计时页');
   applyTheme(config.theme || {});
   engine.segments = config.segments || [];
@@ -675,12 +675,12 @@ function bindShortcuts() {
     }
     if (key === 'f') {
       log('debug', '快捷键：F 切换全屏');
-      window.electronAPI.toggleFullscreen();
+      window.DataService.toggleFullscreen();
     }
     if (key === 'b') {
       log('debug', '快捷键：B 返回');
       if (isStandalone) openStandaloneSetup();
-      else window.electronAPI.openEditor();
+      else window.DataService.openEditor();
     }
     if (event.key === 'ArrowRight') {
       log('debug', '快捷键：→ 下一环节');
@@ -777,7 +777,7 @@ function bindControlButtons() {
   });
   document.getElementById('fullscreenBtn').addEventListener('click', async () => {
     log('info', '切换全屏');
-    await window.electronAPI.toggleFullscreen();
+    await window.DataService.toggleFullscreen();
   });
   document.getElementById('backBtn').addEventListener('click', async () => {
     if (isStandalone) {
@@ -785,7 +785,7 @@ function bindControlButtons() {
       openStandaloneSetup();
     } else {
       log('info', '返回编辑页');
-      await window.electronAPI.openEditor();
+      await window.DataService.openEditor();
     }
   });
   document.getElementById('jumpBtn').addEventListener('click', () => {
@@ -882,6 +882,6 @@ if (window.__STANDALONE_CONFIG__) {
   });
 }
 
-window.electronAPI.onConfigUpdated(async (nextConfig) => {
+window.DataService.onConfigUpdated(async (nextConfig) => {
   await refreshFromConfig(nextConfig);
 });
