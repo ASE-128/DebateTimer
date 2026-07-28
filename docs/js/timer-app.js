@@ -1,0 +1,887 @@
+/* global audioPlayer:readonly, TimerEngine:readonly */
+
+let config = null;
+let engine = null;
+const isStandalone = !!window.__STANDALONE_CONFIG__;
+
+function log(level, message) {
+  if (window.electronAPI?.log) {
+    window.electronAPI.log(level, message);
+  }
+}
+
+const eventNameEl = document.getElementById('eventName');
+const segmentNameEl = document.getElementById('segmentName');
+const timerDisplayEl = document.getElementById('timerDisplay');
+const sideLabelEl = document.getElementById('sideLabel');
+const startBtnEl = document.getElementById('startBtn');
+const affirmativeTeamNameEl = document.getElementById('affirmativeTeamName');
+const negativeTeamNameEl = document.getElementById('negativeTeamName');
+const affirmativeTopicEl = document.getElementById('affirmativeTopic');
+const negativeTopicEl = document.getElementById('negativeTopic');
+const affirmativeLogoEl = document.getElementById('affirmativeLogo');
+const negativeLogoEl = document.getElementById('negativeLogo');
+
+const singleTimerEl = document.getElementById('singleTimer');
+const dualTimerEl = document.getElementById('dualTimer');
+const affirmativeTimeEl = document.getElementById('affirmativeTime');
+const negativeTimeEl = document.getElementById('negativeTime');
+const timerProgressEl = document.getElementById('timerProgress');
+const timerProgressBarEl = document.getElementById('timerProgressBar');
+const duelSideGroupEl = document.getElementById('duelSideGroup');
+const duelSideAffirmativeBtnEl = document.getElementById('duelSideAffirmativeBtn');
+const duelSideNegativeBtnEl = document.getElementById('duelSideNegativeBtn');
+
+function formatTime(seconds) {
+  const total = Math.max(0, Math.floor(seconds));
+  const min = String(Math.floor(total / 60)).padStart(2, '0');
+  const sec = String(total % 60).padStart(2, '0');
+  return `${min}:${sec}`;
+}
+
+function applyTheme(theme = config.theme || {}) {
+  // 预设解析：独立模式从注入的全局对象同步读取，Electron 模式由 init 缓存到 config.theme
+  const preset = theme.preset || 'classic';
+  const colorMode = theme.colorMode || 'dark';
+  let resolvedColors = theme.colors;
+  let resolvedBg = theme.backgroundColor;
+  let resolvedStatusBar = theme.statusBar;
+  if (isStandalone && window.__THEME_PRESETS__) {
+    const p = window.__THEME_PRESETS__[preset] || window.__THEME_PRESETS__.classic;
+    const variant = p[colorMode] || p.dark;
+    resolvedColors = { ...variant.colors, ...theme.colors };
+    resolvedBg = theme.backgroundColor || variant.backgroundColor;
+    resolvedStatusBar = { ...variant.statusBar, ...theme.statusBar };
+  }
+
+  document.documentElement.style.setProperty('--accent-affirmative', resolvedColors?.affirmative || '#e74c3c');
+  document.documentElement.style.setProperty('--accent-negative', resolvedColors?.negative || '#3498db');
+  document.documentElement.style.setProperty('--accent-neutral', resolvedColors?.neutral || '#ffffff');
+  document.documentElement.style.setProperty('--accent-title', resolvedColors?.title || '#5dade2');
+  document.documentElement.style.setProperty('--text-color', resolvedColors?.text || '#f0f2f5');
+  document.documentElement.style.setProperty('--bg-color', resolvedBg || '#0b0e14');
+
+  const bgType = theme.backgroundType || 'color';
+  const bgImageSettings = theme.backgroundImageSettings || {
+    opacity: 1,
+    scaleX: 100,
+    scaleY: 100,
+    offsetX: 0,
+    offsetY: 0
+  };
+
+  const timerShell = document.querySelector('.timer-shell');
+  const bgLayer = timerShell ? timerShell.querySelector('.bg-layer') : null;
+
+  // 在 .timer-shell 上标记当前预设与色彩模式，触发 timer.css 的方向覆盖规则
+  if (timerShell) {
+    timerShell.setAttribute('data-preset-active', preset);
+    timerShell.setAttribute('data-color-mode', colorMode);
+  }
+
+  // 清除 body 和 .timer-shell 的背景，由独立背景层渲染
+  document.body.style.background = 'transparent';
+  if (timerShell) {
+    timerShell.style.background = 'transparent';
+  }
+
+  if (bgType === 'image' && theme.backgroundImage && bgLayer) {
+    bgLayer.style.backgroundImage = `url(${theme.backgroundImage})`;
+    bgLayer.style.backgroundSize = `${bgImageSettings.scaleX || 100}% ${bgImageSettings.scaleY || 100}%`;
+    bgLayer.style.backgroundPosition = `calc(50% + ${bgImageSettings.offsetX || 0}%) calc(50% + ${bgImageSettings.offsetY || 0}%)`;
+    bgLayer.style.backgroundRepeat = 'no-repeat';
+    bgLayer.style.backgroundColor = theme.backgroundColor || '#0b0e14';
+    bgLayer.style.opacity = bgImageSettings.opacity !== undefined ? bgImageSettings.opacity : 1;
+  } else if (bgType === 'gradient' && theme.backgroundGradient && bgLayer) {
+    const grad = theme.backgroundGradient;
+    bgLayer.style.backgroundImage = `linear-gradient(${grad.angle}deg, ${grad.start}, ${grad.end})`;
+    bgLayer.style.backgroundSize = '';
+    bgLayer.style.backgroundPosition = '';
+    bgLayer.style.backgroundRepeat = '';
+    bgLayer.style.backgroundColor = '';
+    bgLayer.style.opacity = 1;
+  } else if (bgLayer) {
+    bgLayer.style.backgroundImage = 'none';
+    bgLayer.style.background = theme.backgroundColor || '#0b0e14';
+    bgLayer.style.backgroundSize = '';
+    bgLayer.style.backgroundPosition = '';
+    bgLayer.style.backgroundRepeat = '';
+    bgLayer.style.opacity = 1;
+  }
+
+  const baseFont = theme.fontFamily || 'system-ui';
+  document.body.style.fontFamily = baseFont;
+  document.documentElement.style.setProperty('--font-family', baseFont);
+  document.documentElement.style.setProperty('--font-scale', theme.fontSizeScale || 1);
+
+  // 应用状态栏设置
+  const topBand = document.querySelector('.top-band');
+  if (topBand && resolvedStatusBar) {
+    const sb = resolvedStatusBar;
+    if (sb.height) topBand.style.height = `${sb.height}px`;
+    if (sb.background) topBand.style.background = sb.background;
+    if (sb.color) topBand.style.color = sb.color;
+  }
+
+  // 应用布局设置（布局数据保存在 config.layout）
+  const layout = config?.layout;
+  if (layout) {
+    const layoutMap = {
+      affirmativeTeamName: 'affirmativeTeamName',
+      negativeTeamName: 'negativeTeamName',
+      affirmativeTopic: 'affirmativeTopic',
+      negativeTopic: 'negativeTopic',
+      affirmativeLogo: 'affirmativeLogo',
+      negativeLogo: 'negativeLogo',
+      eventName: 'eventName',
+      segmentName: 'segmentName',
+      sideLabel: 'sideLabel',
+      watermark: 'watermark',
+      designBy: 'designBy'
+    };
+    Object.entries(layoutMap).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      const settings = layout[key];
+      if (el && settings) {
+        if (settings.x !== undefined && settings.x !== 0) {
+          el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
+        } else if (settings.y !== undefined && settings.y !== 0) {
+          el.style.transform = `translate(0px, ${settings.y}px)`;
+        } else {
+          el.style.transform = '';
+        }
+        if (settings.fontSize && settings.fontSize > 0) {
+          el.style.fontSize = `${settings.fontSize}px`;
+        } else {
+          el.style.fontSize = '';
+        }
+        if (settings.fontFamily) {
+          el.style.fontFamily = settings.fontFamily;
+        } else {
+          el.style.fontFamily = '';
+        }
+        if (settings.color) {
+          el.style.color = settings.color;
+        } else {
+          el.style.color = '';
+        }
+        if (key === 'watermark' && settings.text) {
+          el.textContent = settings.text;
+        }
+      }
+    });
+  }
+
+  applyCustomFont(theme);
+  log('debug', `应用主题: 背景=${theme.backgroundType}, 字体=${baseFont}, 缩放=${theme.fontSizeScale || 1}`);
+}
+
+let lastRenderCache = {
+  eventName: null,
+  segmentName: null,
+  isNoTimer: null,
+  isDual: null,
+  activeSide: null,
+  segmentType: null,
+  singleTimerText: null,
+  affirmativeTimeText: null,
+  negativeTimeText: null,
+  progressPct: null,
+  progressClass: null
+};
+
+// 渲染写入队列：将 render() 中所有 DOM 写操作收集到同一帧末尾批量执行，
+// 避免读-写-读交替导致的 forced synchronous layout。
+let renderWriteQueue = [];
+let renderFlushScheduled = false;
+
+function queueRenderWrite(writeFn) {
+  renderWriteQueue.push(writeFn);
+  scheduleRenderFlush();
+}
+
+function scheduleRenderFlush() {
+  if (renderFlushScheduled) return;
+  renderFlushScheduled = true;
+  requestAnimationFrame(() => {
+    renderFlushScheduled = false;
+    flushRenderWritesSync();
+  });
+}
+
+function flushRenderWritesSync() {
+  const queue = renderWriteQueue;
+  renderWriteQueue = [];
+  queue.forEach((fn) => fn());
+}
+
+function applyCustomFont(theme) {
+  const customFontUrl = theme?.customFont;
+  const customFontName = theme?.customFontName || 'CustomFont';
+  const baseFont = theme?.fontFamily || 'system-ui';
+  let style = document.getElementById('custom-font-face');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'custom-font-face';
+    document.head.appendChild(style);
+  }
+  if (customFontUrl) {
+    style.textContent = `@font-face { font-family: '${customFontName}'; src: url('${customFontUrl}'); }`;
+    document.documentElement.style.setProperty('--text-font-family', `'${customFontName}', ${baseFont}`);
+  } else {
+    style.textContent = '';
+    document.documentElement.style.setProperty('--text-font-family', baseFont);
+  }
+}
+
+function updateControlLabel(state) {
+  const btnLabel = startBtnEl.querySelector('.btn-label');
+  const isDual = state.currentSegment?.type === 'dual_debate';
+  const label = state.isRunning ? (isDual ? '切换' : '暂停') : '启动';
+  if (!btnLabel) {
+    queueRenderWrite(() => {
+      startBtnEl.textContent = label;
+    });
+    return;
+  }
+  queueRenderWrite(() => {
+    btnLabel.textContent = label;
+  });
+}
+
+function updateTeamDisplay(_state) {
+  queueRenderWrite(() => {
+    affirmativeTeamNameEl.textContent = config?.teams?.affirmative || '正方队';
+    negativeTeamNameEl.textContent = config?.teams?.negative || '反方队';
+    affirmativeTopicEl.textContent = config?.topics?.affirmative || '正方辩题';
+    negativeTopicEl.textContent = config?.topics?.negative || '反方辩题';
+    if (eventNameEl) eventNameEl.textContent = config.eventName || '赛事名称';
+    if (affirmativeLogoEl) {
+      affirmativeLogoEl.src = config?.logos?.affirmative || '';
+      affirmativeLogoEl.style.display = config?.logos?.affirmative ? '' : 'none';
+    }
+    if (negativeLogoEl) {
+      negativeLogoEl.src = config?.logos?.negative || '';
+      negativeLogoEl.style.display = config?.logos?.negative ? '' : 'none';
+    }
+  });
+}
+
+function updateProgress(state) {
+  if (!timerProgressBarEl || !timerProgressEl) return;
+  const segment = state.currentSegment || {};
+  const isNoTimer = segment.type === 'none';
+  if (isNoTimer) {
+    queueRenderWrite(() => {
+      timerProgressEl.style.display = 'none';
+    });
+    return;
+  }
+  const totalDuration = Number(segment.duration || 0);
+  if (totalDuration <= 0) {
+    queueRenderWrite(() => {
+      timerProgressEl.style.display = 'none';
+    });
+    return;
+  }
+  let remaining = 0;
+  if (segment.type === 'dual_debate') {
+    remaining = state.activeSide === 'affirmative' ? state.remaining : state.remainingOpposite;
+  } else {
+    remaining = state.remaining;
+  }
+  const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
+  const progressClass = remaining <= 5 ? 'critical' : remaining <= 30 ? 'urgent' : null;
+  // 根据发言方设置进度条颜色
+  const sideColor =
+    state.activeSide === 'affirmative'
+      ? 'var(--accent-affirmative)'
+      : state.activeSide === 'negative'
+        ? 'var(--accent-negative)'
+        : 'var(--accent-neutral)';
+  queueRenderWrite(() => {
+    timerProgressEl.style.display = '';
+    timerProgressBarEl.style.width = `${pct}%`;
+    timerProgressBarEl.style.setProperty('--progress-bar-bg', sideColor);
+    timerProgressBarEl.classList.remove('urgent', 'critical');
+    if (progressClass) timerProgressBarEl.classList.add(progressClass);
+  });
+}
+
+function adjustSegmentNameFontSize() {
+  if (!segmentNameEl) return;
+  const parent = segmentNameEl.parentElement;
+  if (!parent) return;
+
+  const parentStyle = window.getComputedStyle(parent);
+  const parentWidth =
+    parent.clientWidth - parseFloat(parentStyle.paddingLeft || 0) - parseFloat(parentStyle.paddingRight || 0);
+  if (parentWidth <= 0) return;
+
+  const maxFontSize = Math.min(Math.max(window.innerWidth * 0.14, 48), 180);
+  const minFontSize = 32;
+
+  segmentNameEl.style.fontSize = `${maxFontSize}px`;
+  if (segmentNameEl.scrollWidth <= parentWidth) {
+    return;
+  }
+
+  let low = minFontSize;
+  let high = maxFontSize;
+  let best = minFontSize;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    segmentNameEl.style.fontSize = `${mid}px`;
+    if (segmentNameEl.scrollWidth <= parentWidth) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  segmentNameEl.style.fontSize = `${best}px`;
+}
+
+function syncUi(_actionLabel) {
+  const state = engine.getState();
+  render(state);
+}
+
+function render(state) {
+  const segment = state.currentSegment || {};
+  const isNoTimer = segment.type === 'none';
+  const eventName = config.eventName || '赛事名称';
+  if (lastRenderCache.eventName !== eventName) {
+    queueRenderWrite(() => {
+      eventNameEl.textContent = eventName;
+    });
+    lastRenderCache.eventName = eventName;
+  }
+  const segmentName = segment.name || '开场';
+  if (lastRenderCache.segmentName !== segmentName) {
+    queueRenderWrite(() => {
+      segmentNameEl.textContent = segmentName;
+    });
+    lastRenderCache.segmentName = segmentName;
+  }
+  if (lastRenderCache.isNoTimer !== isNoTimer) {
+    queueRenderWrite(() => {
+      segmentNameEl.classList.toggle('segment-name-large', isNoTimer);
+      if (!isNoTimer) segmentNameEl.style.fontSize = '';
+    });
+    lastRenderCache.isNoTimer = isNoTimer;
+  }
+  // 无计时环节的字体缩放已由 CSS clamp() 处理，不再在 render() 中执行二分查找。
+  const sideLabelText = isNoTimer
+    ? ''
+    : state.activeSide === 'neutral'
+      ? '中立计时中'
+      : state.activeSide === 'affirmative'
+        ? '正方发言中'
+        : '反方发言中';
+  if (sideLabelEl.textContent !== sideLabelText) {
+    queueRenderWrite(() => {
+      sideLabelEl.textContent = sideLabelText;
+    });
+  }
+  const sideLabelAffirmative = !isNoTimer && state.activeSide === 'affirmative';
+  const sideLabelNegative = !isNoTimer && state.activeSide === 'negative';
+  const sideLabelNeutral = !isNoTimer && state.activeSide === 'neutral';
+  if (sideLabelEl.classList.contains('affirmative') !== sideLabelAffirmative) {
+    queueRenderWrite(() => {
+      sideLabelEl.classList.toggle('affirmative', sideLabelAffirmative);
+    });
+  }
+  if (sideLabelEl.classList.contains('negative') !== sideLabelNegative) {
+    queueRenderWrite(() => {
+      sideLabelEl.classList.toggle('negative', sideLabelNegative);
+    });
+  }
+  if (sideLabelEl.classList.contains('neutral') !== sideLabelNeutral) {
+    queueRenderWrite(() => {
+      sideLabelEl.classList.toggle('neutral', sideLabelNeutral);
+    });
+  }
+  const sideLabelDisplay = isNoTimer ? 'none' : '';
+  if (sideLabelEl.style.display !== sideLabelDisplay) {
+    queueRenderWrite(() => {
+      sideLabelEl.style.display = sideLabelDisplay;
+    });
+  }
+  updateControlLabel(state);
+  updateTeamDisplay(state);
+  updateProgress(state);
+
+  // 对辩工具栏显示/隐藏与激活状态
+  const isDual = segment.type === 'dual_debate';
+  if (lastRenderCache.isDual !== isDual) {
+    queueRenderWrite(() => {
+      if (duelSideGroupEl) duelSideGroupEl.style.display = isDual ? '' : 'none';
+    });
+    lastRenderCache.isDual = isDual;
+  }
+  if (isDual && duelSideAffirmativeBtnEl && duelSideNegativeBtnEl) {
+    const affActive = state.activeSide === 'affirmative' && engine?.isRunning;
+    const negActive = state.activeSide === 'negative' && engine?.isRunning;
+    queueRenderWrite(() => {
+      duelSideAffirmativeBtnEl.classList.toggle('active', affActive);
+      duelSideNegativeBtnEl.classList.toggle('active', negActive);
+    });
+  }
+
+  if (isNoTimer) {
+    if (lastRenderCache.segmentType !== 'none') {
+      queueRenderWrite(() => {
+        singleTimerEl.style.display = 'none';
+        dualTimerEl.style.display = 'none';
+        timerDisplayEl.style.display = 'none';
+      });
+      lastRenderCache.segmentType = 'none';
+    }
+    flushRenderWritesSync();
+    return;
+  }
+
+  queueRenderWrite(() => {
+    timerDisplayEl.style.display = '';
+  });
+  if (segment.type === 'dual_debate') {
+    if (lastRenderCache.segmentType !== 'dual_debate') {
+      queueRenderWrite(() => {
+        singleTimerEl.style.display = 'none';
+        dualTimerEl.style.display = 'flex';
+        singleTimerEl.classList.remove('affirmative', 'negative');
+      });
+      lastRenderCache.segmentType = 'dual_debate';
+    }
+    const affTime = formatTime(state.remaining);
+    const negTime = formatTime(state.remainingOpposite);
+    if (lastRenderCache.affirmativeTimeText !== affTime) {
+      queueRenderWrite(() => {
+        affirmativeTimeEl.textContent = affTime;
+      });
+      lastRenderCache.affirmativeTimeText = affTime;
+    }
+    if (lastRenderCache.negativeTimeText !== negTime) {
+      queueRenderWrite(() => {
+        negativeTimeEl.textContent = negTime;
+      });
+      lastRenderCache.negativeTimeText = negTime;
+    }
+  } else {
+    if (lastRenderCache.segmentType !== 'single') {
+      queueRenderWrite(() => {
+        singleTimerEl.style.display = '';
+        dualTimerEl.style.display = 'none';
+      });
+      lastRenderCache.segmentType = 'single';
+    }
+    const timerText = formatTime(state.remaining);
+    if (lastRenderCache.singleTimerText !== timerText) {
+      queueRenderWrite(() => {
+        singleTimerEl.textContent = timerText;
+      });
+      lastRenderCache.singleTimerText = timerText;
+    }
+    const singleAffirmative = state.activeSide === 'affirmative';
+    const singleNegative = state.activeSide === 'negative';
+    const singleNeutral = state.activeSide === 'neutral';
+    if (singleTimerEl.classList.contains('affirmative') !== singleAffirmative) {
+      queueRenderWrite(() => {
+        singleTimerEl.classList.toggle('affirmative', singleAffirmative);
+      });
+    }
+    if (singleTimerEl.classList.contains('negative') !== singleNegative) {
+      queueRenderWrite(() => {
+        singleTimerEl.classList.toggle('negative', singleNegative);
+      });
+    }
+    if (singleTimerEl.classList.contains('neutral') !== singleNeutral) {
+      queueRenderWrite(() => {
+        singleTimerEl.classList.toggle('neutral', singleNeutral);
+      });
+    }
+  }
+  flushRenderWritesSync();
+}
+
+async function initTimerApp() {
+  config = window.__STANDALONE_CONFIG__ || (await window.electronAPI.loadConfig());
+  log('info', `计时页初始化，${isStandalone ? '独立模式' : '编辑页模式'}`);
+  engine = new TimerEngine(config, render);
+  applyTheme(config.theme || {});
+  finishInit();
+  if (isStandalone) {
+    openStandaloneSetup();
+  }
+}
+
+function finishInit() {
+  log('info', `计时页初始化完成，共 ${config?.segments?.length || 0} 个环节`);
+  engine.render();
+  bindShortcuts();
+  bindControlButtons();
+}
+
+function renderStandaloneSchedule(schedule) {
+  const section = document.getElementById('ssScheduleSection');
+  const list = document.getElementById('ssScheduleList');
+  if (!section || !list) return;
+
+  const items = Array.isArray(schedule) ? schedule : [];
+  if (items.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  list.innerHTML = '';
+
+  items.forEach((item) => {
+    const el = document.createElement('div');
+    el.className = 'ss-schedule-item';
+
+    const name = document.createElement('div');
+    name.className = 'ss-schedule-name';
+    name.textContent = item.name || '未命名赛程';
+
+    const affMeta = document.createElement('span');
+    affMeta.className = 'ss-schedule-meta';
+    affMeta.textContent = `正方：${item.affirmativeTeam || ''}`;
+
+    const negMeta = document.createElement('span');
+    negMeta.className = 'ss-schedule-meta';
+    negMeta.textContent = `反方：${item.negativeTeam || ''}`;
+
+    const logos = document.createElement('div');
+    logos.className = 'ss-schedule-logos';
+    if (item.affirmativeLogo) {
+      const affLogo = document.createElement('img');
+      affLogo.src = item.affirmativeLogo;
+      affLogo.alt = '';
+      affLogo.className = 'ss-schedule-logo';
+      logos.appendChild(affLogo);
+    }
+    if (item.negativeLogo) {
+      const negLogo = document.createElement('img');
+      negLogo.src = item.negativeLogo;
+      negLogo.alt = '';
+      negLogo.className = 'ss-schedule-logo';
+      logos.appendChild(negLogo);
+    }
+
+    el.appendChild(name);
+    el.appendChild(logos);
+    el.appendChild(affMeta);
+    el.appendChild(negMeta);
+
+    el.addEventListener('click', () => {
+      document.getElementById('ssAffirmativeTeam').value = item.affirmativeTeam || '';
+      document.getElementById('ssNegativeTeam').value = item.negativeTeam || '';
+      document.getElementById('ssAffirmativeTopic').value = item.affirmativeTopic || '';
+      document.getElementById('ssNegativeTopic').value = item.negativeTopic || '';
+      config.logos = {
+        affirmative: item.affirmativeLogo || '',
+        negative: item.negativeLogo || ''
+      };
+
+      list.querySelectorAll('.ss-schedule-item').forEach((child) => child.classList.remove('active'));
+      el.classList.add('active');
+    });
+
+    list.appendChild(el);
+  });
+}
+
+function openStandaloneSetup() {
+  const modal = document.getElementById('standaloneSetup');
+  if (!modal) return finishInit();
+  if (engine?.isRunning) engine.pause();
+  document.getElementById('ssAffirmativeTeam').value = config.teams?.affirmative || '';
+  document.getElementById('ssAffirmativeTopic').value = config.topics?.affirmative || '';
+  document.getElementById('ssNegativeTeam').value = config.teams?.negative || '';
+  document.getElementById('ssNegativeTopic').value = config.topics?.negative || '';
+  renderStandaloneSchedule(config.schedule || []);
+  modal.classList.add('active');
+  const startBtn = document.getElementById('ssStartBtn');
+  const newStartBtn = startBtn.cloneNode(true);
+  startBtn.parentNode.replaceChild(newStartBtn, startBtn);
+  newStartBtn.addEventListener('click', () => {
+    config.teams.affirmative = document.getElementById('ssAffirmativeTeam').value || config.teams.affirmative;
+    config.teams.negative = document.getElementById('ssNegativeTeam').value || config.teams.negative;
+    config.topics.affirmative = document.getElementById('ssAffirmativeTopic').value || config.topics.affirmative;
+    config.topics.negative = document.getElementById('ssNegativeTopic').value || config.topics.negative;
+    modal.classList.remove('active');
+    render(engine.getState());
+  });
+  if (engine?.isRunning) engine.pause();
+}
+
+async function refreshFromConfig(nextConfig) {
+  config = nextConfig || (await window.electronAPI.loadConfig());
+  log('info', '配置已同步，刷新计时页');
+  applyTheme(config.theme || {});
+  engine.segments = config.segments || [];
+  engine.currentIndex = 0;
+  engine.remaining = engine.getCurrentDuration();
+  engine.remainingOpposite = engine.getCurrentDuration();
+  engine.activeSide =
+    engine.segments[0]?.type === 'neutral_timer' ? 'neutral' : engine.segments[0]?.side || 'affirmative';
+  engine.isRunning = false;
+  engine.isPaused = true;
+  engine.lastTimestamp = null;
+  engine.cancelAnimationFrame?.();
+  render(engine.getState());
+}
+
+function bindShortcuts() {
+  window.addEventListener('resize', () => {
+    if (config?.segments?.[engine?.currentIndex]?.type === 'none') {
+      requestAnimationFrame(() => adjustSegmentNameFontSize());
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    const isTyping =
+      event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
+    if (isTyping) return;
+    const key = event.key.toLowerCase();
+    if (event.code === 'Space') {
+      event.preventDefault();
+      const isDual = config?.segments?.[engine?.currentIndex]?.type === 'dual_debate';
+      if (isDual && engine?.isRunning) {
+        log('debug', '快捷键：Space 切换发言方');
+        engine.switchSide();
+      } else {
+        log('debug', '快捷键：Space 切换计时');
+        engine.toggle();
+      }
+    }
+    if (key === 'p') {
+      log('debug', '快捷键：P 暂停');
+      engine.pause();
+    }
+    if (key === 'q') {
+      log('debug', '快捷键：Q 试播30秒提示音');
+      audioPlayer.play30();
+    }
+    if (key === 'w') {
+      log('debug', '快捷键：W 试播5秒提示音');
+      audioPlayer.play5();
+    }
+    if (key === 'e') {
+      log('debug', '快捷键：E 试播结束提示音');
+      audioPlayer.playEnd();
+    }
+    if (key === 'f') {
+      log('debug', '快捷键：F 切换全屏');
+      window.electronAPI.toggleFullscreen();
+    }
+    if (key === 'b') {
+      log('debug', '快捷键：B 返回');
+      if (isStandalone) openStandaloneSetup();
+      else window.electronAPI.openEditor();
+    }
+    if (event.key === 'ArrowRight') {
+      log('debug', '快捷键：→ 下一环节');
+      engine.nextSegment();
+    }
+    if (event.key === 'ArrowLeft') {
+      log('debug', '快捷键：← 上一环节');
+      engine.prevSegment();
+    }
+    if (key === 'c') {
+      log('debug', '快捷键：C 切换持方');
+      engine.switchSide();
+    }
+    if (key === ',') {
+      const isDualComma = config?.segments?.[engine?.currentIndex]?.type === 'dual_debate';
+      if (isDualComma && engine) {
+        log('debug', '快捷键：, 切换至正方');
+        engine.startSide('affirmative');
+      }
+    }
+    if (key === '.') {
+      const isDualPeriod = config?.segments?.[engine?.currentIndex]?.type === 'dual_debate';
+      if (isDualPeriod && engine) {
+        log('debug', '快捷键：. 切换至反方');
+        engine.startSide('negative');
+      }
+    }
+  });
+}
+
+function bindControlButtons() {
+  const backBtnLabel = document.querySelector('#backBtn .btn-label');
+  if (backBtnLabel) backBtnLabel.textContent = isStandalone ? '队伍设置' : '返回编辑页';
+  else document.getElementById('backBtn').textContent = isStandalone ? '队伍设置(B)' : '返回编辑页(B)';
+  document.getElementById('startBtn').addEventListener('click', () => {
+    if (!engine) return;
+    const wasRunning = engine.isRunning;
+    const isDual = config?.segments?.[engine.currentIndex]?.type === 'dual_debate';
+    if (isDual && wasRunning) {
+      log('info', '双边模式：切换发言方');
+      engine.switchSide();
+      syncUi('已切换发言方');
+    } else {
+      log('info', `点击启动按钮，${isDual ? '双边模式' : '单边模式'}，${wasRunning ? '暂停' : '启动'}`);
+      engine.toggle();
+      syncUi(engine.isRunning ? '计时已开始' : '计时已暂停');
+    }
+    startBtnEl.classList.add('pulse');
+    setTimeout(() => startBtnEl.classList.remove('pulse'), 180);
+  });
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (!engine) return;
+    log('info', '点击重置按钮');
+    engine.resetCurrentSegment();
+    syncUi('已重置当前环节');
+    document.getElementById('resetBtn').classList.add('pulse');
+    setTimeout(() => document.getElementById('resetBtn').classList.remove('pulse'), 180);
+  });
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    if (!engine) return;
+    log('info', '点击上一环节按钮');
+    engine.prevSegment();
+    syncUi('已切换到上一个环节');
+    document.getElementById('prevBtn').classList.add('pulse');
+    setTimeout(() => document.getElementById('prevBtn').classList.remove('pulse'), 180);
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    if (!engine) return;
+    log('info', '点击下一环节按钮');
+    engine.nextSegment();
+    syncUi('已切换到下一个环节');
+    document.getElementById('nextBtn').classList.add('pulse');
+    setTimeout(() => document.getElementById('nextBtn').classList.remove('pulse'), 180);
+  });
+  document.getElementById('stopBtn').addEventListener('click', () => {
+    if (!engine) return;
+    log('info', '点击停止按钮');
+    engine.stop();
+    syncUi('已停止所有计时');
+    document.getElementById('stopBtn').classList.add('pulse');
+    setTimeout(() => document.getElementById('stopBtn').classList.remove('pulse'), 180);
+  });
+  document.getElementById('test30Btn').addEventListener('click', () => {
+    log('debug', '试播30秒提示音');
+    audioPlayer.play30();
+  });
+  document.getElementById('test5Btn').addEventListener('click', () => {
+    log('debug', '试播5秒提示音');
+    audioPlayer.play5();
+  });
+  document.getElementById('testEndBtn').addEventListener('click', () => {
+    log('debug', '试播结束提示音');
+    audioPlayer.playEnd();
+  });
+  document.getElementById('fullscreenBtn').addEventListener('click', async () => {
+    log('info', '切换全屏');
+    await window.electronAPI.toggleFullscreen();
+  });
+  document.getElementById('backBtn').addEventListener('click', async () => {
+    if (isStandalone) {
+      log('info', '打开独立计时器队伍设置');
+      openStandaloneSetup();
+    } else {
+      log('info', '返回编辑页');
+      await window.electronAPI.openEditor();
+    }
+  });
+  document.getElementById('jumpBtn').addEventListener('click', () => {
+    if (!engine) return;
+    log('info', '打开环节跳转模态框');
+    openJumpModal();
+  });
+  document.getElementById('setTimeBtn').addEventListener('click', () => {
+    if (!engine) return;
+    log('info', '打开设置时间模态框');
+    openSetTimeModal();
+  });
+  document.getElementById('jumpCancelBtn').addEventListener('click', closeJumpModal);
+  document.getElementById('setTimeCancelBtn').addEventListener('click', closeSetTimeModal);
+  document.getElementById('setTimeConfirmBtn').addEventListener('click', () => {
+    if (!engine) return;
+    const min = parseInt(document.getElementById('setTimeMin').value, 10) || 0;
+    const sec = parseInt(document.getElementById('setTimeSec').value, 10) || 0;
+    log('info', `设置剩余时间: ${min}分${sec}秒`);
+    engine.setRemaining(min * 60 + sec);
+    closeSetTimeModal();
+    syncUi('已设置剩余时间');
+  });
+
+  // 对辩侧方按钮
+  if (duelSideAffirmativeBtnEl) {
+    duelSideAffirmativeBtnEl.addEventListener('click', () => {
+      if (!engine) return;
+      log('info', '对辩：强制切换至正方');
+      engine.startSide('affirmative');
+      syncUi('正方发言');
+      duelSideAffirmativeBtnEl.classList.add('pulse');
+      setTimeout(() => duelSideAffirmativeBtnEl.classList.remove('pulse'), 180);
+    });
+  }
+  if (duelSideNegativeBtnEl) {
+    duelSideNegativeBtnEl.addEventListener('click', () => {
+      if (!engine) return;
+      log('info', '对辩：强制切换至反方');
+      engine.startSide('negative');
+      syncUi('反方发言');
+      duelSideNegativeBtnEl.classList.add('pulse');
+      setTimeout(() => duelSideNegativeBtnEl.classList.remove('pulse'), 180);
+    });
+  }
+}
+
+function openJumpModal() {
+  if (engine?.isRunning) engine.pause();
+  const modal = document.getElementById('jumpModal');
+  const list = document.getElementById('jumpSegmentList');
+  list.innerHTML = '';
+  (config?.segments || []).forEach((segment, index) => {
+    const btn = document.createElement('button');
+    btn.className = 'segment-jump-btn';
+    btn.textContent = `${index + 1}. ${segment.name || '未命名环节'}${segment.type === 'dual_debate' ? ' [双计时]' : segment.type === 'neutral_timer' ? ' [中立计时]' : ''}`;
+    btn.addEventListener('click', () => {
+      log('info', `跳转到环节: ${segment.name || '第' + (index + 1) + '环节'}`);
+      engine.jumpToSegment(index);
+      closeJumpModal();
+      syncUi(`已跳转到${segment.name || '第' + (index + 1) + '环节'}`);
+    });
+    list.appendChild(btn);
+  });
+  modal.classList.add('active');
+}
+
+function closeJumpModal() {
+  document.getElementById('jumpModal').classList.remove('active');
+}
+
+function openSetTimeModal() {
+  if (engine?.isRunning) engine.pause();
+  const modal = document.getElementById('setTimeModal');
+  const state = engine.getState();
+  const total = Math.max(0, Math.floor(state.remaining));
+  document.getElementById('setTimeMin').value = Math.floor(total / 60);
+  document.getElementById('setTimeSec').value = total % 60;
+  modal.classList.add('active');
+  log('debug', `打开设置时间模态框，当前剩余=${total}秒`);
+}
+
+function closeSetTimeModal() {
+  document.getElementById('setTimeModal').classList.remove('active');
+}
+
+if (window.__STANDALONE_CONFIG__) {
+  initTimerApp().catch((error) => {
+    log('error', `计时页初始化失败: ${error.message}`);
+  });
+} else {
+  initTimerApp().catch((error) => {
+    log('error', `计时页初始化失败: ${error.message}`);
+  });
+}
+
+window.electronAPI.onConfigUpdated(async (nextConfig) => {
+  await refreshFromConfig(nextConfig);
+});
