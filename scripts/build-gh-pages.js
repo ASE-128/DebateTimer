@@ -219,6 +219,7 @@ function build() {
     '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
     '  <meta name="author" content="DebateTimer">',
     '  <title>辩论赛计时器</title>',
+    '  <link rel="icon" type="image/svg+xml" href="favicon.svg">',
     '  <link rel="stylesheet" href="styles/variables.css">',
     '  <link rel="stylesheet" href="styles/timer.css">',
     '</head>',
@@ -238,6 +239,7 @@ function build() {
   console.log(`  生成: docs/index.html`);
 
   // --- 复制样式 ---
+  copyFile(path.join(projectRoot, 'icon.svg'), path.join(docsDir, 'favicon.svg'));
   copyFile(path.join(projectRoot, 'styles', 'variables.css'), path.join(docsDir, 'styles', 'variables.css'));
   copyFile(path.join(projectRoot, 'styles', 'timer.css'), path.join(docsDir, 'styles', 'timer.css'));
 

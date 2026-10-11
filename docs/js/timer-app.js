@@ -5,8 +5,8 @@ let engine = null;
 const isStandalone = !!window.__STANDALONE_CONFIG__;
 
 function log(level, message) {
-  if (window.DataService?.log) {
-    window.DataService.log(level, message);
+  if (window.electronAPI?.log) {
+    window.electronAPI.log(level, message);
   }
 }
 
@@ -46,7 +46,7 @@ function applyTheme(theme = config.theme || {}) {
   let resolvedColors = theme.colors;
   let resolvedBg = theme.backgroundColor;
   let resolvedStatusBar = theme.statusBar;
-  if (window.__THEME_PRESETS__) {
+  if (isStandalone && window.__THEME_PRESETS__) {
     const p = window.__THEME_PRESETS__[preset] || window.__THEME_PRESETS__.classic;
     const variant = p[colorMode] || p.dark;
     resolvedColors = { ...variant.colors, ...theme.colors };
@@ -70,8 +70,7 @@ function applyTheme(theme = config.theme || {}) {
     offsetY: 0
   };
 
-  // SPA 中优先选取 #timer-view 内的计时器 shell，避免误操作编辑器预览
-  const timerShell = document.querySelector('#timer-view .timer-shell') || document.querySelector('.timer-shell');
+  const timerShell = document.querySelector('.timer-shell');
   const bgLayer = timerShell ? timerShell.querySelector('.bg-layer') : null;
 
   // 在 .timer-shell 上标记当前预设与色彩模式，触发 timer.css 的方向覆盖规则
@@ -81,10 +80,7 @@ function applyTheme(theme = config.theme || {}) {
   }
 
   // 清除 body 和 .timer-shell 的背景，由独立背景层渲染
-  // 注：SPA 模式下仅当 .timer-shell 不在编辑器预览中时才清 body 背景
-  if (timerShell && !timerShell.closest('#editor-view')) {
-    document.body.style.background = 'transparent';
-  }
+  document.body.style.background = 'transparent';
   if (timerShell) {
     timerShell.style.background = 'transparent';
   }
@@ -119,7 +115,7 @@ function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--font-scale', theme.fontSizeScale || 1);
 
   // 应用状态栏设置
-  const topBand = document.querySelector('#timer-view .top-band') || document.querySelector('.top-band');
+  const topBand = document.querySelector('.top-band');
   if (topBand && resolvedStatusBar) {
     const sb = resolvedStatusBar;
     if (sb.height) topBand.style.height = `${sb.height}px`;
@@ -512,7 +508,7 @@ function render(state) {
 }
 
 async function initTimerApp() {
-  config = window.__STANDALONE_CONFIG__ || (await window.DataService.loadConfig());
+  config = window.__STANDALONE_CONFIG__ || (await window.electronAPI.loadConfig());
   log('info', `计时页初始化，${isStandalone ? '独立模式' : '编辑页模式'}`);
   engine = new TimerEngine(config, render);
   applyTheme(config.theme || {});
@@ -624,7 +620,7 @@ function openStandaloneSetup() {
 }
 
 async function refreshFromConfig(nextConfig) {
-  config = nextConfig || (await window.DataService.loadConfig());
+  config = nextConfig || (await window.electronAPI.loadConfig());
   log('info', '配置已同步，刷新计时页');
   applyTheme(config.theme || {});
   engine.segments = config.segments || [];
@@ -681,12 +677,12 @@ function bindShortcuts() {
     }
     if (key === 'f') {
       log('debug', '快捷键：F 切换全屏');
-      window.DataService.toggleFullscreen();
+      window.electronAPI.toggleFullscreen();
     }
     if (key === 'b') {
       log('debug', '快捷键：B 返回');
       if (isStandalone) openStandaloneSetup();
-      else window.DataService.openEditor();
+      else window.electronAPI.openEditor();
     }
     if (event.key === 'ArrowRight') {
       log('debug', '快捷键：→ 下一环节');
@@ -783,7 +779,7 @@ function bindControlButtons() {
   });
   document.getElementById('fullscreenBtn').addEventListener('click', async () => {
     log('info', '切换全屏');
-    await window.DataService.toggleFullscreen();
+    await window.electronAPI.toggleFullscreen();
   });
   document.getElementById('backBtn').addEventListener('click', async () => {
     if (isStandalone) {
@@ -791,7 +787,7 @@ function bindControlButtons() {
       openStandaloneSetup();
     } else {
       log('info', '返回编辑页');
-      await window.DataService.openEditor();
+      await window.electronAPI.openEditor();
     }
   });
   document.getElementById('jumpBtn').addEventListener('click', () => {
@@ -888,6 +884,6 @@ if (window.__STANDALONE_CONFIG__) {
   });
 }
 
-window.DataService.onConfigUpdated(async (nextConfig) => {
+window.electronAPI.onConfigUpdated(async (nextConfig) => {
   await refreshFromConfig(nextConfig);
 });
