@@ -8,6 +8,7 @@
   --font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   --text-font-family: var(--font-family);
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace;
+  --font-timer: 'SimSun', '宋体', 'Songti SC', 'STSong', 'Noto Serif SC', 'Source Han Serif SC', serif;
   --font-scale: 1;
 }
 
@@ -172,7 +173,7 @@ body {
 
 /* === 计时器 === */
 .timer-display {
-  font-family: var(--font-mono);
+  font-family: var(--font-timer);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -187,7 +188,7 @@ body {
   font-variant-numeric: tabular-nums;
   line-height: 1;
   transition: color 300ms ease, transform 200ms ease;
-  font-family: var(--font-mono);
+  font-family: var(--font-timer);
 }
 
 .single-timer.affirmative {
@@ -235,7 +236,7 @@ body {
   letter-spacing: 3px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  font-family: var(--font-mono);
+  font-family: var(--font-timer);
   transition: color 300ms ease;
 }
 

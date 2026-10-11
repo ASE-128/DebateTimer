@@ -58,6 +58,8 @@ window.DataService = (function () {
         negativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
         affirmativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
         negativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+        affirmativeLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '正方' },
+        negativeLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '反方' },
         eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
         segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
         sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
@@ -169,7 +171,7 @@ window.DataService = (function () {
     // ==================== 应用版本 / 变更日志 ====================
 
     getAppVersion: function () {
-      return Promise.resolve('3.2.0 (Web)');
+      return Promise.resolve('3.2.1 (Web)');
     },
 
     getLatestChangelog: function () {

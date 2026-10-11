@@ -130,6 +130,8 @@ function defaultConfig() {
       negativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       affirmativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       negativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+      affirmativeLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '正方' },
+      negativeLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '反方' },
       eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },

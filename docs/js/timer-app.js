@@ -135,6 +135,8 @@ function applyTheme(theme = config.theme || {}) {
       negativeTeamName: 'negativeTeamName',
       affirmativeTopic: 'affirmativeTopic',
       negativeTopic: 'negativeTopic',
+      affirmativeLabel: 'affirmativeLabel',
+      negativeLabel: 'negativeLabel',
       affirmativeLogo: 'affirmativeLogo',
       negativeLogo: 'negativeLogo',
       eventName: 'eventName',
@@ -169,7 +171,7 @@ function applyTheme(theme = config.theme || {}) {
         } else {
           el.style.color = '';
         }
-        if (key === 'watermark' && settings.text) {
+        if ((key === 'watermark' || key === 'affirmativeLabel' || key === 'negativeLabel') && settings.text) {
           el.textContent = settings.text;
         }
       }

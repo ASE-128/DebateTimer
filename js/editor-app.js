@@ -43,6 +43,8 @@ function cacheDom() {
   dom.previewAffirmativeTopic = document.getElementById('previewAffirmativeTopic');
   dom.previewNegativeTopic = document.getElementById('previewNegativeTopic');
   dom.previewWatermark = document.getElementById('previewWatermark');
+  dom.previewAffirmativeLabel = document.getElementById('previewAffirmativeLabel');
+  dom.previewNegativeLabel = document.getElementById('previewNegativeLabel');
   dom.previewTopBand = document.getElementById('previewTopBand');
   dom.previewSegmentSelect = document.getElementById('previewSegmentSelect');
   dom.segmentsRoot = document.getElementById('segments');
@@ -146,6 +148,8 @@ function defaultLayout() {
     negativeTeamName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     affirmativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     negativeTopic: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
+    affirmativeLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '正方' },
+    negativeLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '反方' },
     eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
@@ -181,7 +185,9 @@ function getSymmetricKey(key) {
     affirmativeTeamName: 'negativeTeamName',
     negativeTeamName: 'affirmativeTeamName',
     affirmativeTopic: 'negativeTopic',
-    negativeTopic: 'affirmativeTopic'
+    negativeTopic: 'affirmativeTopic',
+    affirmativeLabel: 'negativeLabel',
+    negativeLabel: 'affirmativeLabel'
   };
   return map[key] || null;
 }
@@ -532,6 +538,8 @@ function fillEditorUI(config) {
   dom.previewAffirmativeTopic.textContent = config.topics?.affirmative || '正方辩题';
   dom.previewNegativeTopic.textContent = config.topics?.negative || '反方辩题';
   dom.previewWatermark.textContent = config.layout?.watermark?.text || '辩论计时器';
+  dom.previewAffirmativeLabel.textContent = config.layout?.affirmativeLabel?.text || '正方';
+  dom.previewNegativeLabel.textContent = config.layout?.negativeLabel?.text || '反方';
 
   applyThemeToPreview(config.theme || {});
   applyLayoutToPreview(config.layout || defaultLayout());
@@ -1396,7 +1404,7 @@ function gatherConfig() {
       if (fontSize > 0) layout[key].fontSize = fontSize;
       if (el.style.fontFamily) layout[key].fontFamily = el.style.fontFamily;
       if (el.style.color) layout[key].color = el.style.color;
-      if (key === 'watermark') {
+      if (key === 'watermark' || key === 'affirmativeLabel' || key === 'negativeLabel') {
         layout[key].text = el.textContent || '';
       }
     });
@@ -1647,7 +1655,7 @@ function updateTextToolbar() {
   const size = dom.toolbarFontSize?.value;
   const color = dom.toolbarTextColor?.value;
 
-  if (content !== undefined && !editingElement.classList.contains('team-label')) {
+  if (content !== undefined) {
     editingElement.textContent = content;
   }
   if (font) editingElement.style.fontFamily = font;
