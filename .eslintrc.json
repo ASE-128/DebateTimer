@@ -48,6 +48,13 @@
       }
     },
     {
+      "files": ["scripts/**/*.js"],
+      "env": {
+        "node": true,
+        "commonjs": true
+      }
+    },
+    {
       "files": ["tests/**/*.js"],
       "env": {
         "node": true

@@ -23,11 +23,7 @@ function extractBody(html) {
 }
 
 function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function defaultConfig() {
@@ -81,8 +77,7 @@ function defaultConfig() {
         capTransform: 'uppercase',
         capSpacing: '2px',
         shadowLevel: 'default',
-        timerFontFamily:
-          "'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"
+        timerFontFamily: "'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"
       }
     },
     layout: {
@@ -170,10 +165,7 @@ function build() {
   let bodyContent = extractBody(timerHtml);
 
   // 移除独立设置弹窗（standaloneSetup 会在后面重新生成）
-  bodyContent = bodyContent.replace(
-    /<div[^>]*id=["']standaloneSetup["'][^>]*>[\s\S]*?<\/div>\s*<\/div>/i,
-    ''
-  ).trim();
+  bodyContent = bodyContent.replace(/<div[^>]*id=["']standaloneSetup["'][^>]*>[\s\S]*?<\/div>\s*<\/div>/i, '').trim();
 
   // 赛前设置弹窗 HTML
   const setupHtml = [
@@ -246,22 +238,13 @@ function build() {
   console.log(`  生成: docs/index.html`);
 
   // --- 复制样式 ---
-  copyFile(
-    path.join(projectRoot, 'styles', 'variables.css'),
-    path.join(docsDir, 'styles', 'variables.css')
-  );
-  copyFile(
-    path.join(projectRoot, 'styles', 'timer.css'),
-    path.join(docsDir, 'styles', 'timer.css')
-  );
+  copyFile(path.join(projectRoot, 'styles', 'variables.css'), path.join(docsDir, 'styles', 'variables.css'));
+  copyFile(path.join(projectRoot, 'styles', 'timer.css'), path.join(docsDir, 'styles', 'timer.css'));
 
   // --- 复制 JS ---
   const jsFiles = ['toast.js', 'audio.js', 'timer-core.js', 'timer-app.js'];
   for (const file of jsFiles) {
-    copyFile(
-      path.join(projectRoot, 'js', file),
-      path.join(docsDir, 'js', file)
-    );
+    copyFile(path.join(projectRoot, 'js', file), path.join(docsDir, 'js', file));
   }
 
   console.log('\n构建完成！');
