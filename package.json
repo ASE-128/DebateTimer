@@ -1,6 +1,6 @@
 {
   "name": "debate-timer-electron",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "一款桌面辩论赛计时器",
   "main": "main.js",
   "scripts": {
@@ -70,7 +70,11 @@
       "createDesktopShortcut": true,
       "include": "resources/installer.nsh",
       "license": "LICENSE",
-      "shortcutName": "辩论赛计时器"
+      "shortcutName": "辩论赛计时器",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}.${ext}"
     }
   },
   "keywords": [

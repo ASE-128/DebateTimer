@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.3.1] - 2026-10-13
+
+### Fixed
+- Windows 安装包与便携版文件名改用连字符（`DebateTimer-Setup-<版本>.exe`、`DebateTimer-<版本>.exe`），与更新元数据 `latest.yml` 中的文件名保持一致，避免自动更新下载 404。
+
 ## [3.3.0] - 2026-10-13
 
 ### Added
