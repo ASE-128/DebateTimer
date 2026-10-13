@@ -12,6 +12,8 @@ const {
   serializeConfig,
   parseConfig,
   generateStandaloneExe,
+  getStandaloneDisplayName,
+  sanitizeFileName,
   getLatestChangelog,
   consumeMigrationInfo,
   getAllTemplates,
@@ -149,7 +151,7 @@ function registerIpcHandlers() {
       const editorWindow = windows.getEditorWindow();
       const { filePath } = await dialog.showSaveDialog(editorWindow, {
         title: '导出独立计时器',
-        defaultPath: '辩论赛计时器-Setup.exe',
+        defaultPath: `${sanitizeFileName(getStandaloneDisplayName(config))}-Setup.exe`,
         filters: [{ name: '可执行文件', extensions: ['exe'] }]
       });
       if (!filePath) {

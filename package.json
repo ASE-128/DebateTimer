@@ -68,6 +68,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
+      "include": "resources/installer.nsh",
       "license": "LICENSE",
       "shortcutName": "辩论赛计时器"
     }

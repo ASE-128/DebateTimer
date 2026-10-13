@@ -33,7 +33,12 @@ const duelSideAffirmativeBtnEl = document.getElementById('duelSideAffirmativeBtn
 const duelSideNegativeBtnEl = document.getElementById('duelSideNegativeBtn');
 
 function formatTime(seconds) {
-  const total = Math.max(0, Math.floor(seconds));
+  const value = Math.max(0, Number(seconds) || 0);
+  // 剩余 5 秒及以下：显示秒数并保留两位小数（如 4.37）
+  if (value <= 5) {
+    return value.toFixed(2);
+  }
+  const total = Math.floor(value);
   const min = String(Math.floor(total / 60)).padStart(2, '0');
   const sec = String(total % 60).padStart(2, '0');
   return `${min}:${sec}`;

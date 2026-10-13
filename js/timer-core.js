@@ -169,7 +169,8 @@ class TimerEngine {
           : this.remainingOpposite
         : this.remaining;
     const currentSecond = Math.floor(displayRemaining);
-    if (currentSecond !== this.lastRenderedSecond) {
+    // 剩余 5 秒及以下需按帧渲染，才能显示两位小数的秒数
+    if (currentSecond !== this.lastRenderedSecond || displayRemaining <= 5) {
       this.render();
     }
     if (this.isRunning) this.scheduleTick();

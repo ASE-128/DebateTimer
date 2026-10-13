@@ -2191,14 +2191,14 @@ dom.exportTimerBtn.addEventListener('click', async () => {
       try {
         const summary = await window.electronAPI.getLatestChangelog();
         if (summary) {
-          const firstLine = summary.split(/\r?\n/)[0] || '';
+          const firstLine = (summary.split(/\r?\n/)[0] || '').replace(/^#+\s*/, '').trim();
           changelogLine = `\n\n最新更新日志：${firstLine}（可在顶部更新提示中查看完整摘要）`;
         }
       } catch (e) {
         log('warn', `获取最新更新日志失败: ${e.message}`);
       }
       alert(
-        `独立计时器已导出到：${result.path}\n说明：这是一个 NSIS 安装程序，运行后会在本地安装并创建桌面和开始菜单快捷方式。${changelogLine}`
+        `独立计时器已导出到：${result.path}\n说明：这是一个安装程序，运行后会在本地安装并创建桌面和开始菜单快捷方式。${changelogLine}`
       );
     } else {
       log('error', `导出独立计时器失败: ${result?.error || '未知错误'}`);
@@ -2494,8 +2494,9 @@ function renderMarkdownToHtml(markdown) {
       continue;
     }
     flushList();
-    if (line.startsWith('### ')) {
-      out.push(`<strong>${line.slice(4).trim()}</strong>`);
+    const headingMatch = line.match(/^#{1,6}\s+(.*)$/);
+    if (headingMatch) {
+      out.push(`<strong>${headingMatch[1].trim()}</strong>`);
     } else if (line.trim() === '') {
       out.push('<br>');
     } else {

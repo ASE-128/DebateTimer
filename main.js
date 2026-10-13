@@ -32,7 +32,7 @@ module.exports = {
   migrateV2ToV3: exportModule.migrateV2ToV3,
   generateStandaloneExe: exportModule.generateStandaloneExe,
   generateStandaloneAppFiles: exportModule.generateStandaloneAppFiles,
-  generateNsisScript: exportModule.generateNsisScript,
+  generateInnoScript: exportModule.generateInnoScript,
   readAsset: exportModule.readAsset,
   extractBody: exportModule.extractBody,
   copyDir: exportModule.copyDir
