@@ -9,6 +9,16 @@ const builtInTemplates = require('./built-in-templates');
 const { THEME_PRESETS } = require('./theme-presets');
 
 const projectRoot = path.join(__dirname, '..', '..');
+const SIDE_LABEL_DEFAULTS = {
+  affirmative: '正方发言中',
+  negative: '反方发言中',
+  neutral: '中立计时中'
+};
+const SIDE_LABEL_LAYOUT_KEYS = {
+  affirmative: 'affirmativeSideLabel',
+  negative: 'negativeSideLabel',
+  neutral: 'neutralSideLabel'
+};
 
 const isElectron = !!(process.versions && process.versions.electron);
 const isMainApp = isElectron && process.env.DEBATE_TIMER_TEST_MODE !== 'export';
@@ -135,8 +145,31 @@ function defaultConfig() {
       eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
-      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
-      designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
+      affirmativeSideLabel: {
+        x: 0,
+        y: 0,
+        fontSize: 0,
+        fontFamily: '',
+        color: '',
+        text: '正方发言中'
+      },
+      negativeSideLabel: {
+        x: 0,
+        y: 0,
+        fontSize: 0,
+        fontFamily: '',
+        color: '',
+        text: '反方发言中'
+      },
+      neutralSideLabel: {
+        x: 0,
+        y: 0,
+        fontSize: 0,
+        fontFamily: '',
+        color: '',
+        text: '中立计时中'
+      },
+      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' }
     },
     segments: [
       { id: 1, name: '开场', type: 'none', duration: 0 },
@@ -146,6 +179,34 @@ function defaultConfig() {
     logos: { affirmative: '', negative: '' },
     schedule: []
   };
+}
+
+function normalizeLayout(inputLayout, fallbackLayout) {
+  if (!inputLayout || typeof inputLayout !== 'object') return fallbackLayout;
+  const layout = Object.fromEntries(
+    Object.entries(inputLayout).map(([key, val]) => [
+      key,
+      {
+        x: Number(val?.x || 0),
+        y: Number(val?.y || 0),
+        fontSize: Number(val?.fontSize || 0),
+        fontFamily: String(val?.fontFamily || ''),
+        color: String(val?.color || ''),
+        text: String(val?.text || '')
+      }
+    ])
+  );
+  const sharedSettings = layout.sideLabel || fallbackLayout.sideLabel;
+  Object.entries(SIDE_LABEL_LAYOUT_KEYS).forEach(([side, key]) => {
+    if (!layout[key]) {
+      layout[key] = {
+        ...fallbackLayout[key],
+        ...sharedSettings,
+        text: SIDE_LABEL_DEFAULTS[side]
+      };
+    }
+  });
+  return layout;
 }
 
 function validateConfig(input) {
@@ -250,22 +311,7 @@ function validateConfig(input) {
             }
           : defTheme.tokens
     },
-    layout:
-      input.layout && typeof input.layout === 'object'
-        ? Object.fromEntries(
-            Object.entries(input.layout).map(([key, val]) => [
-              key,
-              {
-                x: Number(val?.x || 0),
-                y: Number(val?.y || 0),
-                fontSize: Number(val?.fontSize || 0),
-                fontFamily: String(val?.fontFamily || ''),
-                color: String(val?.color || ''),
-                text: String(val?.text || '')
-              }
-            ])
-          )
-        : def.layout,
+    layout: normalizeLayout(input.layout, def.layout),
     segments: Array.isArray(input.segments)
       ? input.segments.map((seg, i) => ({
           id: i + 1,

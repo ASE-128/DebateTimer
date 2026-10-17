@@ -215,4 +215,63 @@ describe('配置校验与警告', () => {
     expect(config.schedule[0].affirmativeLogo).toBe('aff-logo');
     expect(config.schedule[0].negativeLogo).toBe('neg-logo');
   });
+
+  it('validateConfig 分开保存正反方发言状态样式', () => {
+    const input = {
+      layout: {
+        affirmativeSideLabel: {
+          color: '#ff0000',
+          text: '正方正在发言'
+        },
+        negativeSideLabel: {
+          color: '#0000ff',
+          text: '反方正在发言'
+        }
+      }
+    };
+    const config = validateConfig(input);
+
+    expect(config.layout.affirmativeSideLabel.color).toBe('#ff0000');
+    expect(config.layout.affirmativeSideLabel.text).toBe('正方正在发言');
+    expect(config.layout.negativeSideLabel.color).toBe('#0000ff');
+    expect(config.layout.negativeSideLabel.text).toBe('反方正在发言');
+  });
+
+  it('validateConfig 保留亮色模式与主题形态 token', () => {
+    const config = validateConfig({
+      theme: {
+        preset: 'vibrant',
+        colorMode: 'light',
+        tokens: {
+          controlStyle: 'round-icon'
+        }
+      }
+    });
+
+    expect(config.theme.colorMode).toBe('light');
+    expect(config.theme.tokens.controlStyle).toBe('round-icon');
+  });
+
+  it('旧版统一 sideLabel 样式会迁移到三种发言状态', () => {
+    const input = {
+      layout: {
+        sideLabel: {
+          x: 12,
+          y: 4,
+          color: '#123456',
+          text: ''
+        }
+      }
+    };
+    const config = validateConfig(input);
+
+    for (const key of ['affirmativeSideLabel', 'negativeSideLabel', 'neutralSideLabel']) {
+      expect(config.layout[key].x).toBe(12);
+      expect(config.layout[key].y).toBe(4);
+      expect(config.layout[key].color).toBe('#123456');
+    }
+    expect(config.layout.affirmativeSideLabel.text).toBe('正方发言中');
+    expect(config.layout.negativeSideLabel.text).toBe('反方发言中');
+    expect(config.layout.neutralSideLabel.text).toBe('中立计时中');
+  });
 });

@@ -1000,17 +1000,87 @@ body {
 [data-preset-active="vibrant"] .control-panel button .btn-key {
   display: none;
 }
-[data-preset-active="vibrant"] #startBtn {
+[data-preset-active="vibrant"] #startBtn,
+[data-preset-active="vibrant"] #previewStartBtn {
   border-radius: 50%;
   width: 48px;
   height: 48px;
   padding: 0;
 }
-[data-preset-active="vibrant"] #startBtn .btn-label {
+[data-preset-active="vibrant"] #startBtn .btn-label,
+[data-preset-active="vibrant"] #previewStartBtn .btn-label {
   font-size: 0;
 }
-[data-preset-active="vibrant"] #startBtn .btn-label::before {
+[data-preset-active="vibrant"] #startBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewStartBtn .btn-label::before {
   content: '▶';
+  font-size: 18px;
+}
+[data-preset-active="vibrant"] #startBtn.running .btn-label::before {
+  content: 'Ⅱ';
+  font-size: 16px;
+}
+[data-preset-active="vibrant"] #startBtn.running.duel-running .btn-label::before {
+  content: '⇄';
+  font-size: 18px;
+}
+[data-preset-active="vibrant"] #duelSideAffirmativeBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewDuelSideAffirmativeBtn .btn-label::before {
+  content: '正';
+}
+[data-preset-active="vibrant"] #duelSideNegativeBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewDuelSideNegativeBtn .btn-label::before {
+  content: '反';
+}
+[data-preset-active="vibrant"] #stopBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewStopBtn .btn-label::before {
+  content: '■';
+  font-size: 14px;
+}
+[data-preset-active="vibrant"] #resetBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewResetBtn .btn-label::before {
+  content: '↺';
+  font-size: 18px;
+}
+[data-preset-active="vibrant"] #prevBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewPrevBtn .btn-label::before {
+  content: '‹';
+  font-size: 24px;
+}
+[data-preset-active="vibrant"] #nextBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewNextBtn .btn-label::before {
+  content: '›';
+  font-size: 24px;
+}
+[data-preset-active="vibrant"] #jumpBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewJumpBtn .btn-label::before {
+  content: '跳';
+}
+[data-preset-active="vibrant"] #setTimeBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewSetTimeBtn .btn-label::before {
+  content: '时';
+}
+[data-preset-active="vibrant"] #test30Btn .btn-label::before,
+[data-preset-active="vibrant"] #previewTest30Btn .btn-label::before {
+  content: '30';
+  font-size: 11px;
+}
+[data-preset-active="vibrant"] #test5Btn .btn-label::before,
+[data-preset-active="vibrant"] #previewTest5Btn .btn-label::before {
+  content: '5';
+  font-size: 14px;
+}
+[data-preset-active="vibrant"] #testEndBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewTestEndBtn .btn-label::before {
+  content: '✓';
+}
+[data-preset-active="vibrant"] #fullscreenBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewFullscreenBtn .btn-label::before {
+  content: '全';
+}
+[data-preset-active="vibrant"] #backBtn .btn-label::before,
+[data-preset-active="vibrant"] #previewBackBtn .btn-label::before {
+  content: '←';
   font-size: 18px;
 }
 [data-preset-active="vibrant"] .control-panel button:hover {
@@ -1059,7 +1129,23 @@ body {
   color: #1a1d24;
 }
 [data-preset-active="restrained"][data-color-mode="light"] .control-panel {
+  background: rgba(255, 255, 255, 0.8);
   border-color: rgba(0, 0, 0, 0.12);
+  color: #1a1d24;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+[data-preset-active="restrained"][data-color-mode="light"] .control-panel:hover {
+  background: rgba(255, 255, 255, 0.86);
+}
+[data-preset-active="restrained"][data-color-mode="light"] .control-group {
+  border-right-color: rgba(0, 0, 0, 0.1);
+}
+[data-preset-active="restrained"][data-color-mode="light"] .control-panel button {
+  color: #1a1d24;
+}
+[data-preset-active="restrained"][data-color-mode="light"] .control-panel button:hover {
+  background: rgba(0, 0, 0, 0.06);
 }
 [data-preset-active="broadcast"][data-color-mode="light"] .control-panel button,
 [data-preset-active="vibrant"][data-color-mode="light"] .control-panel button {

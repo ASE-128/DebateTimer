@@ -14,6 +14,16 @@ const eventNameEl = document.getElementById('eventName');
 const segmentNameEl = document.getElementById('segmentName');
 const timerDisplayEl = document.getElementById('timerDisplay');
 const sideLabelEl = document.getElementById('sideLabel');
+const SIDE_LABEL_DEFAULTS = {
+  affirmative: '正方发言中',
+  negative: '反方发言中',
+  neutral: '中立计时中'
+};
+const SIDE_LABEL_LAYOUT_KEYS = {
+  affirmative: 'affirmativeSideLabel',
+  negative: 'negativeSideLabel',
+  neutral: 'neutralSideLabel'
+};
 const startBtnEl = document.getElementById('startBtn');
 const affirmativeTeamNameEl = document.getElementById('affirmativeTeamName');
 const negativeTeamNameEl = document.getElementById('negativeTeamName');
@@ -31,6 +41,34 @@ const timerProgressBarEl = document.getElementById('timerProgressBar');
 const duelSideGroupEl = document.getElementById('duelSideGroup');
 const duelSideAffirmativeBtnEl = document.getElementById('duelSideAffirmativeBtn');
 const duelSideNegativeBtnEl = document.getElementById('duelSideNegativeBtn');
+
+function getSideLabelLayoutSettings(side = 'affirmative') {
+  const layout = config?.layout || {};
+  const key = SIDE_LABEL_LAYOUT_KEYS[side] || SIDE_LABEL_LAYOUT_KEYS.affirmative;
+  const sharedSettings = layout.sideLabel || {};
+  const sideSettings = layout[key] || {};
+  const defaultText = SIDE_LABEL_DEFAULTS[side] || SIDE_LABEL_DEFAULTS.affirmative;
+  return {
+    ...sharedSettings,
+    ...sideSettings,
+    text: typeof sideSettings.text === 'string' ? sideSettings.text : defaultText
+  };
+}
+
+function applySideLabelLayout(side) {
+  if (!sideLabelEl) return;
+  const settings = getSideLabelLayoutSettings(side);
+  if (settings.x !== undefined && settings.x !== 0) {
+    sideLabelEl.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
+  } else if (settings.y !== undefined && settings.y !== 0) {
+    sideLabelEl.style.transform = `translate(0px, ${settings.y}px)`;
+  } else {
+    sideLabelEl.style.transform = '';
+  }
+  sideLabelEl.style.fontSize = settings.fontSize > 0 ? `${settings.fontSize}px` : '';
+  sideLabelEl.style.fontFamily = settings.fontFamily || '';
+  sideLabelEl.style.color = settings.color || '';
+}
 
 function formatTime(seconds) {
   const value = Math.max(0, Number(seconds) || 0);
@@ -143,8 +181,7 @@ function applyTheme(theme = config.theme || {}) {
       eventName: 'eventName',
       segmentName: 'segmentName',
       sideLabel: 'sideLabel',
-      watermark: 'watermark',
-      designBy: 'designBy'
+      watermark: 'watermark'
     };
     Object.entries(layoutMap).forEach(([key, id]) => {
       const el = document.getElementById(id);
@@ -180,6 +217,7 @@ function applyTheme(theme = config.theme || {}) {
   }
 
   applyCustomFont(theme);
+  lastRenderCache.sideLabelSide = null;
   log('debug', `应用主题: 背景=${theme.backgroundType}, 字体=${baseFont}, 缩放=${theme.fontSizeScale || 1}`);
 }
 
@@ -194,7 +232,8 @@ let lastRenderCache = {
   affirmativeTimeText: null,
   negativeTimeText: null,
   progressPct: null,
-  progressClass: null
+  progressClass: null,
+  sideLabelSide: null
 };
 
 // 渲染写入队列：将 render() 中所有 DOM 写操作收集到同一帧末尾批量执行，
@@ -244,6 +283,8 @@ function applyCustomFont(theme) {
 function updateControlLabel(state) {
   const btnLabel = startBtnEl.querySelector('.btn-label');
   const isDual = state.currentSegment?.type === 'dual_debate';
+  startBtnEl.classList.toggle('running', Boolean(state.isRunning));
+  startBtnEl.classList.toggle('duel-running', Boolean(state.isRunning && isDual));
   const label = state.isRunning ? (isDual ? '切换' : '暂停') : '启动';
   if (!btnLabel) {
     queueRenderWrite(() => {
@@ -379,17 +420,15 @@ function render(state) {
     lastRenderCache.isNoTimer = isNoTimer;
   }
   // 无计时环节的字体缩放已由 CSS clamp() 处理，不再在 render() 中执行二分查找。
-  const sideLabelText = isNoTimer
-    ? ''
-    : state.activeSide === 'neutral'
-      ? '中立计时中'
-      : state.activeSide === 'affirmative'
-        ? '正方发言中'
-        : '反方发言中';
+  const sideLabelText = isNoTimer ? '' : getSideLabelLayoutSettings(state.activeSide).text;
   if (sideLabelEl.textContent !== sideLabelText) {
     queueRenderWrite(() => {
       sideLabelEl.textContent = sideLabelText;
     });
+  }
+  if (lastRenderCache.sideLabelSide !== state.activeSide) {
+    applySideLabelLayout(state.activeSide);
+    lastRenderCache.sideLabelSide = state.activeSide;
   }
   const sideLabelAffirmative = !isNoTimer && state.activeSide === 'affirmative';
   const sideLabelNegative = !isNoTimer && state.activeSide === 'negative';

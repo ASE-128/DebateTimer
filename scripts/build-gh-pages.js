@@ -90,8 +90,31 @@ function defaultConfig() {
       eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
       sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
-      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
-      designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
+      affirmativeSideLabel: {
+        x: 0,
+        y: 0,
+        fontSize: 0,
+        fontFamily: '',
+        color: '',
+        text: '正方发言中'
+      },
+      negativeSideLabel: {
+        x: 0,
+        y: 0,
+        fontSize: 0,
+        fontFamily: '',
+        color: '',
+        text: '反方发言中'
+      },
+      neutralSideLabel: {
+        x: 0,
+        y: 0,
+        fontSize: 0,
+        fontFamily: '',
+        color: '',
+        text: '中立计时中'
+      },
+      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' }
     },
     segments: [
       { id: 1, name: '开场', type: 'none', duration: 0 },

@@ -7,6 +7,24 @@ function log(level, message) {
 }
 
 const fonts = ['system-ui', 'SimSun', 'Microsoft YaHei', 'KaiTi', 'Segoe UI', 'Inter', 'Noto Sans SC'];
+const SIDE_LABEL_DEFAULTS = {
+  affirmative: '正方发言中',
+  negative: '反方发言中',
+  neutral: '中立计时中'
+};
+const SIDE_LABEL_LAYOUT_KEYS = {
+  affirmative: 'affirmativeSideLabel',
+  negative: 'negativeSideLabel',
+  neutral: 'neutralSideLabel'
+};
+const PERSISTED_TEXT_LAYOUT_KEYS = new Set([
+  'watermark',
+  'affirmativeLabel',
+  'negativeLabel',
+  'affirmativeSideLabel',
+  'negativeSideLabel',
+  'neutralSideLabel'
+]);
 
 let currentConfig = null;
 let editingElement = null;
@@ -153,8 +171,31 @@ function defaultLayout() {
     eventName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     segmentName: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
     sideLabel: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' },
-    watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
-    designBy: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
+    affirmativeSideLabel: {
+      x: 0,
+      y: 0,
+      fontSize: 0,
+      fontFamily: '',
+      color: '',
+      text: SIDE_LABEL_DEFAULTS.affirmative
+    },
+    negativeSideLabel: {
+      x: 0,
+      y: 0,
+      fontSize: 0,
+      fontFamily: '',
+      color: '',
+      text: SIDE_LABEL_DEFAULTS.negative
+    },
+    neutralSideLabel: {
+      x: 0,
+      y: 0,
+      fontSize: 0,
+      fontFamily: '',
+      color: '',
+      text: SIDE_LABEL_DEFAULTS.neutral
+    },
+    watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' }
   };
 }
 
@@ -192,6 +233,48 @@ function getSymmetricKey(key) {
   return map[key] || null;
 }
 
+function getSideLabelLayoutKey(side = 'affirmative') {
+  return SIDE_LABEL_LAYOUT_KEYS[side] || SIDE_LABEL_LAYOUT_KEYS.affirmative;
+}
+
+function ensureSideLabelLayouts(layout) {
+  if (!layout || typeof layout !== 'object') return;
+  const sharedSettings = layout.sideLabel || {};
+  Object.entries(SIDE_LABEL_LAYOUT_KEYS).forEach(([side, key]) => {
+    layout[key] = {
+      ...sharedSettings,
+      ...(layout[key] || {}),
+      text: typeof layout[key]?.text === 'string' ? layout[key].text : SIDE_LABEL_DEFAULTS[side]
+    };
+  });
+}
+
+function applyElementLayoutSettings(el, settings = {}) {
+  if (!el) return;
+  if (settings.x !== undefined && settings.x !== 0) {
+    el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
+  } else if (settings.y !== undefined && settings.y !== 0) {
+    el.style.transform = `translate(0px, ${settings.y}px)`;
+  } else {
+    el.style.transform = '';
+  }
+  if (settings.fontSize && settings.fontSize > 0) {
+    el.style.fontSize = `${settings.fontSize}px`;
+  } else {
+    el.style.fontSize = '';
+  }
+  if (settings.fontFamily) {
+    el.style.fontFamily = settings.fontFamily;
+  } else {
+    el.style.fontFamily = '';
+  }
+  if (settings.color) {
+    el.style.color = settings.color;
+  } else {
+    el.style.color = '';
+  }
+}
+
 function applyLayoutToPreview(layout = {}) {
   const preview = dom.timerPreview;
   if (!preview) return;
@@ -199,28 +282,7 @@ function applyLayoutToPreview(layout = {}) {
   elements.forEach((el) => {
     const key = el.getAttribute('data-layout-key');
     const settings = layout[key] || {};
-    if (settings.x !== undefined && settings.x !== 0) {
-      el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
-    } else if (settings.y !== undefined && settings.y !== 0) {
-      el.style.transform = `translate(0px, ${settings.y}px)`;
-    } else {
-      el.style.transform = '';
-    }
-    if (settings.fontSize && settings.fontSize > 0) {
-      el.style.fontSize = `${settings.fontSize}px`;
-    } else {
-      el.style.fontSize = '';
-    }
-    if (settings.fontFamily) {
-      el.style.fontFamily = settings.fontFamily;
-    } else {
-      el.style.fontFamily = '';
-    }
-    if (settings.color) {
-      el.style.color = settings.color;
-    } else {
-      el.style.color = '';
-    }
+    applyElementLayoutSettings(el, settings);
   });
 }
 
@@ -403,6 +465,65 @@ function updatePreviewSegmentSelect() {
   updatePreviewForSegment(currentPreviewSegmentIndex);
 }
 
+function setSegmentNameAt(index, name, options = {}) {
+  const { syncCard = true, syncPreview = true } = options;
+  const displayName = name || '未命名环节';
+  const segments = currentConfig?.segments;
+  if (segments?.[index]) {
+    segments[index].name = name;
+  }
+
+  if (syncCard) {
+    const card = dom.segmentsRoot?.children[index];
+    const nameInput = card?.querySelector('[data-field="name"]');
+    if (nameInput) nameInput.value = name;
+  }
+
+  const option = dom.previewSegmentSelect?.options[index];
+  if (option) option.textContent = displayName;
+
+  if (syncPreview && index === currentPreviewSegmentIndex && dom.previewSegmentName) {
+    dom.previewSegmentName.textContent = displayName;
+  }
+
+  renderSegmentNav();
+}
+
+function readSegmentsFromCards() {
+  return Array.from(dom.segmentsRoot?.children || []).map((card, index) => ({
+    id: index + 1,
+    name: card.querySelector('[data-field="name"]')?.value || '',
+    type: card.querySelector('[data-field="type"]')?.value || 'none',
+    duration: Number(card.querySelector('[data-field="duration"]')?.value || 0),
+    side: card.querySelector('[data-field="side"]')?.value || undefined
+  }));
+}
+
+function syncSegmentCardsToConfig() {
+  if (currentConfig) currentConfig.segments = readSegmentsFromCards();
+}
+
+function refreshSegmentPreviewState(preferredCard = null) {
+  const cards = Array.from(dom.segmentsRoot?.children || []);
+  const preferredIndex = preferredCard ? cards.indexOf(preferredCard) : -1;
+  if (preferredIndex >= 0) currentPreviewSegmentIndex = preferredIndex;
+  currentPreviewSegmentIndex = Math.max(0, Math.min(currentPreviewSegmentIndex, cards.length - 1));
+
+  syncSegmentCardsToConfig();
+  updateCardIndices();
+  renderSegmentNav();
+  updatePreviewSegmentSelect();
+}
+
+function updateSegmentCardVisibility(card) {
+  if (!card) return;
+  const type = card.querySelector('[data-field="type"]')?.value || 'none';
+  const durationRow = card.querySelector('.duration-row');
+  const sideRow = card.querySelector('.side-row');
+  if (durationRow) durationRow.style.display = type === 'none' ? 'none' : '';
+  if (sideRow) sideRow.style.display = type === 'none' || type === 'neutral_timer' ? 'none' : '';
+}
+
 function isDualSegmentType(type) {
   return type === 'dual_debate';
 }
@@ -471,14 +592,15 @@ function updatePreviewForSegment(index) {
     sideLabel.classList.remove('affirmative', 'negative', 'neutral');
     sideLabel.style.display = isNoTimer ? 'none' : '';
     if (!isNoTimer) {
+      const sideLabelKey = getSideLabelLayoutKey(activeSide);
+      const sideLabelSettings = currentConfig?.layout?.[sideLabelKey] || {};
       sideLabel.classList.add(activeSide);
-      if (activeSide === 'neutral') {
-        sideLabel.textContent = '中立计时中';
-      } else if (activeSide === 'affirmative') {
-        sideLabel.textContent = '正方发言中';
-      } else {
-        sideLabel.textContent = '反方发言中';
-      }
+      sideLabel.setAttribute('data-layout-key', sideLabelKey);
+      sideLabel.textContent =
+        typeof sideLabelSettings.text === 'string'
+          ? sideLabelSettings.text
+          : SIDE_LABEL_DEFAULTS[activeSide] || SIDE_LABEL_DEFAULTS.affirmative;
+      applyElementLayoutSettings(sideLabel, sideLabelSettings);
     }
   }
 
@@ -529,6 +651,8 @@ function fillEditorUI(config) {
   if (!Array.isArray(currentConfig.schedule)) {
     currentConfig.schedule = [];
   }
+  currentConfig.layout = currentConfig.layout || defaultLayout();
+  ensureSideLabelLayouts(currentConfig.layout);
   currentConfig.logos = config.logos || { affirmative: '', negative: '' };
   updatePreviewLogos();
 
@@ -765,13 +889,29 @@ function renderSegments(segments) {
 function moveSegmentCard(index, direction) {
   const root = dom.segmentsRoot;
   const cards = Array.from(root.children);
+  const previewCard = cards[currentPreviewSegmentIndex] || null;
   if (direction === 'up' && index > 0) {
     root.insertBefore(cards[index], cards[index - 1]);
   } else if (direction === 'down' && index < cards.length - 1) {
     root.insertBefore(cards[index + 1], cards[index]);
   }
-  updateCardIndices();
-  renderSegmentNav();
+  refreshSegmentPreviewState(previewCard);
+}
+
+function deleteSegmentCard(index) {
+  const cards = Array.from(dom.segmentsRoot.children);
+  const previewCard = cards[currentPreviewSegmentIndex] || null;
+  const deletedCard = cards[index];
+  if (!deletedCard) return;
+
+  deletedCard.remove();
+  if (previewCard === deletedCard) {
+    currentPreviewSegmentIndex = Math.max(0, index - 1);
+    refreshSegmentPreviewState();
+  } else {
+    if (index < currentPreviewSegmentIndex) currentPreviewSegmentIndex--;
+    refreshSegmentPreviewState(previewCard);
+  }
 }
 
 function updateCardIndices() {
@@ -949,6 +1089,7 @@ function bindSegmentNavDragDrop() {
     if (draggedIndex !== null && insertIndex !== draggedIndex) {
       const root = dom.segmentsRoot;
       const cards = Array.from(root.children);
+      const previewCard = cards[currentPreviewSegmentIndex] || null;
       const draggedCard = cards[draggedIndex];
       draggedCard.remove();
 
@@ -959,8 +1100,7 @@ function bindSegmentNavDragDrop() {
         root.insertBefore(draggedCard, remainingCards[insertIndex]);
       }
 
-      updateCardIndices();
-      renderSegmentNav();
+      refreshSegmentPreviewState(previewCard);
     }
 
     draggedItem = null;
@@ -1032,9 +1172,7 @@ function bindSegmentNavDragDrop() {
           moveSegmentCard(index, 'down');
         }
         if (action === 'del') {
-          cards[index]?.remove();
-          updateCardIndices();
-          renderSegmentNav();
+          deleteSegmentCard(index);
         }
       };
     });
@@ -1404,7 +1542,7 @@ function gatherConfig() {
       if (fontSize > 0) layout[key].fontSize = fontSize;
       if (el.style.fontFamily) layout[key].fontFamily = el.style.fontFamily;
       if (el.style.color) layout[key].color = el.style.color;
-      if (key === 'watermark' || key === 'affirmativeLabel' || key === 'negativeLabel') {
+      if (PERSISTED_TEXT_LAYOUT_KEYS.has(key)) {
         layout[key].text = el.textContent || '';
       }
     });
@@ -1436,6 +1574,7 @@ function gatherConfig() {
     },
     theme: {
       preset: theme.preset || 'classic',
+      colorMode: theme.colorMode || 'dark',
       backgroundType: bgType,
       backgroundImage: bgImage,
       backgroundColor: bgColor,
@@ -1452,16 +1591,11 @@ function gatherConfig() {
         text: '#ffffff'
       },
       statusBar: statusBar,
-      backgroundImageSettings: bgImageSettings
+      backgroundImageSettings: bgImageSettings,
+      tokens: theme.tokens || {}
     },
     layout: layout,
-    segments: Array.from(document.querySelectorAll('.segment-card')).map((card, index) => ({
-      id: index + 1,
-      name: card.querySelector('[data-field="name"]').value,
-      type: card.querySelector('[data-field="type"]').value,
-      duration: Number(card.querySelector('[data-field="duration"]').value || 0),
-      side: card.querySelector('[data-field="side"]').value || undefined
-    })),
+    segments: readSegmentsFromCards(),
     logos: currentConfig?.logos || { affirmative: '', negative: '' },
     schedule: currentConfig?.schedule || []
   };
@@ -1499,9 +1633,7 @@ function bindSegmentActions() {
       moveSegmentCard(index, 'down');
     }
     if (action === 'del') {
-      cards[index].remove();
-      updateCardIndices();
-      renderSegmentNav();
+      deleteSegmentCard(index);
     }
     if (action === 'apply-name') {
       const card = event.target.closest('.segment-card');
@@ -1541,24 +1673,31 @@ function bindSegmentActions() {
         }
       }
       nameInput.value = name || nameInput.value || '新环节';
-      renderSegmentNav();
+      setSegmentNameAt(index, nameInput.value, { syncCard: false });
     }
   });
 
   dom.segmentsRoot.addEventListener('input', (event) => {
     const card = event.target.closest('.segment-card');
     if (!card) return;
+    const index = Array.from(dom.segmentsRoot.children).indexOf(card);
     if (event.target.matches('[data-field="type"]')) {
       updateNameTemplateSelect(card, event.target.value);
+      updateSegmentCardVisibility(card);
     }
     if (event.target.matches('[data-field="name"]')) {
-      renderSegmentNav();
+      setSegmentNameAt(index, event.target.value, { syncCard: false });
+      return;
     }
+    syncSegmentCardsToConfig();
+    renderSegmentNav();
+    if (index === currentPreviewSegmentIndex) updatePreviewForSegment(index);
   });
 }
 
 function addSegmentPreset(type, name, duration, side) {
   const root = dom.segmentsRoot;
+  const previewCard = Array.from(root.children)[currentPreviewSegmentIndex] || null;
   const card = document.createElement('article');
   card.className = 'segment-card';
   card.innerHTML = `
@@ -1579,7 +1718,8 @@ function addSegmentPreset(type, name, duration, side) {
   `;
   root.appendChild(card);
   updateNameTemplateSelect(card, type);
-  renderSegmentNav();
+  updateSegmentCardVisibility(card);
+  refreshSegmentPreviewState(previewCard);
 }
 
 // ==================== 文本编辑工具栏 ====================
@@ -1662,15 +1802,35 @@ function updateTextToolbar() {
   if (size) editingElement.style.fontSize = `${size}px`;
   if (color) editingElement.style.color = color;
 
-  // 同步对称元素
+  // 对称元素只同步字体、字号和颜色，文字内容各自独立。
+  if (currentConfig?.layout && editingLayoutKey) {
+    const settings = (currentConfig.layout[editingLayoutKey] ||= {});
+    if (font) settings.fontFamily = font;
+    if (size) settings.fontSize = Number(size);
+    if (color) settings.color = color;
+    if (content !== undefined && PERSISTED_TEXT_LAYOUT_KEYS.has(editingLayoutKey)) {
+      settings.text = content;
+    }
+  }
+
   const symKey = getSymmetricKey(editingLayoutKey);
   if (symKey) {
     const symEl = document.querySelector(`[data-layout-key="${symKey}"]`);
+    const symSettings = currentConfig?.layout ? (currentConfig.layout[symKey] ||= {}) : null;
     if (symEl) {
       if (font) symEl.style.fontFamily = font;
       if (size) symEl.style.fontSize = `${size}px`;
       if (color) symEl.style.color = color;
     }
+    if (symSettings) {
+      if (font) symSettings.fontFamily = font;
+      if (size) symSettings.fontSize = Number(size);
+      if (color) symSettings.color = color;
+    }
+  }
+
+  if (editingLayoutKey === 'segmentName' && content !== undefined) {
+    setSegmentNameAt(currentPreviewSegmentIndex, content);
   }
 }
 
