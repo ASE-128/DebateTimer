@@ -169,7 +169,8 @@ function defaultConfig() {
         color: '',
         text: '中立计时中'
       },
-      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' }
+      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
+      judges: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
     },
     segments: [
       { id: 1, name: '开场', type: 'none', duration: 0 },
@@ -177,6 +178,8 @@ function defaultConfig() {
       { id: 3, name: '反方一辩·开篇陈词', type: 'single_speech', duration: 180, side: 'negative' }
     ],
     logos: { affirmative: '', negative: '' },
+    judges: [],
+    showJudges: true,
     schedule: []
   };
 }
@@ -209,12 +212,17 @@ function normalizeLayout(inputLayout, fallbackLayout) {
   return layout;
 }
 
+function normalizeJudges(value) {
+  const list = Array.isArray(value) ? value : [];
+  return [0, 1, 2].map((index) => String(list[index] ?? '').trim());
+}
+
 function validateConfig(input) {
   const def = defaultConfig();
   if (!input || typeof input !== 'object') return def;
   const theme = input.theme || {};
   const defTheme = def.theme;
-  return {
+  const normalized = {
     version: 3,
     eventName: String(input.eventName || def.eventName),
     teams: {
@@ -312,6 +320,8 @@ function validateConfig(input) {
           : defTheme.tokens
     },
     layout: normalizeLayout(input.layout, def.layout),
+    judges: normalizeJudges(input.judges),
+    showJudges: input.showJudges !== false,
     segments: Array.isArray(input.segments)
       ? input.segments.map((seg, i) => ({
           id: i + 1,
@@ -332,10 +342,19 @@ function validateConfig(input) {
           affirmativeTopic: String(item.affirmativeTopic || ''),
           negativeTopic: String(item.negativeTopic || ''),
           affirmativeLogo: String(item.affirmativeLogo || ''),
-          negativeLogo: String(item.negativeLogo || '')
+          negativeLogo: String(item.negativeLogo || ''),
+          judges: normalizeJudges(item.judges)
         }))
       : []
   };
+
+  // 旧版配置或仅导入赛程的配置没有顶层评委字段时，用首个已配置评委的赛程补全，
+  // 让预览页和计时页能显示评委信息；显式保存为空数组时不回填。
+  if (!Array.isArray(input.judges)) {
+    const seed = normalized.schedule.find((item) => item.judges.some(Boolean));
+    if (seed) normalized.judges = seed.judges.slice(0, 3);
+  }
+  return normalized;
 }
 
 function serializeConfig(config, filePath) {
@@ -811,6 +830,17 @@ function generateStandaloneAppFiles(config, appDir) {
     '<input id="ssNegativeTopic" type="text" value="' +
     escapeHtml(config.topics?.negative || '') +
     '"></label>\n' +
+    '      <div class="ss-judge-group">\n' +
+    '        <label>' +
+    escapeHtml('评委一') +
+    '<input id="ssJudge1" type="text"></label>\n' +
+    '        <label>' +
+    escapeHtml('评委二') +
+    '<input id="ssJudge2" type="text"></label>\n' +
+    '        <label>' +
+    escapeHtml('评委三') +
+    '<input id="ssJudge3" type="text"></label>\n' +
+    '      </div>\n' +
     '      <button id="ssStartBtn">' +
     escapeHtml('开始计时') +
     '</button>\n' +

@@ -152,7 +152,8 @@ describe('配置校验与警告', () => {
       affirmativeTopic: '正方辩题',
       negativeTopic: '反方辩题',
       affirmativeLogo: '',
-      negativeLogo: ''
+      negativeLogo: '',
+      judges: ['', '', '']
     });
     expect(config.schedule[1]).toEqual({
       id: 'schedule-2',
@@ -162,8 +163,27 @@ describe('配置校验与警告', () => {
       affirmativeTopic: '',
       negativeTopic: '',
       affirmativeLogo: '',
-      negativeLogo: ''
+      negativeLogo: '',
+      judges: ['', '', '']
     });
+  });
+
+  it('validateConfig 规范化全局与赛程评委字段', () => {
+    const config = validateConfig({
+      judges: [' 张三 ', '', '李四', '王五'],
+      schedule: [{ name: '决赛', judges: [' 甲 ', null, '乙'] }]
+    });
+
+    expect(config.judges).toEqual(['张三', '', '李四']);
+    expect(config.schedule[0].judges).toEqual(['甲', '', '乙']);
+    expect(validateConfig({}).judges).toEqual(['', '', '']);
+    expect(validateConfig({}).showJudges).toBe(true);
+    expect(validateConfig({ showJudges: false }).showJudges).toBe(false);
+    expect(validateConfig({ schedule: [{ name: '首场', judges: [' 甲 ', '乙', ''] }] }).judges).toEqual([
+      '甲',
+      '乙',
+      ''
+    ]);
   });
 
   it('validateConfig 对非数组 schedule 返回空数组', () => {

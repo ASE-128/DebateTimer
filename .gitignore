@@ -23,6 +23,9 @@ Thumbs.db
 .trae/
 .claude/
 
+# Local runtime config (contains real event data, not for VCS)
+config.json
+
 # Temporary test artifacts
 tmp-*.bat
 tmp-*.log

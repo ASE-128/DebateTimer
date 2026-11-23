@@ -114,7 +114,8 @@ function defaultConfig() {
         color: '',
         text: '中立计时中'
       },
-      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' }
+      watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
+      judges: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
     },
     segments: [
       { id: 1, name: '开场', type: 'none', duration: 0 },
@@ -122,6 +123,8 @@ function defaultConfig() {
       { id: 3, name: '反方一辩·开篇陈词', type: 'single_speech', duration: 180, side: 'negative' }
     ],
     logos: { affirmative: '', negative: '' },
+    judges: [],
+    showJudges: true,
     schedule: []
   };
 }
@@ -183,7 +186,13 @@ function build() {
   ensureDir(path.join(docsDir, 'styles'));
   ensureDir(path.join(docsDir, 'js'));
 
-  // --- 构建 index.html ---
+  // 确保 GitHub Pages 不启用 Jekyll 处理（整目录重建时该文件不会被清理逻辑补建）
+  const nojekyllPath = path.join(docsDir, '.nojekyll');
+  if (!fs.existsSync(nojekyllPath)) {
+    fs.writeFileSync(nojekyllPath, '', 'utf8');
+  }
+
+  // --- 构建独立计时器页（timer.html）---
   const timerHtml = fs.readFileSync(path.join(projectRoot, 'timer.html'), 'utf8');
   let bodyContent = extractBody(timerHtml);
 
@@ -204,6 +213,11 @@ function build() {
     `    <label>${escapeHtml('正方辩题')}<input id="ssAffirmativeTopic" type="text" value="${escapeHtml(config.topics?.affirmative || '')}"></label>`,
     `    <label>${escapeHtml('反方队伍')}<input id="ssNegativeTeam" type="text" value="${escapeHtml(config.teams?.negative || '')}"></label>`,
     `    <label>${escapeHtml('反方辩题')}<input id="ssNegativeTopic" type="text" value="${escapeHtml(config.topics?.negative || '')}"></label>`,
+    `    <div class="ss-judge-group">`,
+    `      <label>${escapeHtml('评委一')}<input id="ssJudge1" type="text"></label>`,
+    `      <label>${escapeHtml('评委二')}<input id="ssJudge2" type="text"></label>`,
+    `      <label>${escapeHtml('评委三')}<input id="ssJudge3" type="text"></label>`,
+    `    </div>`,
     `    <button id="ssStartBtn">${escapeHtml('开始计时')}</button>`,
     `  </div>`,
     `</div>`
@@ -258,8 +272,23 @@ function build() {
     '</html>'
   ].join('\n');
 
-  fs.writeFileSync(path.join(docsDir, 'index.html'), standaloneHtml, 'utf8');
-  console.log(`  生成: docs/index.html`);
+  // --- 构建 index.html（门户页资源来自 site/） ---
+  const siteDir = path.join(projectRoot, 'site');
+  copyFile(path.join(siteDir, 'portal.html'), path.join(docsDir, 'index.html'));
+  copyFile(path.join(siteDir, 'portal.css'), path.join(docsDir, 'styles', 'portal.css'));
+  copyFile(path.join(siteDir, 'portal.js'), path.join(docsDir, 'js', 'portal.js'));
+  const siteImagesDir = path.join(siteDir, 'images');
+  if (fs.existsSync(siteImagesDir)) {
+    ensureDir(path.join(docsDir, 'images'));
+    for (const image of fs.readdirSync(siteImagesDir)) {
+      copyFile(path.join(siteImagesDir, image), path.join(docsDir, 'images', image));
+    }
+  }
+  console.log('  生成: docs/index.html（门户页）');
+
+  // --- 构建 timer.html（独立计时器页面） ---
+  fs.writeFileSync(path.join(docsDir, 'timer.html'), standaloneHtml, 'utf8');
+  console.log('  生成: docs/timer.html');
 
   // --- 复制样式 ---
   copyFile(path.join(projectRoot, 'icon.svg'), path.join(docsDir, 'favicon.svg'));

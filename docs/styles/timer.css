@@ -51,8 +51,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
-  height: 80px;
+  padding: 8px 32px;
+  height: auto;
+  min-height: 80px;
+  box-sizing: border-box;
   background: linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   position: relative;
@@ -72,6 +74,8 @@ body {
   flex-direction: row;
   align-items: center;
   gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
   flex-wrap: wrap;
   z-index: 1;
 }
@@ -124,13 +128,15 @@ body {
   font-size: calc(14px * var(--font-scale));
   font-weight: 400;
   opacity: 0.65;
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
   font-family: var(--text-font-family);
   color: var(--text-secondary);
-  width: 100%;
 }
 
 /* === 主显示区 === */
@@ -449,6 +455,17 @@ body {
   letter-spacing: 2px;
 }
 
+/* === 评委信息栏 === */
+.judge-bar {
+  text-align: center;
+  padding: 8px 0 90px;
+  color: var(--text-secondary);
+  font-size: calc(15px * var(--font-scale));
+  font-family: var(--text-font-family);
+  opacity: 0.85;
+  letter-spacing: 1px;
+}
+
 .design-by {
   position: fixed;
   left: 12px;
@@ -469,8 +486,11 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.8);
   display: none;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding: 24px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 1000;
   opacity: 0;
   transition: opacity 300ms ease;
@@ -488,6 +508,7 @@ body {
   padding: 32px;
   width: 440px;
   max-width: 90vw;
+  margin: auto;
   box-shadow: var(--shadow-lg);
   transform: scale(0.95);
   transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -531,6 +552,19 @@ body {
 .standalone-setup input:focus {
   border-color: var(--accent-negative);
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
+.ss-judge-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .ss-judge-group {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
 }
 
 .standalone-setup button {
@@ -773,13 +807,14 @@ body {
 
 /* === 响应式 === */
 @media (max-width: 1000px) {
-  .top-band { padding: 0 16px; height: 64px; }
+  .top-band { padding: 8px 16px; height: auto; min-height: 64px; }
   .team-name { max-width: 160px; font-size: calc(18px * var(--font-scale)); }
-  .team-topic { max-width: 160px; font-size: calc(12px * var(--font-scale)); }
-  .control-panel button .btn-label { display: none; }
+  .team-topic { font-size: calc(12px * var(--font-scale)); }
+  .control-panel button .btn-key { display: none; }
   .control-panel button { padding: 8px 10px; }
   .control-group { padding: 0 4px; }
-  .single-timer { font-size: clamp(60px, 18vw, 120px); }
+  .main-area { padding-bottom: 88px; }
+  .single-timer { font-size: clamp(56px, 18vw, 120px); }
   .dual-time { font-size: clamp(48px, 14vw, 100px); }
 }
 
@@ -789,13 +824,44 @@ body {
     padding: 6px 8px;
     border-radius: 12px;
   }
-  .top-band { height: 56px; }
+  .top-band { height: auto; min-height: 56px; }
   .team-label { font-size: 9px; }
   .segment-name { font-size: calc(36px * var(--font-scale)); }
   .segment-name-large { font-size: calc(56px * var(--font-scale)); }
   .side-label { font-size: calc(13px * var(--font-scale)); }
   .event-name { font-size: calc(22px * var(--font-scale)); }
   .dual-timer { gap: 24px; }
+  .main-area { padding-bottom: 72px; }
+}
+
+/* === 极端缩放 / 矮窗口：压缩垂直占用，避免固定面板压住内容 === */
+@media (max-height: 620px) {
+  .top-band { padding: 4px 16px; min-height: 48px; }
+  .main-area { padding: 8px 24px 64px; gap: 4px; }
+  .event-name { font-size: calc(16px * var(--font-scale)); margin-bottom: 0; }
+  .segment-name { font-size: calc(28px * var(--font-scale)); }
+  .segment-name-large { font-size: calc(32px * var(--font-scale)); }
+  .timer-display { gap: 6px; margin: 4px 0; }
+  .single-timer { font-size: clamp(44px, 15vh, 96px); }
+  .dual-time { font-size: clamp(36px, 12vh, 72px); }
+  .watermark, .judge-bar { padding: 4px 0 56px; }
+  .design-by { display: none; }
+}
+
+/* === 极矮窗口（约 300% 缩放）：允许页面滚动，控制面板保持可见 === */
+@media (max-height: 420px) {
+  body { overflow-y: auto; }
+  .main-area { padding-bottom: 64px; }
+  .watermark, .judge-bar { padding: 4px 0 64px; }
+  .control-panel { padding: 4px 6px; }
+}
+
+/* === 窄且矮：赛前设置弹窗使用紧凑间距 === */
+@media (max-width: 600px) {
+  .standalone-setup .box { padding: 20px; }
+  .standalone-setup h2 { margin-bottom: 14px; font-size: 17px; }
+  .standalone-setup label { margin-bottom: 10px; }
+  .ss-schedule-list { max-height: min(240px, 28vh); }
 }
 
 /* === 高对比度模式 === */

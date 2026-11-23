@@ -31,6 +31,21 @@ const affirmativeTopicEl = document.getElementById('affirmativeTopic');
 const negativeTopicEl = document.getElementById('negativeTopic');
 const affirmativeLogoEl = document.getElementById('affirmativeLogo');
 const negativeLogoEl = document.getElementById('negativeLogo');
+const judgeBarEl = document.getElementById('judgeBar');
+const watermarkEl = document.getElementById('watermark');
+
+function getJudgeNames() {
+  const raw = Array.isArray(config?.judges) ? config.judges : [];
+  return raw
+    .slice(0, 3)
+    .map((name) => String(name || '').trim())
+    .filter(Boolean);
+}
+
+function getJudgeBarText() {
+  const names = getJudgeNames();
+  return names.length > 0 ? `评委：${names.join('\u3000')}` : '';
+}
 
 const singleTimerEl = document.getElementById('singleTimer');
 const dualTimerEl = document.getElementById('dualTimer');
@@ -80,6 +95,82 @@ function formatTime(seconds) {
   const min = String(Math.floor(total / 60)).padStart(2, '0');
   const sec = String(total % 60).padStart(2, '0');
   return `${min}:${sec}`;
+}
+
+// 矮窗口（如 300% 页面缩放）下按比例压缩布局字号与状态栏高度，
+// 避免保存的绝对像素字号把计时区和控制面板挤出首屏。
+const SHORT_VIEWPORT_BASE_HEIGHT = 700;
+let resolvedStatusBarCache = null;
+
+function getLayoutFontScale() {
+  if (typeof window === 'undefined') return 1;
+  return Math.min(1, Math.max(0.35, window.innerHeight / SHORT_VIEWPORT_BASE_HEIGHT));
+}
+
+function applyStatusBarMetrics(statusBar) {
+  const topBand = document.querySelector('.top-band');
+  if (!topBand || !statusBar) return;
+  const scale = getLayoutFontScale();
+  if (statusBar.height) {
+    topBand.style.height = '';
+    topBand.style.minHeight = `${Math.max(36, Math.round(statusBar.height * scale))}px`;
+  }
+  if (statusBar.background) topBand.style.background = statusBar.background;
+  if (statusBar.color) topBand.style.color = statusBar.color;
+}
+
+function applyLayoutSettings() {
+  const layout = config?.layout;
+  if (!layout) return;
+  const scale = getLayoutFontScale();
+  const currentType = engine?.segments?.[engine?.currentIndex]?.type ?? config?.segments?.[0]?.type;
+  const isNoTimerSegment = !currentType || currentType === 'none';
+  const layoutMap = {
+    affirmativeTeamName: 'affirmativeTeamName',
+    negativeTeamName: 'negativeTeamName',
+    affirmativeTopic: 'affirmativeTopic',
+    negativeTopic: 'negativeTopic',
+    affirmativeLabel: 'affirmativeLabel',
+    negativeLabel: 'negativeLabel',
+    affirmativeLogo: 'affirmativeLogo',
+    negativeLogo: 'negativeLogo',
+    eventName: 'eventName',
+    segmentName: 'segmentName',
+    sideLabel: 'sideLabel',
+    watermark: 'watermark',
+    judges: 'judgeBar'
+  };
+  Object.entries(layoutMap).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    const settings = layout[key];
+    if (!el || !settings) return;
+    if (settings.x !== undefined && settings.x !== 0) {
+      el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
+    } else if (settings.y !== undefined && settings.y !== 0) {
+      el.style.transform = `translate(0px, ${settings.y}px)`;
+    } else {
+      el.style.transform = '';
+    }
+    // 环节名的布局字号只用于无计时的大标题环节；计时环节由 render() 清除内联字号交给 CSS
+    if (settings.fontSize && settings.fontSize > 0 && (key !== 'segmentName' || isNoTimerSegment)) {
+      el.style.fontSize = `${Math.max(10, Math.round(settings.fontSize * scale))}px`;
+    } else {
+      el.style.fontSize = '';
+    }
+    if (settings.fontFamily) {
+      el.style.fontFamily = settings.fontFamily;
+    } else {
+      el.style.fontFamily = '';
+    }
+    if (settings.color) {
+      el.style.color = settings.color;
+    } else {
+      el.style.color = '';
+    }
+    if ((key === 'watermark' || key === 'affirmativeLabel' || key === 'negativeLabel') && settings.text) {
+      el.textContent = settings.text;
+    }
+  });
 }
 
 function applyTheme(theme = config.theme || {}) {
@@ -157,64 +248,12 @@ function applyTheme(theme = config.theme || {}) {
   document.documentElement.style.setProperty('--font-family', baseFont);
   document.documentElement.style.setProperty('--font-scale', theme.fontSizeScale || 1);
 
-  // 应用状态栏设置
-  const topBand = document.querySelector('.top-band');
-  if (topBand && resolvedStatusBar) {
-    const sb = resolvedStatusBar;
-    if (sb.height) topBand.style.height = `${sb.height}px`;
-    if (sb.background) topBand.style.background = sb.background;
-    if (sb.color) topBand.style.color = sb.color;
-  }
+  // 应用状态栏设置（矮窗口下按比例压缩）
+  resolvedStatusBarCache = resolvedStatusBar;
+  applyStatusBarMetrics(resolvedStatusBar);
 
   // 应用布局设置（布局数据保存在 config.layout）
-  const layout = config?.layout;
-  if (layout) {
-    const layoutMap = {
-      affirmativeTeamName: 'affirmativeTeamName',
-      negativeTeamName: 'negativeTeamName',
-      affirmativeTopic: 'affirmativeTopic',
-      negativeTopic: 'negativeTopic',
-      affirmativeLabel: 'affirmativeLabel',
-      negativeLabel: 'negativeLabel',
-      affirmativeLogo: 'affirmativeLogo',
-      negativeLogo: 'negativeLogo',
-      eventName: 'eventName',
-      segmentName: 'segmentName',
-      sideLabel: 'sideLabel',
-      watermark: 'watermark'
-    };
-    Object.entries(layoutMap).forEach(([key, id]) => {
-      const el = document.getElementById(id);
-      const settings = layout[key];
-      if (el && settings) {
-        if (settings.x !== undefined && settings.x !== 0) {
-          el.style.transform = `translate(${settings.x}px, ${settings.y || 0}px)`;
-        } else if (settings.y !== undefined && settings.y !== 0) {
-          el.style.transform = `translate(0px, ${settings.y}px)`;
-        } else {
-          el.style.transform = '';
-        }
-        if (settings.fontSize && settings.fontSize > 0) {
-          el.style.fontSize = `${settings.fontSize}px`;
-        } else {
-          el.style.fontSize = '';
-        }
-        if (settings.fontFamily) {
-          el.style.fontFamily = settings.fontFamily;
-        } else {
-          el.style.fontFamily = '';
-        }
-        if (settings.color) {
-          el.style.color = settings.color;
-        } else {
-          el.style.color = '';
-        }
-        if ((key === 'watermark' || key === 'affirmativeLabel' || key === 'negativeLabel') && settings.text) {
-          el.textContent = settings.text;
-        }
-      }
-    });
-  }
+  applyLayoutSettings();
 
   applyCustomFont(theme);
   lastRenderCache.sideLabelSide = null;
@@ -233,7 +272,9 @@ let lastRenderCache = {
   negativeTimeText: null,
   progressPct: null,
   progressClass: null,
-  sideLabelSide: null
+  sideLabelSide: null,
+  judgeBarText: null,
+  judgeBarVisible: null
 };
 
 // 渲染写入队列：将 render() 中所有 DOM 写操作收集到同一帧末尾批量执行，
@@ -458,6 +499,23 @@ function render(state) {
   updateTeamDisplay(state);
   updateProgress(state);
 
+  // 首位环节（开场）显示评委信息栏，并隐藏水印。
+  const judgeBarText = Number(state.currentIndex) === 0 && config?.showJudges !== false ? getJudgeBarText() : '';
+  const showJudgeBar = judgeBarText !== '';
+  if (lastRenderCache.judgeBarText !== judgeBarText) {
+    queueRenderWrite(() => {
+      judgeBarEl.textContent = judgeBarText;
+    });
+    lastRenderCache.judgeBarText = judgeBarText;
+  }
+  if (lastRenderCache.judgeBarVisible !== showJudgeBar) {
+    queueRenderWrite(() => {
+      judgeBarEl.style.display = showJudgeBar ? '' : 'none';
+      watermarkEl.style.display = showJudgeBar ? 'none' : '';
+    });
+    lastRenderCache.judgeBarVisible = showJudgeBar;
+  }
+
   // 对辩工具栏显示/隐藏与激活状态
   const isDual = segment.type === 'dual_debate';
   if (lastRenderCache.isDual !== isDual) {
@@ -626,6 +684,10 @@ function renderStandaloneSchedule(schedule) {
       document.getElementById('ssNegativeTeam').value = item.negativeTeam || '';
       document.getElementById('ssAffirmativeTopic').value = item.affirmativeTopic || '';
       document.getElementById('ssNegativeTopic').value = item.negativeTopic || '';
+      [1, 2, 3].forEach((judgeIndex) => {
+        const input = document.getElementById(`ssJudge${judgeIndex}`);
+        if (input) input.value = item.judges?.[judgeIndex - 1] || '';
+      });
       config.logos = {
         affirmative: item.affirmativeLogo || '',
         negative: item.negativeLogo || ''
@@ -647,6 +709,12 @@ function openStandaloneSetup() {
   document.getElementById('ssAffirmativeTopic').value = config.topics?.affirmative || '';
   document.getElementById('ssNegativeTeam').value = config.teams?.negative || '';
   document.getElementById('ssNegativeTopic').value = config.topics?.negative || '';
+  // 首次打开即回显当前配置的评委，避免开始计时时用空值覆盖已配置评委。
+  const savedJudges = Array.isArray(config.judges) ? config.judges : [];
+  [1, 2, 3].forEach((judgeIndex) => {
+    const input = document.getElementById(`ssJudge${judgeIndex}`);
+    if (input) input.value = savedJudges[judgeIndex - 1] || '';
+  });
   renderStandaloneSchedule(config.schedule || []);
   modal.classList.add('active');
   const startBtn = document.getElementById('ssStartBtn');
@@ -657,6 +725,10 @@ function openStandaloneSetup() {
     config.teams.negative = document.getElementById('ssNegativeTeam').value || config.teams.negative;
     config.topics.affirmative = document.getElementById('ssAffirmativeTopic').value || config.topics.affirmative;
     config.topics.negative = document.getElementById('ssNegativeTopic').value || config.topics.negative;
+    config.judges = [1, 2, 3].map((judgeIndex) => {
+      const input = document.getElementById(`ssJudge${judgeIndex}`);
+      return input ? input.value.trim() : '';
+    });
     modal.classList.remove('active');
     render(engine.getState());
   });
@@ -682,9 +754,14 @@ async function refreshFromConfig(nextConfig) {
 
 function bindShortcuts() {
   window.addEventListener('resize', () => {
-    if (config?.segments?.[engine?.currentIndex]?.type === 'none') {
-      requestAnimationFrame(() => adjustSegmentNameFontSize());
-    }
+    requestAnimationFrame(() => {
+      // 窗口高度变化时重新计算布局字号，保证从普通缩放到 300% 切换后仍然单屏可读
+      applyStatusBarMetrics(resolvedStatusBarCache);
+      applyLayoutSettings();
+      if (config?.segments?.[engine?.currentIndex]?.type === 'none') {
+        adjustSegmentNameFontSize();
+      }
+    });
   });
 
   document.addEventListener('keydown', (event) => {

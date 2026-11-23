@@ -26,6 +26,13 @@ const PERSISTED_TEXT_LAYOUT_KEYS = new Set([
   'neutralSideLabel'
 ]);
 
+function normalizeJudgeList(value) {
+  const list = Array.isArray(value) ? value : [];
+  return [0, 1, 2].map((index) => (typeof list[index] === 'string' ? list[index] : String(list[index] ?? '')));
+}
+
+const JUDGE_PLACEHOLDER_TEXT = '评委：张三\u3000李四\u3000王五';
+
 let currentConfig = null;
 let editingElement = null;
 let editingLayoutKey = null;
@@ -61,6 +68,7 @@ function cacheDom() {
   dom.previewAffirmativeTopic = document.getElementById('previewAffirmativeTopic');
   dom.previewNegativeTopic = document.getElementById('previewNegativeTopic');
   dom.previewWatermark = document.getElementById('previewWatermark');
+  dom.previewJudgeBar = document.getElementById('previewJudgeBar');
   dom.previewAffirmativeLabel = document.getElementById('previewAffirmativeLabel');
   dom.previewNegativeLabel = document.getElementById('previewNegativeLabel');
   dom.previewTopBand = document.getElementById('previewTopBand');
@@ -73,7 +81,6 @@ function cacheDom() {
   dom.topBandResizeHandle = document.getElementById('topBandResizeHandle');
   dom.editBackgroundBtn = document.getElementById('editBackgroundBtn');
   dom.saveBtn = document.getElementById('saveBtn');
-  dom.resetBtn = document.getElementById('resetBtn');
   dom.importConfigBtn = document.getElementById('importConfigBtn');
   dom.exportConfigBtn = document.getElementById('exportConfigBtn');
   dom.exportTimerBtn = document.getElementById('exportTimerBtn');
@@ -90,6 +97,8 @@ function cacheDom() {
   dom.schedulePanel = document.getElementById('panel-schedule');
   dom.scheduleList = document.getElementById('scheduleList');
   dom.addScheduleItemBtn = document.getElementById('addScheduleItemBtn');
+  dom.showJudgesToggle = document.getElementById('showJudgesToggle');
+  dom.globalJudgeInputs = [1, 2, 3].map((index) => document.getElementById(`globalJudge${index}`));
   dom.exportProgressOverlay = document.getElementById('exportProgressOverlay');
   dom.exportProgressBar = document.getElementById('exportProgressBar');
   dom.exportProgressText = document.getElementById('exportProgressText');
@@ -111,6 +120,7 @@ function cacheDom() {
   dom.updateSkipBtn = document.getElementById('updateSkipBtn');
   dom.updateErrorText = document.getElementById('updateErrorText');
   dom.toolbarTextContent = document.getElementById('toolbarTextContent');
+  dom.toolbarTextContentLabel = document.getElementById('toolbarTextContentLabel');
   dom.toolbarFontFamily = document.getElementById('toolbarFontFamily');
   dom.toolbarFontSize = document.getElementById('toolbarFontSize');
   dom.toolbarTextColor = document.getElementById('toolbarTextColor');
@@ -195,7 +205,8 @@ function defaultLayout() {
       color: '',
       text: SIDE_LABEL_DEFAULTS.neutral
     },
-    watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' }
+    watermark: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '', text: '辩论计时器' },
+    judges: { x: 0, y: 0, fontSize: 0, fontFamily: '', color: '' }
   };
 }
 
@@ -290,7 +301,8 @@ function applyStatusBarToPreview(statusBar = {}) {
   const topBand = dom.previewTopBand;
   if (!topBand) return;
   if (statusBar.height && statusBar.height > 0) {
-    topBand.style.height = `${statusBar.height}px`;
+    topBand.style.height = '';
+    topBand.style.minHeight = `${statusBar.height}px`;
   }
   if (statusBar.background) {
     topBand.style.background = statusBar.background;
@@ -539,6 +551,18 @@ function getSegmentActiveSide(segment) {
   return 'affirmative';
 }
 
+function updatePreviewJudgeBar() {
+  const judgeBar = dom.previewJudgeBar;
+  if (!judgeBar) return;
+  const showJudges = currentConfig?.showJudges !== false;
+  const text = currentPreviewSegmentIndex === 0 && showJudges ? JUDGE_PLACEHOLDER_TEXT : '';
+  judgeBar.textContent = text;
+  judgeBar.style.display = text ? '' : 'none';
+  if (dom.previewWatermark) {
+    dom.previewWatermark.style.display = text ? 'none' : '';
+  }
+}
+
 function updatePreviewForSegment(index) {
   const segments = currentConfig?.segments || [];
   const segment = segments[index];
@@ -632,6 +656,7 @@ function updatePreviewForSegment(index) {
 
   const select = dom.previewSegmentSelect;
   if (select) select.value = currentPreviewSegmentIndex;
+  updatePreviewJudgeBar();
 }
 
 function adjustPreviewSegmentNameFontSize() {
@@ -651,6 +676,15 @@ function fillEditorUI(config) {
   if (!Array.isArray(currentConfig.schedule)) {
     currentConfig.schedule = [];
   }
+  currentConfig.judges = normalizeJudgeList(currentConfig.judges);
+  currentConfig.showJudges = currentConfig.showJudges !== false;
+  if (dom.showJudgesToggle) dom.showJudgesToggle.checked = currentConfig.showJudges;
+  dom.globalJudgeInputs?.forEach((input, index) => {
+    if (input) input.value = currentConfig.judges[index] || '';
+  });
+  currentConfig.schedule.forEach((item) => {
+    item.judges = normalizeJudgeList(item.judges);
+  });
   currentConfig.layout = currentConfig.layout || defaultLayout();
   ensureSideLabelLayouts(currentConfig.layout);
   currentConfig.logos = config.logos || { affirmative: '', negative: '' };
@@ -747,17 +781,10 @@ async function switchPreset(preset, colorMode) {
   currentConfig.theme.preset = preset;
   currentConfig.theme.colorMode = colorMode;
   currentConfig.theme.colors = { ...resolved.colors };
-  currentConfig.theme.backgroundColor = resolved.backgroundColor;
-  if (!currentConfig.theme.statusBar) currentConfig.theme.statusBar = {};
-  currentConfig.theme.statusBar.background = resolved.statusBar.background;
-  currentConfig.theme.statusBar.color = resolved.statusBar.color;
   currentConfig.theme.tokens = resolved.tokens;
 
   applyThemeToPreview(currentConfig.theme);
   updateSwitcherUI(preset, colorMode);
-
-  // 同步背景工具栏色值显示
-  if (dom.toolbarBgColor) dom.toolbarBgColor.value = resolved.backgroundColor;
 }
 
 function updateSwitcherUI(preset, colorMode) {
@@ -809,17 +836,19 @@ async function loadConfigFromImport(config) {
 
 function switchPanel(panelId) {
   document.querySelectorAll('.editor-panel').forEach((p) => p.classList.remove('active'));
-  document.querySelectorAll('.editor-nav-item').forEach((n) => n.classList.remove('active'));
-  document.querySelectorAll('.editor-tab').forEach((t) => t.classList.remove('active'));
+  document.querySelectorAll('.editor-nav-item').forEach((n) => {
+    n.classList.remove('active');
+    n.removeAttribute('aria-current');
+  });
 
   const panel = document.getElementById('panel-' + panelId);
   if (panel) panel.classList.add('active');
 
   const nav = document.querySelector(`.editor-nav-item[data-panel="${panelId}"]`);
-  if (nav) nav.classList.add('active');
-
-  const tab = document.querySelector(`.editor-tab[data-panel="${panelId}"]`);
-  if (tab) tab.classList.add('active');
+  if (nav) {
+    nav.classList.add('active');
+    nav.setAttribute('aria-current', 'page');
+  }
 }
 
 function renderSegments(segments) {
@@ -1338,6 +1367,20 @@ function createScheduleField(item, index, field, placeholder) {
   return label;
 }
 
+function createScheduleJudgeField(item, index, judgeIndex, labelText) {
+  const label = document.createElement('label');
+  label.textContent = labelText;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.dataset.field = 'judges';
+  input.dataset.index = String(index);
+  input.dataset.judgeIndex = String(judgeIndex);
+  input.placeholder = '评委姓名';
+  input.value = normalizeJudgeList(item.judges)[judgeIndex] || '';
+  label.appendChild(input);
+  return label;
+}
+
 function createScheduleLogoField(item, index, field, labelText) {
   const wrapper = document.createElement('div');
   wrapper.className = 'schedule-logo-field';
@@ -1402,6 +1445,13 @@ function renderSchedule(schedule) {
     fields.appendChild(affirmativeTopicField);
     fields.appendChild(negativeTopicField);
 
+    const judgeGroup = document.createElement('div');
+    judgeGroup.className = 'schedule-judge-group schedule-field-full';
+    judgeGroup.appendChild(createScheduleJudgeField(item, index, 0, '评委一'));
+    judgeGroup.appendChild(createScheduleJudgeField(item, index, 1, '评委二'));
+    judgeGroup.appendChild(createScheduleJudgeField(item, index, 2, '评委三'));
+    fields.appendChild(judgeGroup);
+
     const logoRow = document.createElement('div');
     logoRow.className = 'schedule-logo-row';
     logoRow.appendChild(createScheduleLogoField(item, index, 'affirmativeLogo', '正方队徽'));
@@ -1409,19 +1459,12 @@ function renderSchedule(schedule) {
 
     const actions = document.createElement('div');
     actions.className = 'schedule-actions';
-    const applyBtn = document.createElement('button');
-    applyBtn.type = 'button';
-    applyBtn.className = 'btn btn-accent';
-    applyBtn.dataset.action = 'apply';
-    applyBtn.dataset.index = String(index);
-    applyBtn.textContent = '应用此赛程';
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn';
     deleteBtn.dataset.action = 'delete';
     deleteBtn.dataset.index = String(index);
     deleteBtn.textContent = '删除';
-    actions.appendChild(applyBtn);
     actions.appendChild(deleteBtn);
 
     card.appendChild(header);
@@ -1443,7 +1486,8 @@ function addScheduleItem() {
     affirmativeTopic: '',
     negativeTopic: '',
     affirmativeLogo: '',
-    negativeLogo: ''
+    negativeLogo: '',
+    judges: ['', '', '']
   });
   renderSchedule(currentConfig.schedule);
 }
@@ -1465,35 +1509,6 @@ function updatePreviewLogos() {
     dom.previewNegativeLogo.src = logos.negative || '';
     dom.previewNegativeLogo.style.display = logos.negative ? '' : 'none';
   }
-}
-
-function applyScheduleItem(index) {
-  const item = currentConfig?.schedule?.[index];
-  if (!item) return;
-  if (!currentConfig.teams) currentConfig.teams = {};
-  if (!currentConfig.topics) currentConfig.topics = {};
-  if (!currentConfig.logos) currentConfig.logos = { affirmative: '', negative: '' };
-  currentConfig.teams.affirmative = item.affirmativeTeam || '';
-  currentConfig.teams.negative = item.negativeTeam || '';
-  currentConfig.topics.affirmative = item.affirmativeTopic || '';
-  currentConfig.topics.negative = item.negativeTopic || '';
-  currentConfig.logos.affirmative = item.affirmativeLogo || '';
-  currentConfig.logos.negative = item.negativeLogo || '';
-
-  if (dom.previewAffirmativeTeamName) {
-    dom.previewAffirmativeTeamName.textContent = item.affirmativeTeam || '正方队';
-  }
-  if (dom.previewNegativeTeamName) {
-    dom.previewNegativeTeamName.textContent = item.negativeTeam || '反方队';
-  }
-  if (dom.previewAffirmativeTopic) {
-    dom.previewAffirmativeTopic.textContent = item.affirmativeTopic || '正方辩题';
-  }
-  if (dom.previewNegativeTopic) {
-    dom.previewNegativeTopic.textContent = item.negativeTopic || '反方辩题';
-  }
-  updatePreviewLogos();
-  showToast('已应用赛程到当前配置', 'info');
 }
 
 function handleLogoFileSelect(index, field, file) {
@@ -1550,7 +1565,7 @@ function gatherConfig() {
 
   const topBand = dom.previewTopBand;
   if (topBand) {
-    const h = parseFloat(topBand.style.height);
+    const h = parseFloat(topBand.style.minHeight);
     if (h > 0) statusBar.height = h;
     if (topBand.style.background) statusBar.background = topBand.style.background;
     if (topBand.style.color) statusBar.color = topBand.style.color;
@@ -1595,6 +1610,8 @@ function gatherConfig() {
       tokens: theme.tokens || {}
     },
     layout: layout,
+    judges: normalizeJudgeList(currentConfig?.judges),
+    showJudges: currentConfig?.showJudges !== false,
     segments: readSegmentsFromCards(),
     logos: currentConfig?.logos || { affirmative: '', negative: '' },
     schedule: currentConfig?.schedule || []
@@ -1610,13 +1627,6 @@ async function saveConfig() {
   setTimeout(() => {
     saveBtn.textContent = '保存配置';
   }, 1200);
-}
-
-async function resetConfig() {
-  log('info', '重置配置');
-  await window.electronAPI.resetConfig();
-  await loadConfig();
-  showToast('已重置为默认配置', 'info');
 }
 
 function bindSegmentActions() {
@@ -1736,6 +1746,9 @@ function showTextToolbar(element, layoutKey) {
   const colorInput = dom.toolbarTextColor;
 
   if (contentInput) contentInput.value = element.textContent || '';
+  if (dom.toolbarTextContentLabel) {
+    dom.toolbarTextContentLabel.style.display = layoutKey === 'judges' ? 'none' : '';
+  }
   if (fontSelect) fontSelect.value = element.style.fontFamily || currentConfig?.theme?.fontFamily || 'system-ui';
 
   const computedSize = parseFloat(element.style.fontSize) || parseFloat(getComputedStyle(element).fontSize);
@@ -1794,8 +1807,9 @@ function updateTextToolbar() {
   const font = dom.toolbarFontFamily?.value;
   const size = dom.toolbarFontSize?.value;
   const color = dom.toolbarTextColor?.value;
+  const canEditContent = editingLayoutKey !== 'judges';
 
-  if (content !== undefined) {
+  if (content !== undefined && canEditContent) {
     editingElement.textContent = content;
   }
   if (font) editingElement.style.fontFamily = font;
@@ -1808,7 +1822,7 @@ function updateTextToolbar() {
     if (font) settings.fontFamily = font;
     if (size) settings.fontSize = Number(size);
     if (color) settings.color = color;
-    if (content !== undefined && PERSISTED_TEXT_LAYOUT_KEYS.has(editingLayoutKey)) {
+    if (content !== undefined && canEditContent && PERSISTED_TEXT_LAYOUT_KEYS.has(editingLayoutKey)) {
       settings.text = content;
     }
   }
@@ -2076,7 +2090,8 @@ function bindStatusBarResize() {
       const scale = previewScale || 1;
       const dy = (ev.clientY - resizeStartY) / scale;
       const newHeight = Math.max(40, Math.min(200, statusBarStartHeight + dy));
-      topBand.style.height = `${newHeight}px`;
+      topBand.style.height = '';
+      topBand.style.minHeight = `${newHeight}px`;
     }
 
     function onUp() {
@@ -2106,6 +2121,7 @@ function bindBackgroundEditMode() {
   btn.addEventListener('click', () => {
     isBackgroundEditMode = !isBackgroundEditMode;
     wrapper.classList.toggle('bg-edit-mode', isBackgroundEditMode);
+    btn.setAttribute('aria-pressed', String(isBackgroundEditMode));
     btn.textContent = isBackgroundEditMode ? '退出背景编辑' : '修改背景相关设置';
 
     if (isBackgroundEditMode) {
@@ -2116,6 +2132,22 @@ function bindBackgroundEditMode() {
       hideBackgroundToolbar();
     }
   });
+}
+
+function restoreDefaultPreviewLayout() {
+  if (!currentConfig) return;
+  const savedText = currentConfig.layout || {};
+  const layout = defaultLayout();
+
+  Object.entries(savedText).forEach(([key, settings]) => {
+    if (typeof settings?.text === 'string') {
+      layout[key] = { ...(layout[key] || {}), text: settings.text };
+    }
+  });
+
+  currentConfig.layout = layout;
+  applyLayoutToPreview(layout);
+  showToast('已恢复预览文字默认布局，文字内容已保留', 'info');
 }
 
 // ==================== 工具栏拖动 ====================
@@ -2170,6 +2202,7 @@ bindSegmentNavDragDrop();
 bindTextDragAndEdit();
 bindStatusBarResize();
 bindBackgroundEditMode();
+document.getElementById('resetPreviewLayoutBtn')?.addEventListener('click', restoreDefaultPreviewLayout);
 
 bindToolbarDrag('textEditToolbar', '.toolbar-header');
 bindToolbarDrag('statusBarToolbar', '.toolbar-header');
@@ -2238,20 +2271,50 @@ document.addEventListener('click', (e) => {
   }
 });
 
-document.querySelectorAll('.editor-nav-item, .editor-tab').forEach((el) => {
+document.querySelectorAll('.editor-nav-item').forEach((el) => {
   el.addEventListener('click', () => {
     const panel = el.getAttribute('data-panel');
     if (panel) switchPanel(panel);
   });
 });
 
+const topbarActionsMenu = document.getElementById('topbarActionsMenu');
+document.addEventListener('click', (event) => {
+  if (topbarActionsMenu?.open && !topbarActionsMenu.contains(event.target)) {
+    topbarActionsMenu.open = false;
+  }
+});
+topbarActionsMenu?.addEventListener('click', (event) => {
+  if (event.target.closest('button')) topbarActionsMenu.open = false;
+});
+
 dom.addScheduleItemBtn?.addEventListener('click', addScheduleItem);
+dom.showJudgesToggle?.addEventListener('change', () => {
+  if (!currentConfig) return;
+  currentConfig.showJudges = dom.showJudgesToggle.checked;
+  updatePreviewJudgeBar();
+});
+dom.globalJudgeInputs?.forEach((input, judgeIndex) => {
+  input?.addEventListener('input', () => {
+    if (!currentConfig) return;
+    currentConfig.judges = normalizeJudgeList(currentConfig.judges);
+    currentConfig.judges[judgeIndex] = input.value;
+  });
+});
 dom.scheduleList?.addEventListener('input', (event) => {
   const input = event.target.closest('[data-field]');
   if (!input || input.type === 'file') return;
   const index = parseInt(input.dataset.index, 10);
   const field = input.dataset.field;
   if (!currentConfig?.schedule || Number.isNaN(index) || !field) return;
+  if (field === 'judges' && input.dataset.judgeIndex !== undefined) {
+    const judgeIndex = parseInt(input.dataset.judgeIndex, 10);
+    if (Number.isNaN(judgeIndex)) return;
+    const item = currentConfig.schedule[index];
+    item.judges = normalizeJudgeList(item.judges);
+    item.judges[judgeIndex] = input.value;
+    return;
+  }
   currentConfig.schedule[index][field] = input.value;
 });
 dom.scheduleList?.addEventListener('change', (event) => {
@@ -2281,15 +2344,12 @@ dom.scheduleList?.addEventListener('click', (event) => {
   const index = parseInt(btn.dataset.index, 10);
   if (Number.isNaN(index)) return;
   const action = btn.dataset.action;
-  if (action === 'apply') {
-    applyScheduleItem(index);
-  } else if (action === 'delete') {
+  if (action === 'delete') {
     removeScheduleItem(index);
   }
 });
 
 dom.saveBtn.addEventListener('click', saveConfig);
-dom.resetBtn.addEventListener('click', resetConfig);
 dom.importConfigBtn.addEventListener('click', async () => {
   log('info', '导入配置');
   const result = await window.electronAPI.importConfig();
@@ -2409,9 +2469,6 @@ aboutOverlay?.addEventListener('click', (e) => {
 const templateModal = dom.templateModal;
 const templateList = dom.templateList;
 
-let currentEditingTemplateId = null;
-let currentEditingTemplateName = '';
-
 function showTemplateModal() {
   if (!templateModal) return;
   templateModal.classList.add('active');
@@ -2442,8 +2499,7 @@ function createTemplateItem(template) {
       <span>${escapeHtml(template.description || '')}</span>
     </div>
     <div class="template-actions">
-      <button class="btn btn-accent" type="button" data-template-id="${escapeHtml(template.id)}">应用</button>
-      <button class="btn" type="button" data-template-edit-id="${escapeHtml(template.id)}" data-template-name="${escapeHtml(template.name)}">编辑</button>
+      <button class="btn btn-accent" type="button" data-template-id="${escapeHtml(template.id)}">载入</button>
       ${canDelete ? `<button class="btn" type="button" data-template-delete-id="${escapeHtml(template.id)}">删除</button>` : ''}
     </div>
   `;
@@ -2485,43 +2541,18 @@ async function applyTemplateById(id) {
   try {
     const result = await window.electronAPI.applyTemplate(id);
     if (!result?.ok || !result.config) {
-      alert(`应用模板失败：${result?.error || '未知错误'}`);
+      alert(`载入模板失败：${result?.error || '未知错误'}`);
       return;
     }
-    const confirmed = confirm('应用模板将覆盖当前配置，是否继续？');
-    if (!confirmed) return;
-    resetEditingTemplateState();
-    await loadConfigFromImport(result.config);
-    hideTemplateModal();
-    showToast('模板已应用', 'info');
-    log('info', `已应用模板: ${id}`);
-  } catch (err) {
-    log('error', `应用模板失败: ${err?.message || err}`);
-    alert(`应用模板失败：${err?.message || err}`);
-  }
-}
-
-async function editTemplateById(id, name) {
-  try {
-    const result = await window.electronAPI.applyTemplate(id);
-    if (!result?.ok || !result.config) {
-      alert(`编辑模板失败：${result?.error || '未知错误'}`);
-      return;
-    }
-    const confirmed = confirm('编辑模板将覆盖当前编辑器配置，是否继续？');
+    const confirmed = confirm('载入模板将覆盖当前配置，是否继续？');
     if (!confirmed) return;
     await loadConfigFromImport(result.config);
-    currentEditingTemplateId = id;
-    currentEditingTemplateName = name || '';
-    if (dom.saveTemplateBtn) {
-      dom.saveTemplateBtn.textContent = '保存模板修改';
-    }
     hideTemplateModal();
-    showToast('正在编辑模板，修改后点击“保存模板修改”', 'info');
-    log('info', `正在编辑模板: ${id}`);
+    showToast('模板已载入', 'info');
+    log('info', `已载入模板: ${id}`);
   } catch (err) {
-    log('error', `编辑模板失败: ${err?.message || err}`);
-    alert(`编辑模板失败：${err?.message || err}`);
+    log('error', `载入模板失败: ${err?.message || err}`);
+    alert(`载入模板失败：${err?.message || err}`);
   }
 }
 
@@ -2533,9 +2564,6 @@ async function deleteTemplateById(id) {
     if (!result?.ok) {
       alert(`删除失败：${result?.error || '未知错误'}`);
       return;
-    }
-    if (currentEditingTemplateId === id) {
-      resetEditingTemplateState();
     }
     await loadAndRenderTemplates();
     if (result.restored) {
@@ -2552,25 +2580,7 @@ async function deleteTemplateById(id) {
 }
 
 async function saveCurrentAsTemplate() {
-  if (currentEditingTemplateId) {
-    try {
-      const name = currentEditingTemplateName || '';
-      const result = await window.electronAPI.saveTemplate(currentEditingTemplateId, name, '', gatherConfig());
-      if (!result?.ok) {
-        alert(`保存失败：${result?.error || '未知错误'}`);
-        return;
-      }
-      showToast('模板修改已保存', 'info');
-      log('info', `已保存模板修改: ${currentEditingTemplateId}`);
-      resetEditingTemplateState();
-    } catch (err) {
-      log('error', `保存模板修改失败: ${err?.message || err}`);
-      alert(`保存失败：${err?.message || err}`);
-    }
-    return;
-  }
-
-  const name = prompt('请输入模板名称：');
+  const name = prompt('请输入模板名称（同名模板将被覆盖）：');
   if (!name || !name.trim()) return;
   const id = slugifyName(name.trim());
   if (!id) {
@@ -2578,24 +2588,25 @@ async function saveCurrentAsTemplate() {
     return;
   }
   try {
+    const templates = await window.electronAPI.getTemplates();
+    const existing = templates.find((template) => template.id === id);
+    if (existing) {
+      const message =
+        existing.builtin && !existing.overridden
+          ? `「${existing.name}」是内置模板，覆盖后将保存为你的自定义版本，是否继续？`
+          : `模板「${existing.name}」已存在，是否覆盖？`;
+      if (!confirm(message)) return;
+    }
     const result = await window.electronAPI.saveTemplate(id, name.trim(), '', gatherConfig());
     if (!result?.ok) {
       alert(`保存失败：${result?.error || '未知错误'}`);
       return;
     }
-    showToast('模板已保存', 'info');
-    log('info', `已保存模板: ${id}`);
+    showToast(existing ? '模板已覆盖' : '模板已保存', 'info');
+    log('info', `${existing ? '已覆盖' : '已保存'}模板: ${id}`);
   } catch (err) {
     log('error', `保存模板失败: ${err?.message || err}`);
     alert(`保存失败：${err?.message || err}`);
-  }
-}
-
-function resetEditingTemplateState() {
-  currentEditingTemplateId = null;
-  currentEditingTemplateName = '';
-  if (dom.saveTemplateBtn) {
-    dom.saveTemplateBtn.textContent = '保存为模板';
   }
 }
 
@@ -2607,12 +2618,9 @@ if (templateModal) {
 
 templateModal?.querySelector('.template-modal-body')?.addEventListener('click', (e) => {
   const applyBtn = e.target.closest('[data-template-id]');
-  const editBtn = e.target.closest('[data-template-edit-id]');
   const deleteBtn = e.target.closest('[data-template-delete-id]');
   if (applyBtn) {
     applyTemplateById(applyBtn.getAttribute('data-template-id'));
-  } else if (editBtn) {
-    editTemplateById(editBtn.getAttribute('data-template-edit-id'), editBtn.getAttribute('data-template-name'));
   } else if (deleteBtn) {
     deleteTemplateById(deleteBtn.getAttribute('data-template-delete-id'));
   }
@@ -2621,8 +2629,6 @@ templateModal?.querySelector('.template-modal-body')?.addEventListener('click', 
 dom.templateModalClose?.addEventListener('click', hideTemplateModal);
 dom.loadTemplateBtn?.addEventListener('click', showTemplateModal);
 dom.saveTemplateBtn?.addEventListener('click', saveCurrentAsTemplate);
-
-resetEditingTemplateState();
 
 // ==================== 自动更新提示 ====================
 const updateNotification = dom.updateNotification;

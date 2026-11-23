@@ -295,7 +295,6 @@ body {
 @media (max-width: 900px) {
   .editor-grid { grid-template-columns: 1fr !important; }
   .editor-sidebar { display: none; }
-  .editor-tabs { display: flex !important; }
 }
 
 @media (max-width: 600px) {
