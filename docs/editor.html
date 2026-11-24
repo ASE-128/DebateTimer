@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="Chen Yu" />
+    <title>辩论赛计时器 - 编辑页</title>
+    <link rel="stylesheet" href="styles/variables.css" />
+    <link rel="stylesheet" href="styles/timer.css" />
+    <link rel="stylesheet" href="styles/editor.css" />
+  </head>
+  <body>
+    <div id="migrationNotification" class="migration-notification" style="display:none;">
+      <div class="migration-notification-content">
+        <span class="migration-icon">ℹ</span>
+        <span class="migration-text">检测到旧版配置，已自动迁移到 3.0 格式，原配置已备份为 <code id="migrationBackupPath">config.json.v2.bak</code></span>
+        <button id="migrationCloseBtn" class="btn">知道了</button>
+      </div>
+    </div>
+
+    <div id="updateNotification" class="update-notification" style="display:none;">
+      <div class="update-notification-content">
+        <div class="update-info">
+          <span class="update-icon">⬆</span>
+          <div class="update-text">
+            <strong>发现新版本 <span id="updateVersion"></span></strong>
+            <div id="updateChangelog" class="update-changelog">更新日志摘要</div>
+          </div>
+        </div>
+        <div class="update-actions">
+          <button id="updateDownloadBtn" class="btn btn-accent">立即更新</button>
+          <button id="updateRestartBtn" class="btn btn-accent" style="display:none;">立即重启</button>
+          <button id="updateLaterBtn" class="btn">稍后</button>
+          <button id="updateSkipBtn" class="btn">跳过此版本</button>
+        </div>
+      </div>
+      <div id="updateErrorText" class="update-error"></div>
+    </div>
+
+    <main class="app-shell">
+      <header class="topbar">
+        <h1>辩论赛计时器 · 编辑配置</h1>
+        <div class="actions topbar-actions">
+          <div class="theme-switcher" id="themeSwitcher">
+            <button id="themePresetBtn" class="btn" type="button" title="主题风格">
+              <span id="themePresetLabel">经典</span>
+              <span class="theme-arrow">▾</span>
+            </button>
+            <div class="theme-dropdown" id="themeDropdown" style="display:none;">
+              <div class="theme-dropdown-section">
+                <div class="theme-dropdown-title">风格方向</div>
+                <button class="theme-option active" type="button" data-preset="classic">
+                  <span class="theme-option-name">经典</span>
+                </button>
+                <button class="theme-option" type="button" data-preset="broadcast">
+                  <span class="theme-option-name">广播竞技</span>
+                </button>
+                <button class="theme-option" type="button" data-preset="restrained">
+                  <span class="theme-option-name">专业克制</span>
+                </button>
+                <button class="theme-option" type="button" data-preset="vibrant">
+                  <span class="theme-option-name">活力校园</span>
+                </button>
+              </div>
+              <div class="theme-dropdown-divider"></div>
+              <div class="theme-dropdown-section">
+                <div class="theme-dropdown-title">色彩模式</div>
+                <button class="theme-option" type="button" id="themeColorModeBtn">
+                  <span class="theme-option-name" id="themeColorModeLabel">暗色模式</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <button id="saveBtn" class="btn btn-accent topbar-primary">保存配置</button>
+          <button id="openTimerBtn" class="btn btn-accent">进入计时页</button>
+          <details class="topbar-actions-menu" id="topbarActionsMenu">
+            <summary class="btn">配置与工具</summary>
+            <div class="topbar-actions-popover">
+              <span class="topbar-menu-label">配置文件</span>
+              <button id="importConfigBtn" class="btn" type="button">导入配置</button>
+              <button id="exportConfigBtn" class="btn" type="button">导出配置</button>
+              <span class="topbar-menu-label">模板与发布</span>
+              <button id="loadTemplateBtn" class="btn" type="button">从模板新建</button>
+              <button id="saveTemplateBtn" class="btn" type="button">保存为模板</button>
+              <button id="exportTimerBtn" class="btn" type="button">导出独立计时器</button>
+              <span class="topbar-menu-label">关于</span>
+              <button id="aboutBtn" class="btn" type="button">关于 DebateTimer</button>
+            </div>
+          </details>
+        </div>
+      </header>
+
+      <div class="editor-body">
+        <nav class="editor-sidebar" id="editorSidebar" aria-label="编辑配置导航">
+          <button class="editor-nav-item active" type="button" data-panel="editor" aria-current="page">
+            <span>编辑界面</span>
+          </button>
+          <button class="editor-nav-item" type="button" data-panel="segments">
+            <span>环节管理</span>
+          </button>
+          <button class="editor-nav-item" type="button" data-panel="schedule">
+            <span>赛程管理</span>
+          </button>
+        </nav>
+
+        <div class="editor-content">
+          <!-- 编辑界面面板 -->
+          <div class="editor-panel active" id="panel-editor">
+            <div class="editor-preview-toolbar">
+              <button id="editBackgroundBtn" class="btn btn-accent" type="button" aria-pressed="false">
+                修改背景相关设置
+              </button>
+              <button id="resetPreviewLayoutBtn" class="btn" type="button" title="恢复预览文字的位置、字体、字号和颜色">
+                恢复默认布局
+              </button>
+              <div class="editor-preview-segment">
+                <label>预览环节<select id="previewSegmentSelect"></select></label>
+              </div>
+              <span class="editor-hint" id="previewEditHint">
+                点击文字打开浮动工具栏，拖动文字调整位置；点击状态栏空白处可调整状态栏样式。
+              </span>
+            </div>
+            <div class="editor-preview-wrapper" id="editorPreviewWrapper">
+              <div class="timer-shell" id="timerPreview">
+                <div class="bg-layer"></div>
+                <header class="top-band" id="previewTopBand">
+                  <div class="team affirmative">
+                    <span class="team-label" id="previewAffirmativeLabel" data-editable="text" data-layout-key="affirmativeLabel">正方</span>
+                    <img id="previewAffirmativeLogo" class="team-logo" src="" alt="" />
+                    <strong class="team-name" id="previewAffirmativeTeamName" data-editable="text" data-layout-key="affirmativeTeamName">正方队</strong>
+                    <span class="team-topic" id="previewAffirmativeTopic" data-editable="text" data-layout-key="affirmativeTopic">正方辩题</span>
+                  </div>
+                  <div class="team negative">
+                    <span class="team-label" id="previewNegativeLabel" data-editable="text" data-layout-key="negativeLabel">反方</span>
+                    <img id="previewNegativeLogo" class="team-logo" src="" alt="" />
+                    <strong class="team-name" id="previewNegativeTeamName" data-editable="text" data-layout-key="negativeTeamName">反方队</strong>
+                    <span class="team-topic" id="previewNegativeTopic" data-editable="text" data-layout-key="negativeTopic">反方辩题</span>
+                  </div>
+                  <div class="top-band-resize-handle" id="topBandResizeHandle"></div>
+                </header>
+
+                <section class="main-area" id="previewMainArea">
+                  <div class="event-name" id="previewEventName" data-editable="text" data-layout-key="eventName">赛事名称</div>
+                  <div class="segment-name" id="previewSegmentName" data-editable="text" data-layout-key="segmentName">中立计时</div>
+                  <div class="timer-display" id="previewTimerDisplay">
+                    <div class="single-timer neutral" id="previewSingleTimer">03:00</div>
+                    <div class="dual-timer" id="previewDualTimer" style="display: none;">
+                      <div class="dual-side affirmative">
+                        <span class="dual-label">正方</span>
+                        <span class="dual-time" id="previewAffirmativeTime">03:00</span>
+                      </div>
+                      <div class="dual-side negative">
+                        <span class="dual-label">反方</span>
+                        <span class="dual-time" id="previewNegativeTime">03:00</span>
+                      </div>
+                    </div>
+                    <div class="timer-progress" id="previewTimerProgress">
+                      <div class="timer-progress-bar" id="previewTimerProgressBar" style="width: 60%;"></div>
+                    </div>
+                  </div>
+                  <div class="side-label neutral" id="previewSideLabel" data-editable="text" data-layout-key="neutralSideLabel">中立计时中</div>
+                </section>
+
+                <footer class="judge-bar" id="previewJudgeBar" data-editable="text" data-layout-key="judges" style="display:none;"></footer>
+                <footer class="watermark" id="previewWatermark" data-editable="text" data-layout-key="watermark">辩论计时器</footer>
+                <div class="design-by" id="previewDesignBy">© Chen Yu 2026<br> All rights reserved.</div>
+
+                <aside class="control-panel preview-control-panel" id="previewControlPanel" inert aria-hidden="true">
+                  <div class="control-group">
+                    <button id="previewStartBtn" type="button">
+                      <span class="btn-label">启动</span>
+                      <span class="btn-key">Space</span>
+                    </button>
+                  </div>
+                  <div class="control-group duel-side-group" id="previewDuelSideGroup" style="display:none;">
+                    <button id="previewDuelSideAffirmativeBtn" type="button">
+                      <span class="btn-label">正方</span>
+                      <span class="btn-key">,</span>
+                    </button>
+                    <button id="previewDuelSideNegativeBtn" type="button">
+                      <span class="btn-label">反方</span>
+                      <span class="btn-key">.</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewStopBtn" type="button">
+                      <span class="btn-label">停止</span>
+                    </button>
+                    <button id="previewResetBtn" type="button">
+                      <span class="btn-label">重置</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewPrevBtn" type="button">
+                      <span class="btn-label">◀</span>
+                    </button>
+                    <button id="previewNextBtn" type="button">
+                      <span class="btn-label">▶</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewJumpBtn" type="button">
+                      <span class="btn-label">跳转</span>
+                    </button>
+                    <button id="previewSetTimeBtn" type="button">
+                      <span class="btn-label">设时</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewTest30Btn" type="button">
+                      <span class="btn-label">30s</span>
+                      <span class="btn-key">Q</span>
+                    </button>
+                    <button id="previewTest5Btn" type="button">
+                      <span class="btn-label">5s</span>
+                      <span class="btn-key">W</span>
+                    </button>
+                    <button id="previewTestEndBtn" type="button">
+                      <span class="btn-label">结束</span>
+                      <span class="btn-key">E</span>
+                    </button>
+                  </div>
+                  <div class="control-group">
+                    <button id="previewFullscreenBtn" type="button">
+                      <span class="btn-label">全屏</span>
+                      <span class="btn-key">F</span>
+                    </button>
+                    <button id="previewBackBtn" type="button">
+                      <span class="btn-label">返回</span>
+                      <span class="btn-key">B</span>
+                    </button>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </div>
+
+          <!-- 环节管理面板 -->
+          <div class="editor-panel" id="panel-segments">
+            <div class="segments-layout">
+              <div class="segments-sidebar">
+                <h2>环节管理</h2>
+                <div class="segment-nav-section">
+                  <span class="segment-nav-label">导航（拖拽排序）</span>
+                  <div class="segment-nav" id="segmentNav"></div>
+                </div>
+                <div class="segment-action-bar">
+                  <button id="addNoneBtn" type="button">+ 无计时</button>
+                  <button id="addSpeechBtn" type="button">+ 陈词</button>
+                  <button id="addQuestionBtn" type="button">+ 质询</button>
+                  <button id="addNeutralBtn" type="button">+ 中立计时</button>
+                  <button id="addDebateBtn" type="button">+ 对辩</button>
+                  <button id="addFreeDebateBtn" type="button">+ 自由辩论</button>
+                </div>
+              </div>
+              <div class="segments-content">
+                <div id="segments"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 赛程管理面板 -->
+          <div class="editor-panel" id="panel-schedule">
+            <div class="schedule-header">
+              <h2>赛程管理</h2>
+              <button id="addScheduleItemBtn" class="btn btn-accent" type="button">新增赛程</button>
+            </div>
+            <label class="schedule-judge-toggle" for="showJudgesToggle">
+              <span class="schedule-judge-toggle-text">
+                <strong>开场页显示评委信息栏</strong>
+                <small>开启后编辑预览使用“张三 李四 王五”作为占位符，实际计时显示已配置评委。</small>
+              </span>
+              <input type="checkbox" id="showJudgesToggle" />
+            </label>
+            <div class="schedule-global-judges">
+              <span class="schedule-global-judges-title">开场页评委</span>
+              <div class="schedule-judge-group">
+                <label>评委一<input id="globalJudge1" type="text" placeholder="评委姓名" /></label>
+                <label>评委二<input id="globalJudge2" type="text" placeholder="评委姓名" /></label>
+                <label>评委三<input id="globalJudge3" type="text" placeholder="评委姓名" /></label>
+              </div>
+              <small class="schedule-global-judges-hint">
+                计时页开场显示这三名评委；赛程卡片里的评委供独立版按场次调用。
+              </small>
+            </div>
+            <div id="scheduleList" class="schedule-list"></div>
+            <p class="schedule-hint">配置好的赛程会随配置一起导出到独立计时器，供赛前选择调用。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="design-by">© Chen Yu 2026<br> All rights reserved.</div>
+
+      <!-- 文本编辑浮动工具栏 -->
+      <div id="textEditToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header">
+          <span>文本编辑</span>
+          <button class="toolbar-close" id="textToolbarClose">×</button>
+        </div>
+        <div class="toolbar-body">
+          <label id="toolbarTextContentLabel">内容<input id="toolbarTextContent" type="text" /></label>
+          <label>字体<select id="toolbarFontFamily"></select></label>
+          <label>字号(px)<input id="toolbarFontSize" type="number" min="8" max="200" /></label>
+          <label>颜色<input id="toolbarTextColor" type="color" /></label>
+        </div>
+      </div>
+
+      <!-- 状态栏编辑浮动工具栏 -->
+      <div id="statusBarToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header">
+          <span>状态栏设置</span>
+          <button class="toolbar-close" id="statusBarToolbarClose">×</button>
+        </div>
+        <div class="toolbar-body">
+          <label>背景颜色<input id="toolbarStatusBarColor" type="color" /></label>
+          <label>背景透明度<input id="toolbarStatusBarOpacity" type="range" min="0" max="100" /></label>
+          <label>渐变终点颜色<input id="toolbarStatusBarColor2" type="color" /></label>
+          <div class="toolbar-row">
+            <label><input id="toolbarStatusBarGradient" type="checkbox" /> 使用渐变</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 背景编辑浮动工具栏 -->
+      <div id="backgroundToolbar" class="floating-toolbar" style="display:none;">
+        <div class="toolbar-header">
+          <span>背景设置</span>
+          <button class="toolbar-close" id="bgToolbarClose">×</button>
+        </div>
+        <div class="toolbar-body">
+          <label>背景类型<select id="toolbarBgType">
+            <option value="color">纯色</option>
+            <option value="gradient">渐变</option>
+            <option value="image">图片</option>
+          </select></label>
+          <div id="bgColorPanel">
+            <label>背景色<input id="toolbarBgColor" type="color" /></label>
+          </div>
+          <div id="bgGradientPanel" style="display:none;">
+            <label>起始颜色<input id="toolbarBgGradientStart" type="color" /></label>
+            <label>结束颜色<input id="toolbarBgGradientEnd" type="color" /></label>
+            <label>角度<input id="toolbarBgGradientAngle" type="number" min="0" max="360" value="135" /></label>
+          </div>
+          <div id="bgImagePanel" style="display:none;">
+            <label>背景图片<input id="toolbarBgImage" type="file" accept="image/*" /></label>
+            <label>透明度<input id="toolbarBgImageOpacity" type="range" min="0" max="100" /></label>
+            <label>宽度缩放<input id="toolbarBgImageScaleX" type="range" min="10" max="500" step="10" value="100" /></label>
+            <label>高度缩放<input id="toolbarBgImageScaleY" type="range" min="10" max="500" step="10" value="100" /></label>
+            <label>X偏移<input id="toolbarBgImageOffsetX" type="range" min="-100" max="100" /></label>
+            <label>Y偏移<input id="toolbarBgImageOffsetY" type="range" min="-100" max="100" /></label>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div id="exportProgressOverlay" class="export-progress-overlay">
+      <div class="export-progress-box">
+        <h2>正在导出独立计时器</h2>
+        <div class="export-progress-bar-wrap">
+          <div id="exportProgressBar" class="export-progress-bar"></div>
+        </div>
+        <p id="exportProgressText" class="export-progress-text">准备中...</p>
+      </div>
+    </div>
+
+    <div id="aboutOverlay" class="export-progress-overlay">
+      <div class="export-progress-box about-box">
+        <h2>关于 DebateTimer</h2>
+        <p id="aboutVersion" class="about-version">版本号：加载中...</p>
+        <p class="about-copyright">© Chen Yu 2026 · All rights reserved.</p>
+        <button id="aboutCloseBtn" class="btn btn-accent">关闭</button>
+      </div>
+    </div>
+
+    <div id="templateModal" class="export-progress-overlay">
+      <div class="export-progress-box template-modal-box">
+        <div class="template-modal-header">
+          <h2>模板管理</h2>
+          <button id="templateModalClose" class="toolbar-close" type="button">×</button>
+        </div>
+        <div id="templateModalBody" class="template-modal-body">
+          <div id="templateList" class="template-list"></div>
+        </div>
+      </div>
+    </div>
+
+    
+  <!-- GitHub Pages: 网页版编辑器补丁 -->
+  <script>
+    (function () {
+      window.__WEB_MODE__ = true;
+      window.__WEB_CONFIG__ = {"version":3,"eventName":"新建辩论赛事","teams":{"affirmative":"正方","negative":"反方"},"topics":{"affirmative":"正方辩题","negative":"反方辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"正方一辩·开篇陈词","type":"single_speech","duration":180,"side":"affirmative"},{"id":3,"name":"反方一辩·开篇陈词","type":"single_speech","duration":180,"side":"negative"}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]};
+      window.__THEME_PRESETS__ = {"classic":{"label":"经典","dark":{"colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"backgroundColor":"#1a1a1a","statusBar":{"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""}},"light":{"colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#2980b9","text":"#1a1d24","neutral":"#1a1d24"},"backgroundColor":"#f5f6f8","statusBar":{"background":"linear-gradient(90deg, rgba(192, 57, 43, 0.12) 0%, rgba(41, 128, 185, 0.12) 100%)","color":""}},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"broadcast":{"label":"广播竞技","dark":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#5dade2","text":"#ffffff","neutral":"#ffffff"},"backgroundColor":"#0b0e14","statusBar":{"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%)","color":""}},"light":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#5dade2","text":"#1a1d24","neutral":"#1a1d24"},"backgroundColor":"#f5f6f8","statusBar":{"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%)","color":""}},"tokens":{"radius":"4px","progressHeight":"5px","progressStyle":"solid","controlStyle":"capsule","motionEnabled":false,"statusBarStyle":"block","fwDisplay":900,"fwTitle":900,"fwBody":700,"fwCap":700,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"light","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"restrained":{"label":"专业克制","dark":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#e8ecf3","text":"#e8ecf3","neutral":"#8a90a0"},"backgroundColor":"#1a1d24","statusBar":{"background":"transparent","color":"#4a4f5a"}},"light":{"colors":{"affirmative":"#c43a2c","negative":"#1d4ed8","title":"#1a1d24","text":"#1a1d24","neutral":"#6b7280"},"backgroundColor":"#f5f6f8","statusBar":{"background":"transparent","color":"#e3e6ec"}},"tokens":{"radius":"2px","progressHeight":"2px","progressStyle":"line","controlStyle":"text","motionEnabled":false,"statusBarStyle":"line","fwDisplay":500,"fwTitle":600,"fwBody":600,"fwCap":400,"fsCap":"11px","capTransform":"none","capSpacing":"1px","shadowLevel":"none","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"vibrant":{"label":"活力校园","dark":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#ffd93d","text":"#ffffff","neutral":"#ffffff"},"backgroundColor":"#1a1d24","statusBar":{"background":"rgba(255, 255, 255, 0.08)","color":""}},"light":{"colors":{"affirmative":"#e74c3c","negative":"#2563eb","title":"#f59e0b","text":"#1a1d24","neutral":"#1a1d24"},"backgroundColor":"#fff8f0","statusBar":{"background":"rgba(0, 0, 0, 0.05)","color":""}},"tokens":{"radius":"20px","progressHeight":"12px","progressStyle":"gradient","controlStyle":"round-icon","motionEnabled":true,"statusBarStyle":"pill","fwDisplay":900,"fwTitle":800,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"none","capSpacing":"1px","shadowLevel":"layered","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}}};
+      window.__APP_VERSION__ = "3.5.0";
+      window.__WEB_CHANGELOG__ = "# Changelog\r\n\r";
+      window.__WEB_BUILTIN_TEMPLATES__ = [{"id":"chinese-standard","name":"华语辩论标准赛制","description":"常见的华语辩论赛制，包含陈词、攻辩、自由辩论与总结陈词。","builtin":true,"config":{"version":3,"eventName":"华语辩论标准赛","teams":{"affirmative":"正方","negative":"反方"},"topics":{"affirmative":"正方辩题","negative":"反方辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"正方一辩·开篇陈词","type":"single_speech","duration":180,"side":"affirmative"},{"id":3,"name":"反方一辩·开篇陈词","type":"single_speech","duration":180,"side":"negative"},{"id":4,"name":"正方二辩·攻辩","type":"single_question","duration":120,"side":"affirmative"},{"id":5,"name":"反方二辩·攻辩","type":"single_question","duration":120,"side":"negative"},{"id":6,"name":"自由辩论·正方先开始","type":"dual_debate","duration":240,"side":"affirmative"},{"id":7,"name":"反方四辩·总结陈词","type":"single_speech","duration":180,"side":"negative"},{"id":8,"name":"正方四辩·总结陈词","type":"single_speech","duration":180,"side":"affirmative"}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]}},{"id":"bp","name":"BP 赛制","description":"英国议会制（BP）两队伍模拟模板，通过环节名称体现 OG/OO/CG/CO 辩位。","builtin":true,"config":{"version":3,"eventName":"BP 制辩论赛","teams":{"affirmative":"政府方","negative":"反对方"},"topics":{"affirmative":"政府方辩题","negative":"反对方辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"上院首相 (OG)","type":"single_speech","duration":420,"side":"affirmative"},{"id":2,"name":"上院领袖 (OO)","type":"single_speech","duration":420,"side":"negative"},{"id":3,"name":"上院副首相 (OG)","type":"single_speech","duration":420,"side":"affirmative"},{"id":4,"name":"上院副领袖 (OO)","type":"single_speech","duration":420,"side":"negative"},{"id":5,"name":"下院成员 (CG)","type":"single_speech","duration":420,"side":"affirmative"},{"id":6,"name":"下院成员 (CO)","type":"single_speech","duration":420,"side":"negative"},{"id":7,"name":"下院党鞭 (CG)","type":"single_speech","duration":420,"side":"affirmative"},{"id":8,"name":"下院党鞭 (CO)","type":"single_speech","duration":420,"side":"negative"}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]}},{"id":"parliamentary","name":"议会制赛制","description":"议会制辩论模板，包含首相、副首相、成员、党鞭及政府总结环节。","builtin":true,"config":{"version":3,"eventName":"议会制辩论赛","teams":{"affirmative":"政府","negative":"反对党"},"topics":{"affirmative":"政府辩题","negative":"反对党辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"政府·首相陈词","type":"single_speech","duration":420,"side":"affirmative"},{"id":3,"name":"反对党领袖陈词","type":"single_speech","duration":420,"side":"negative"},{"id":4,"name":"副首相/政府阁员陈词","type":"single_speech","duration":420,"side":"affirmative"},{"id":5,"name":"反对党阁员陈词","type":"single_speech","duration":420,"side":"negative"},{"id":6,"name":"政府成员陈词","type":"single_speech","duration":420,"side":"affirmative"},{"id":7,"name":"反对党成员陈词","type":"single_speech","duration":420,"side":"negative"},{"id":8,"name":"政府党鞭陈词","type":"single_speech","duration":420,"side":"affirmative"},{"id":9,"name":"反对党党鞭陈词","type":"single_speech","duration":420,"side":"negative"},{"id":10,"name":"政府总结陈词","type":"single_speech","duration":300,"side":"affirmative"}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]}},{"id":"xinguobian","name":"新国辩（国际华语辩论邀请赛）","description":"17 分钟共同计时赛制：陈词1/2、质询、小结、自由辩论、总结陈词。","builtin":true,"config":{"version":3,"eventName":"新国辩","teams":{"affirmative":"正方","negative":"反方"},"topics":{"affirmative":"正方辩题","negative":"反方辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"正方一辩·陈词1","type":"single_speech","duration":210,"side":"affirmative"},{"id":3,"name":"反方四辩·质询正方一辩","type":"single_question","duration":90,"side":"negative"},{"id":4,"name":"反方一辩·陈词1","type":"single_speech","duration":210,"side":"negative"},{"id":5,"name":"正方四辩·质询反方一辩","type":"single_question","duration":90,"side":"affirmative"},{"id":6,"name":"正方二辩·陈词2","type":"single_speech","duration":180,"side":"affirmative"},{"id":7,"name":"反方三辩·质询正方二辩","type":"single_question","duration":90,"side":"negative"},{"id":8,"name":"反方二辩·陈词2","type":"single_speech","duration":180,"side":"negative"},{"id":9,"name":"正方三辩·质询反方二辩","type":"single_question","duration":90,"side":"affirmative"},{"id":10,"name":"反方三辩·质询小结","type":"single_speech","duration":90,"side":"negative"},{"id":11,"name":"正方三辩·质询小结","type":"single_speech","duration":90,"side":"affirmative"},{"id":12,"name":"自由辩论·正方先开始","type":"dual_debate","duration":240,"side":"affirmative"},{"id":13,"name":"反方四辩·总结陈词","type":"single_speech","duration":210,"side":"negative"},{"id":14,"name":"正方四辩·总结陈词","type":"single_speech","duration":210,"side":"affirmative"}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]}},{"id":"wdc","name":"华语辩论世界杯","description":"黄金联赛赛制：立论、质询、小结、对辩、盘问、自由辩论、总结陈词。","builtin":true,"config":{"version":3,"eventName":"华语辩论世界杯","teams":{"affirmative":"正方","negative":"反方"},"topics":{"affirmative":"正方辩题","negative":"反方辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"正方一辩·立论陈词","type":"single_speech","duration":210,"side":"affirmative"},{"id":3,"name":"反方二辩·质询正方一辩","type":"single_question","duration":120,"side":"negative"},{"id":4,"name":"反方一辩·立论陈词","type":"single_speech","duration":210,"side":"negative"},{"id":5,"name":"正方二辩·质询反方一辩","type":"single_question","duration":120,"side":"affirmative"},{"id":6,"name":"反方二辩·质询小结","type":"single_speech","duration":90,"side":"negative"},{"id":7,"name":"正方二辩·质询小结","type":"single_speech","duration":90,"side":"affirmative"},{"id":8,"name":"正方四辩·对辩反方四辩","type":"dual_debate","duration":90,"side":"affirmative"},{"id":9,"name":"正方三辩·盘问","type":"single_question","duration":90,"side":"affirmative"},{"id":10,"name":"反方三辩·盘问","type":"single_question","duration":90,"side":"negative"},{"id":11,"name":"正方三辩·盘问小结","type":"single_speech","duration":90,"side":"affirmative"},{"id":12,"name":"反方三辩·盘问小结","type":"single_speech","duration":90,"side":"negative"},{"id":13,"name":"自由辩论·正方先开始","type":"dual_debate","duration":240,"side":"affirmative"},{"id":14,"name":"反方四辩·总结陈词","type":"single_speech","duration":210,"side":"negative"},{"id":15,"name":"正方四辩·总结陈词","type":"single_speech","duration":210,"side":"affirmative"}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]}},{"id":"chd","name":"CHD 全国中学生辩论联赛","description":"CHD 官方四人制赛制：立论、首质、申论、对辩、战术指导、质询、小结、自由辩论、总结陈词。","builtin":true,"config":{"version":3,"eventName":"CHD 全国中学生辩论联赛","teams":{"affirmative":"正方","negative":"反方"},"topics":{"affirmative":"正方辩题","negative":"反方辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"正方一辩·立论陈词","type":"single_speech","duration":210,"side":"affirmative"},{"id":3,"name":"反方一辩·立论陈词","type":"single_speech","duration":210,"side":"negative"},{"id":4,"name":"反方四辩·首质正方一辩","type":"single_question","duration":90,"side":"negative"},{"id":5,"name":"正方四辩·首质反方一辩","type":"single_question","duration":90,"side":"affirmative"},{"id":6,"name":"正方二辩·申论","type":"single_speech","duration":120,"side":"affirmative"},{"id":7,"name":"反方二辩·申论","type":"single_speech","duration":120,"side":"negative"},{"id":8,"name":"正方二辩·对辩反方二辩","type":"dual_debate","duration":90,"side":"affirmative"},{"id":9,"name":"战术指导（暂停）","type":"neutral_timer","duration":240},{"id":10,"name":"正方三辩·质询","type":"single_question","duration":120,"side":"affirmative"},{"id":11,"name":"反方三辩·质询","type":"single_question","duration":120,"side":"negative"},{"id":12,"name":"正方三辩·质询小结","type":"single_speech","duration":150,"side":"affirmative"},{"id":13,"name":"反方三辩·质询小结","type":"single_speech","duration":150,"side":"negative"},{"id":14,"name":"自由辩论·正方先开始","type":"dual_debate","duration":180,"side":"affirmative"},{"id":15,"name":"反方四辩·总结陈词","type":"single_speech","duration":210,"side":"negative"},{"id":16,"name":"正方四辩·总结陈词","type":"single_speech","duration":210,"side":"affirmative"}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]}},{"id":"xinguobian-hs","name":"新国辩·高中组","description":"新国辩高中组赛制：立论、战术暂停、首质、回应、申论、质询、小结、对辩、总结陈词。","builtin":true,"config":{"version":3,"eventName":"新国辩·高中组","teams":{"affirmative":"正方","negative":"反方"},"topics":{"affirmative":"正方辩题","negative":"反方辩题"},"theme":{"preset":"classic","colorMode":"dark","backgroundType":"color","backgroundImage":"","backgroundColor":"#1a1a1a","backgroundGradient":{"start":"#1a1a1a","end":"#0b0e14","angle":135},"fontFamily":"system-ui","fontSizeScale":1,"customFont":"","customFontName":"","colors":{"affirmative":"#c0392b","negative":"#2980b9","title":"#3498db","text":"#ffffff","neutral":"#ffffff"},"statusBar":{"height":80,"background":"linear-gradient(90deg, rgba(231, 76, 60, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%)","color":""},"backgroundImageSettings":{"opacity":1,"scaleX":100,"scaleY":100,"offsetX":0,"offsetY":0},"tokens":{"radius":"16px","progressHeight":"4px","progressStyle":"solid","controlStyle":"default","motionEnabled":true,"statusBarStyle":"block","fwDisplay":700,"fwTitle":900,"fwBody":700,"fwCap":600,"fsCap":"11px","capTransform":"uppercase","capSpacing":"2px","shadowLevel":"default","timerFontFamily":"'JetBrains Mono', 'SF Mono', 'Courier New', Consolas, monospace"}},"layout":{"affirmativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTeamName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"negativeTopic":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方"},"negativeLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方"},"eventName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"segmentName":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"sideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""},"affirmativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"正方发言中"},"negativeSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"反方发言中"},"neutralSideLabel":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"中立计时中"},"watermark":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":"","text":"辩论计时器"},"judges":{"x":0,"y":0,"fontSize":0,"fontFamily":"","color":""}},"segments":[{"id":1,"name":"开场","type":"none","duration":0},{"id":2,"name":"正方一辩·陈词一","type":"single_speech","duration":180,"side":"affirmative"},{"id":3,"name":"反方一辩·陈词一","type":"single_speech","duration":180,"side":"negative"},{"id":4,"name":"战术暂停一","type":"neutral_timer","duration":180},{"id":5,"name":"反方四辩·首质正方一辩","type":"single_question","duration":90,"side":"negative"},{"id":6,"name":"正方一辩·回应","type":"single_speech","duration":60,"side":"affirmative"},{"id":7,"name":"正方四辩·首质反方一辩","type":"single_question","duration":90,"side":"affirmative"},{"id":8,"name":"反方一辩·回应","type":"single_speech","duration":60,"side":"negative"},{"id":9,"name":"评委第一轮投票","type":"none","duration":0},{"id":10,"name":"正方二辩·陈词二","type":"single_speech","duration":180,"side":"affirmative"},{"id":11,"name":"反方三辩·质询正方二辩","type":"single_question","duration":120,"side":"negative"},{"id":12,"name":"正方二辩·回应","type":"single_speech","duration":60,"side":"affirmative"},{"id":13,"name":"反方二辩·陈词二","type":"single_speech","duration":180,"side":"negative"},{"id":14,"name":"正方三辩·质询反方二辩","type":"single_question","duration":120,"side":"affirmative"},{"id":15,"name":"反方二辩·回应","type":"single_speech","duration":60,"side":"negative"},{"id":16,"name":"评委第二轮投票","type":"none","duration":0},{"id":17,"name":"战术暂停二","type":"neutral_timer","duration":180},{"id":18,"name":"反方三辩·质询小结","type":"single_speech","duration":150,"side":"negative"},{"id":19,"name":"正方三辩·质询小结","type":"single_speech","duration":150,"side":"affirmative"},{"id":20,"name":"正方一辩·对辩反方一辩","type":"dual_debate","duration":90,"side":"affirmative"},{"id":21,"name":"评委第三轮投票","type":"none","duration":0},{"id":22,"name":"反方四辩·总结陈词","type":"single_speech","duration":210,"side":"negative"},{"id":23,"name":"正方四辩·总结陈词","type":"single_speech","duration":210,"side":"affirmative"},{"id":24,"name":"评委第四轮投票","type":"none","duration":0}],"logos":{"affirmative":"","negative":""},"judges":[],"showJudges":true,"schedule":[]}}];
+
+      var CONFIG_KEY = 'debatetimer.web.config.v1';
+      var TEMPLATE_KEY = 'debatetimer.web.templates.v1';
+      var RELEASES_PAGE = 'https://github.com/ASE-128/DebateTimer/releases/latest';
+      var API_LATEST = 'https://api.github.com/repos/ASE-128/DebateTimer/releases/latest';
+
+      function clone(value) { return JSON.parse(JSON.stringify(value)); }
+      function readSavedConfig() {
+        try {
+          var raw = window.localStorage.getItem(CONFIG_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+      }
+      function currentConfig() { return readSavedConfig() || clone(window.__WEB_CONFIG__); }
+      function writeConfig(config) {
+        try { window.localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch (e) {}
+        return config;
+      }
+      function readTemplates() {
+        try { return JSON.parse(window.localStorage.getItem(TEMPLATE_KEY) || '[]'); } catch (e) { return []; }
+      }
+      function writeTemplates(list) {
+        try { window.localStorage.setItem(TEMPLATE_KEY, JSON.stringify(list)); } catch (e) {}
+      }
+      function getAllTemplates() {
+        var builtins = window.__WEB_BUILTIN_TEMPLATES__ || [];
+        var custom = readTemplates();
+        var customMap = {};
+        custom.forEach(function (item) { customMap[item.id] = item; });
+
+        var result = builtins.map(function (template) {
+          var override = customMap[template.id];
+          if (override) delete customMap[template.id];
+          return {
+            id: template.id,
+            name: override ? override.name : template.name,
+            description: override ? override.description : template.description,
+            builtin: true,
+            overridden: !!override,
+            config: override ? override.config : template.config
+          };
+        });
+
+        Object.keys(customMap).forEach(function (id) {
+          var item = customMap[id];
+          result.push({
+            id: item.id,
+            name: item.name,
+            description: item.description || '',
+            builtin: false,
+            overridden: false,
+            config: item.config
+          });
+        });
+        return result;
+      }
+      function slugify(name) {
+        return String(name || '').toLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'template';
+      }
+      function resolvePreset(preset, colorMode) {
+        var presets = window.__THEME_PRESETS__ || {};
+        var p = presets[preset] || presets.classic;
+        var mode = colorMode === 'light' ? 'light' : 'dark';
+        var variant = p[mode] || p.dark;
+        return {
+          colors: Object.assign({}, variant.colors),
+          backgroundColor: variant.backgroundColor,
+          statusBar: Object.assign({}, variant.statusBar),
+          tokens: Object.assign({}, p.tokens)
+        };
+      }
+      function downloadBlob(name, text, type) {
+        var blob = new Blob([text], { type: type || 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 6000);
+      }
+      function downloadUrl(url, name) {
+        var a = document.createElement('a');
+        a.href = url;
+        if (name) a.download = name;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      var progressCallback = null;
+      function emitProgress(percent, message) {
+        if (typeof progressCallback === 'function') progressCallback({ percent: percent, message: message });
+      }
+
+      var releaseState = { loaded: false, asset: null, pageUrl: RELEASES_PAGE, tag: '' };
+      function loadLatestRelease() {
+        return fetch(API_LATEST, { headers: { Accept: 'application/vnd.github+json' } })
+          .then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+          })
+          .then(function (release) {
+            var assets = release.assets || [];
+            var setup = assets.find(function (asset) { return /setup.*\.exe$/i.test(asset.name); }) ||
+              assets.find(function (asset) { return /\.exe$/i.test(asset.name); }) || null;
+            releaseState.loaded = true;
+            releaseState.asset = setup;
+            releaseState.pageUrl = release.html_url || RELEASES_PAGE;
+            releaseState.tag = release.tag_name || '';
+            return releaseState;
+          })
+          .catch(function () {
+            releaseState.loaded = true;
+            return releaseState;
+          });
+      }
+      var releasePromise = loadLatestRelease();
+
+      window.electronAPI = {
+        loadConfig: function () { return Promise.resolve(clone(currentConfig())); },
+        resolvePreset: function (preset, colorMode) { return Promise.resolve(resolvePreset(preset, colorMode)); },
+        getAppVersion: function () { return Promise.resolve(window.__APP_VERSION__ || '0.0.0'); },
+        getTimerBaseSize: function () { return Promise.resolve({ width: 1600, height: 900 }); },
+        getLatestChangelog: function () { return Promise.resolve(window.__WEB_CHANGELOG__ || ''); },
+        consumeMigrationInfo: function () { return Promise.resolve(null); },
+        saveConfig: function (config) { return Promise.resolve(writeConfig(clone(config))); },
+        resetConfig: function () { return Promise.resolve(clone(window.__WEB_CONFIG__)); },
+        openTimer: function () { window.location.href = 'timer.html'; return Promise.resolve({ ok: true }); },
+        openEditor: function () { window.location.href = 'editor.html'; return Promise.resolve({ ok: true }); },
+        toggleFullscreen: function () {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(function () {});
+          } else {
+            document.exitFullscreen().catch(function () {});
+          }
+          return Promise.resolve();
+        },
+        exportConfig: function (config) {
+          downloadBlob('debate-config.json', JSON.stringify(config, null, 2), 'application/json');
+          return Promise.resolve({ ok: true, path: 'debate-config.json' });
+        },
+        importConfig: function () {
+          return new Promise(function (resolve) {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,application/json';
+            input.addEventListener('change', function () {
+              var file = input.files && input.files[0];
+              if (!file) {
+                resolve({ ok: false, config: null, error: '未选择文件' });
+                return;
+              }
+              var reader = new FileReader();
+              reader.onload = function () {
+                try {
+                  resolve({ ok: true, config: JSON.parse(reader.result), warnings: [], path: file.name });
+                } catch (error) {
+                  resolve({ ok: false, config: null, error: 'JSON 解析失败：' + error.message });
+                }
+              };
+              reader.onerror = function () { resolve({ ok: false, config: null, error: '读取文件失败' }); };
+              reader.readAsText(file);
+            });
+            input.click();
+          });
+        },
+        exportStandalone: function (config) {
+          return new Promise(function (resolve) {
+            var confirmed = window.confirm(
+              '网页版无法在本机生成安装程序。\n\n确定后将下载：\n1. 最新发布版 Setup 安装程序（GitHub Releases）\n2. 当前 config.json\n\n浏览器若询问“允许多个下载”，请选择允许。'
+            );
+            if (!confirmed) {
+              resolve({ ok: false, path: null, error: '用户取消' });
+              return;
+            }
+
+            emitProgress(10, '正在下载 config.json...');
+            downloadBlob('config.json', JSON.stringify(config, null, 2), 'application/json');
+
+            emitProgress(40, '正在获取最新发布版本...');
+            releasePromise.then(function (state) {
+              if (state.asset) {
+                emitProgress(75, '正在下载 ' + state.asset.name + '...');
+                downloadUrl(state.asset.browser_download_url, state.asset.name);
+                emitProgress(100, '已开始下载安装包与 config.json');
+                setTimeout(function () {
+                  resolve({
+                    ok: true,
+                    path: state.asset.name,
+                    message: '已开始下载最新发布安装包（' + (state.tag || state.asset.name) + '）与当前 config.json。网页版不生成独立安装程序，可在下载完成后双击安装。'
+                  });
+                }, 600);
+              } else {
+                emitProgress(75, '未找到安装包，正在打开下载页面...');
+                window.open(state.pageUrl || RELEASES_PAGE, '_blank', 'noopener');
+                emitProgress(100, '已打开最新版本下载页面');
+                setTimeout(function () {
+                  resolve({
+                    ok: true,
+                    path: state.pageUrl || RELEASES_PAGE,
+                    message: '当前配置 config.json 已开始下载；未能在页面内直接获取安装包，已为你打开最新版本下载页。'
+                  });
+                }, 600);
+              }
+            });
+          });
+        },
+        getTemplates: function () { return Promise.resolve(clone(getAllTemplates())); },
+        applyTemplate: function (id) {
+          var template = getAllTemplates().find(function (item) { return item.id === id; });
+          if (!template) return Promise.resolve({ ok: false, config: null, error: '模板不存在' });
+          return Promise.resolve({ ok: true, config: clone(template.config) });
+        },
+        saveTemplate: function (id, name, description, config) {
+          var list = readTemplates();
+          var existing = list.find(function (item) { return item.id === id; });
+          if (existing) {
+            existing.name = name;
+            existing.description = description || '';
+            existing.config = clone(config);
+          } else {
+            list.push({ id: id, name: name, description: description || '', config: clone(config) });
+          }
+          writeTemplates(list);
+          return Promise.resolve({ ok: true, id: id, overwritten: !!existing });
+        },
+        deleteTemplate: function (id) {
+          var builtinIds = (window.__WEB_BUILTIN_TEMPLATES__ || []).map(function (item) { return item.id; });
+          var list = readTemplates();
+          var existed = list.some(function (item) { return item.id === id; });
+          writeTemplates(list.filter(function (item) { return item.id !== id; }));
+
+          if (existed) {
+            return Promise.resolve({ ok: true, restored: builtinIds.indexOf(id) >= 0 });
+          }
+          if (builtinIds.indexOf(id) >= 0) {
+            return Promise.resolve({ ok: true, restored: false });
+          }
+          return Promise.resolve({ ok: false, error: '模板不存在' });
+        },
+        saveCustomTemplate: function (name, config) {
+          var id = slugify(name);
+          return window.electronAPI.saveTemplate(id, name, '', config);
+        },
+        deleteCustomTemplate: function (name) {
+          return window.electronAPI.deleteTemplate(slugify(name));
+        },
+        log: function (level, message) { console.log('[web:' + level + '] ' + message); },
+        onConfigUpdated: function () { return function () {}; },
+        onExportProgress: function (callback) {
+          progressCallback = callback;
+          return function () { progressCallback = null; };
+        },
+        onUpdateAvailable: function () { return function () {}; },
+        onUpdateDownloaded: function () { return function () {}; },
+        onUpdateError: function () { return function () {}; },
+        startDownloadUpdate: function () { return Promise.resolve(); },
+        quitAndInstall: function () { return Promise.resolve(); },
+        skipUpdate: function () { return Promise.resolve(); }
+      };
+    })();
+  </script>
+    <script src="js/toast.js"></script>
+    <script src="js/editor-app.js"></script>
+  </body>
+</html>

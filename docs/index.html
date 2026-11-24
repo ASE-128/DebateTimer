@@ -32,7 +32,7 @@
     </nav>
     <div class="nav-actions">
       <a class="btn-ghost" href="https://github.com/ASE-128/DebateTimer" target="_blank" rel="noopener">GitHub ↗</a>
-      <a class="btn-solid" href="timer.html">进入计时器</a>
+      <a class="btn-solid" href="editor.html">编辑配置</a>
     </div>
   </header>
 
@@ -43,7 +43,7 @@
         <h1>赛场的<br>每一秒<br><em>都算数。</em></h1>
         <p class="lede">一款为辩论赛现场而生的桌面计时器。五种环节类型、双边对辩、广播级大字显示、快捷键盲操，以及一键打包的赛场安装包——断网也能准时开场。</p>
         <div class="hero-cta">
-          <a class="btn-primary" href="timer.html">立即开始计时 <span aria-hidden="true">→</span></a>
+          <a class="btn-primary" href="editor.html">在线编辑配置 <span aria-hidden="true">→</span></a>
           <a class="btn-secondary" href="https://github.com/ASE-128/DebateTimer/releases/latest" target="_blank" rel="noopener">下载桌面版</a>
         </div>
         <dl class="hero-meta">
@@ -54,61 +54,13 @@
       </div>
 
       <div class="hero-stage reveal" style="--d:.12s">
-        <div class="stage" id="stage" tabindex="0" role="group" aria-label="计时器实时演示，按空格开始或暂停">
-          <div class="stage-top">
-            <div class="team aff" data-team="aff">
-              <span class="team-cap">正方</span>
-              <strong class="team-name">明德队</strong>
-              <span class="team-topic">感到孤独时，更应修炼求助的能力</span>
-            </div>
-            <div class="team neg" data-team="neg">
-              <span class="team-cap">反方</span>
-              <strong class="team-name">求真队</strong>
-              <span class="team-topic">感到孤独时，更应修炼独处的能力</span>
-            </div>
-          </div>
-
-          <div class="stage-body">
-            <div class="stage-main">
-              <div class="stage-event">明理中学 · 2026 辩论段赛</div>
-              <div class="stage-seg" data-seg>正方一辩 · 立论陈词</div>
-
-              <div class="stage-time" data-time>03:00</div>
-
-              <div class="stage-hold" data-hold hidden>开场</div>
-
-              <div class="stage-dual" data-dual hidden>
-                <div class="dual-side aff" data-dual-aff-col>
-                  <span class="dual-label">正方</span>
-                  <b class="dual-time" data-dual-aff>04:00</b>
-                </div>
-                <div class="dual-side neg" data-dual-neg-col>
-                  <span class="dual-label">反方</span>
-                  <b class="dual-time" data-dual-neg>04:00</b>
-                </div>
-              </div>
-
-              <div class="stage-track" data-track><i data-bar></i></div>
-
-              <div class="stage-side" data-side><span class="pulse"></span><span data-side-text>正方发言</span></div>
-            </div>
-
-            <ol class="stage-rail" data-rail aria-label="环节列表"></ol>
-          </div>
-
-          <div class="stage-controls">
-            <button class="sbtn primary" type="button" data-action="toggle">
-              <span data-toggle-label>开始</span><kbd>Space</kbd>
-            </button>
-            <button class="sbtn" type="button" data-action="reset">重置</button>
-            <div class="scenarios" role="group" aria-label="切换演示赛程">
-              <button type="button" data-scenario="speech" class="on">立论 3:00</button>
-              <button type="button" data-scenario="question">质询 1:30</button>
-              <button type="button" data-scenario="dual">自由辩论 4:00</button>
-            </div>
-          </div>
-        </div>
-        <p class="stage-hint">这是真实运行的计时引擎 · 点击开始，或直接按 <kbd>Space</kbd></p>
+        <div
+          class="timer-frame timer-frame--hero"
+          data-timer-frame
+          data-src="timer.html?embed=1&seg=single&time=167&autostart=1&preset=broadcast"
+          data-title="计时器实时渲染预览"
+        ></div>
+        <p class="stage-hint">由与桌面版相同的计时引擎在浏览器中实时渲染 · 不可聚焦预览</p>
       </div>
     </section>
 
@@ -163,20 +115,26 @@
       <header class="section-head reveal">
         <span class="sec-num">02 / SCREENS</span>
         <h2>真实界面，<br>不是效果图。</h2>
-        <p>以下画面由程序实际渲染截取：单边计时与双边对辩两种现场形态。</p>
+        <p>以下画面由同一份计时器代码在浏览器中实时渲染：单边计时与双边对辩两种现场形态。</p>
       </header>
 
       <div class="screen-grid">
         <figure class="screen reveal">
-          <div class="screen-frame">
-            <img src="images/timer-single.png" alt="单边计时界面：显示正方立论环节与倒计时" loading="lazy" width="1600" height="900">
-          </div>
+          <div
+            class="timer-frame"
+            data-timer-frame
+            data-src="timer.html?embed=1&seg=single&time=167&preset=classic"
+            data-title="单边计时界面实时渲染"
+          ></div>
           <figcaption><span>01</span>单边计时 · 进度条进入最后 30 秒转黄，最后 5 秒转红并脉冲</figcaption>
         </figure>
         <figure class="screen reveal" style="--d:.08s">
-          <div class="screen-frame">
-            <img src="images/timer-dual.png" alt="双边对辩界面：正反方两个独立倒计时" loading="lazy" width="1600" height="900">
-          </div>
+          <div
+            class="timer-frame"
+            data-timer-frame
+            data-src="timer.html?embed=1&seg=dual&time=167&preset=vibrant"
+            data-title="双边对辩界面实时渲染"
+          ></div>
           <figcaption><span>02</span>双边对辩 · 两张表独立读秒，颜色区分持方，空格切换发言</figcaption>
         </figure>
       </div>
@@ -190,19 +148,13 @@
       </header>
 
       <div class="theme-layout">
-        <div class="theme-preview reveal" data-preview data-preset="restrained">
-          <div class="pv-top">
-            <span class="pv-team aff">正方</span>
-            <span class="pv-team neg">反方</span>
-          </div>
-          <div class="pv-body">
-            <span class="pv-event">明理中学 · 2026 辩论段赛</span>
-            <span class="pv-seg">自由辩论</span>
-            <strong class="pv-time">02:47</strong>
-            <div class="pv-track"><i></i></div>
-          </div>
-          <div class="pv-controls"><i></i><i></i><i></i><i></i></div>
-        </div>
+        <div
+          class="timer-frame reveal"
+          data-timer-frame
+          data-theme-frame
+          data-src="timer.html?embed=1&seg=dual&time=167&preset=restrained"
+          data-title="主题实时渲染预览"
+        ></div>
 
         <div class="theme-picker reveal" style="--d:.08s">
           <button type="button" data-preset="classic">
@@ -248,10 +200,10 @@
         <span class="sec-num">05 / GET STARTED</span>
         <h2>下一场比赛，<br>从这里开始。</h2>
         <div class="start-actions">
-          <a class="start-card" href="timer.html">
+          <a class="start-card" href="editor.html">
             <span class="sc-cap">网页版 · 免安装</span>
-            <strong>直接在浏览器计时</strong>
-            <p>适合彩排、临时场地与投屏演示。打开即可设置队伍与辩题。</p>
+            <strong>在线编辑配置</strong>
+            <p>适合彩排、临时场地与投屏演示。编辑完成后可直接进入计时页。</p>
             <span class="sc-arrow" aria-hidden="true">→</span>
           </a>
           <a class="start-card" href="https://github.com/ASE-128/DebateTimer/releases/latest" target="_blank" rel="noopener">

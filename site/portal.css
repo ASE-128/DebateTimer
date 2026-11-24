@@ -296,6 +296,36 @@ h1 em::after {
 
 .hero-stage { grid-column: 6 / span 7; position: relative; }
 
+/* ==================== 真实计时页 iframe 容器 ==================== */
+.timer-frame {
+  --timer-scale: 0.5;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  border-radius: 18px;
+  background: #090b10;
+  box-shadow:
+    0 50px 100px -40px #000,
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.timer-frame iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1600px;
+  height: 900px;
+  border: 0;
+  background: #090b10;
+  transform-origin: 0 0;
+  transform: scale(var(--timer-scale));
+  pointer-events: none;
+  color-scheme: dark;
+}
+
 /* ==================== 实时演示台 ==================== */
 .stage {
   position: relative;

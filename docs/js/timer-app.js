@@ -615,8 +615,48 @@ async function initTimerApp() {
   engine = new TimerEngine(config, render);
   applyTheme(config.theme || {});
   finishInit();
+  if (window.__EMBED_MODE__) {
+    applyEmbedMode();
+    return;
+  }
   if (isStandalone) {
     openStandaloneSetup();
+  }
+}
+
+// 门户页嵌入模式：不弹赛前设置，直接定位到指定环节并按需开始计时。
+function applyEmbedMode() {
+  document.body.classList.add('embed-mode');
+  const modal = document.getElementById('standaloneSetup');
+  if (modal) modal.classList.remove('active');
+
+  const raw = window.__EMBED_SEGMENT__;
+  const segments = config?.segments || [];
+  const alias = {
+    single: 'single_speech',
+    dual: 'dual_debate',
+    neutral: 'neutral_timer',
+    question: 'single_question'
+  };
+  let index = -1;
+  const numeric = parseInt(raw, 10);
+  if (!Number.isNaN(numeric) && numeric >= 0 && numeric < segments.length) {
+    index = numeric;
+  } else if (raw) {
+    const type = alias[raw] || raw;
+    index = segments.findIndex((segment) => segment.type === type);
+  }
+  if (index < 0) index = engine.findFirstTimedSegment();
+
+  engine.jumpToSegment(index);
+
+  const time = parseFloat(window.__EMBED_TIME__);
+  if (!Number.isNaN(time)) engine.setRemaining(time);
+
+  engine.render();
+
+  if (window.__EMBED_AUTOSTART__ && Number(segments[engine.currentIndex]?.duration || 0) > 0) {
+    engine.start();
   }
 }
 

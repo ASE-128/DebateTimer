@@ -2407,6 +2407,10 @@ dom.exportTimerBtn.addEventListener('click', async () => {
     const result = await window.electronAPI.exportStandalone(gatherConfig());
     if (result?.ok) {
       log('info', `独立计时器已导出: ${result.path}`);
+      if (result.message) {
+        alert(result.message);
+        return;
+      }
       let changelogLine = '';
       try {
         const summary = await window.electronAPI.getLatestChangelog();

@@ -196,9 +196,9 @@ git push origin v3.1.0
 │   └── innosetup/             # 内置 Inno Setup 编译器（用于应用内导出独立计时器安装包）
 ├── resources/
 │   └── installer.nsh          # 主程序 NSIS 安装器自定义脚本（卸载时询问是否删除用户数据）
-├── site/                      # GitHub Pages 门户页源文件（portal.html / portal.css / portal.js / images）
+├── site/                      # GitHub Pages 门户页源文件（portal.html / portal.css / portal.js）
 ├── scripts/
-│   └── build-gh-pages.js      # 生成 docs/：门户页 + 独立计时器页
+│   └── build-gh-pages.js      # 生成 docs/：门户页 + 网页版编辑页 + 独立计时页
 ├── docs/                      # GitHub Pages 构建产物（部署目录，勿手改）
 ├── .github/
 │   └── workflows/
